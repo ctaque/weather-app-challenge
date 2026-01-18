@@ -38,13 +38,15 @@ function formatDate(dateStr: string) {
 function makeForecastForCity(cityIndex: number, cityName: string): CityForecast {
   const today = new Date()
   const forecastday = Array.from({ length: 10 }).map((_, i) => {
-    // Valeurs déterministes (pas de random) basées sur index ville et jour
-    const base = 10 + cityIndex * 2 // base de température selon la ville
+    const base = 10 + cityIndex * 2
     const maxtemp_c = Math.round(base + 8 + (i % 5))
     const mintemp_c = Math.round(base - 2 + ((i + cityIndex) % 3))
     const chance = (i * 7 + cityIndex * 3) % 100
-    // Simple choix d'icone/texte suivant i % 3
-    const cond = [ ['Ensoleillé', '☀️'], ['Partiellement nuageux', '⛅'], ['Pluvieux', '🌧️'] ][i % 3]
+    const cond = [
+      ['Ensoleillé', '☀️'],
+      ['Partiellement nuageux', '⛅'],
+      ['Pluvieux', '🌧️']
+    ][i % 3]
     const date = addDays(today, i)
     const dateStr = date.toISOString().slice(0, 10)
     return {
@@ -80,44 +82,45 @@ export default function WeatherGrid() {
   const dataList: CityForecast[] = CITIES.map((c, idx) => makeForecastForCity(idx, c))
 
   return (
-    <div>
+    <section>
       <h2>Prévisions (données en dur)</h2>
-      <div className="multi-grid">
+      <div className="multi-grid-vertical">
         {dataList.map((data) => (
-          <div className="multi-item" key={data.location.name}>
-            <h3>
-              {data.location.name}
-              {data.location.region ? `, ${data.location.region}` : ''} — {data.location.country}
-            </h3>
-
-            <div className="current">
-              <div style={{ fontSize: 40 }}>{data.current.emoji}</div>
+          <article className="multi-item-vertical" key={data.location.name}>
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div className="temp">{data.current.temp_c}°C / {data.current.temp_f}°F</div>
-                <div>{data.current.condition_text}</div>
-                <div>Humidité: {data.current.humidity}%</div>
-                <div>Vent: {data.current.wind_kph} kph</div>
+                <h3 style={{ margin: 0 }}>
+                  {data.location.name}
+                  {data.location.region ? `, ${data.location.region}` : ''} — {data.location.country}
+                </h3>
+                <div style={{ color: '#6b7280', fontSize: 14 }}>
+                  Situation actuelle: {data.current.condition_text}
+                </div>
               </div>
-            </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 36 }}>{data.current.emoji}</div>
+                <div className="temp">{data.current.temp_c}°C</div>
+              </div>
+            </header>
 
             <div className="forecast">
-              <h4>10 jours</h4>
-              <div className="forecast-list">
+              <h4 style={{ marginTop: '0.75rem', marginBottom: '0.5rem' }}>10 jours</h4>
+              <div className="forecast-list-horizontal">
                 {data.forecast.forecastday.map((day) => (
-                  <div className="forecast-item" key={day.date}>
+                  <div className="forecast-item-horizontal" key={day.date}>
                     <div className="date">{formatDate(day.date)}</div>
-                    <div style={{ fontSize: 22 }}>{day.day.condition.emoji}</div>
-                    <div>{day.day.condition.text}</div>
+                    <div style={{ fontSize: 20 }}>{day.day.condition.emoji}</div>
+                    <div style={{ fontWeight: 600 }}>{day.day.condition.text}</div>
                     <div>Max: {day.day.maxtemp_c}°C</div>
                     <div>Min: {day.day.mintemp_c}°C</div>
-                    <div>Pluie: {day.day.daily_chance_of_rain}%</div>
+                    <div style={{ color: '#6b7280', fontSize: 12 }}>Pluie: {day.day.daily_chance_of_rain}%</div>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
+          </article>
         ))}
       </div>
-    </div>
+    </section>
   )
 }

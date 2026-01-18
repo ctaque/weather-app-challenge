@@ -1,99 +1,61 @@
-:root {
-  --bg: #f3f4f6;
-  --card: #ffffff;
-  --accent: #2563eb;
-  --muted: #6b7280;
-}
+/* Ajoute/merge ces règles dans ton src/styles.css existant */
 
-body {
-  margin: 0;
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  background: var(--bg);
-  color: #111827;
-  min-height: 100vh;
+/* Conteneur vertical : chaque ville sur sa propre ligne */
+.multi-grid-vertical {
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 2rem;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-.container {
+/* Carte verticale pleine largeur (mais limitée par le conteneur) */
+.multi-item-vertical {
   width: 100%;
-  max-width: 1200px;
-}
-
-h1 {
-  margin: 0 0 1rem 0;
-}
-
-.search-form {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-}
-
-.search-form input {
-  flex: 1 1 240px;
-  padding: 0.5rem;
-}
-
-.search-form select,
-.search-form button {
-  padding: 0.5rem;
-}
-
-.weather-card {
-  background: var(--card);
-  border-radius: 8px;
-  padding: 1rem;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
-}
-
-.current {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-}
-
-.current img {
-  width: 64px;
-  height: 64px;
-}
-
-.temp {
-  font-size: 1.4rem;
-  font-weight: 600;
-}
-
-.forecast-list {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-top: 0.5rem;
-}
-
-.forecast-item {
-  background: #f9fafb;
-  padding: 0.5rem;
-  border-radius: 6px;
-  width: 130px;
-  text-align: center;
-  font-size: 0.9rem;
-}
-
-/* --- Styles pour la grille multi-villes --- */
-.multi-grid {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap; /* permet le retour à la ligne automatique */
-  align-items: flex-start;
-}
-
-.multi-item {
-  flex: 0 1 300px; /* largeur souhaitée par item, mais diminue si l'espace est limité */
   background: var(--card);
   border-radius: 8px;
   padding: 0.75rem;
   box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+
+/* Prévisions en ligne, défilement horizontal si nécessaire */
+.forecast-list-horizontal {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+/* Chaque jour prend une largeur fixe et ne s'étire pas */
+.forecast-item-horizontal {
+  flex: 0 0 150px; /* largeur fixe par jour */
+  background: #f9fafb;
+  padding: 0.5rem;
+  border-radius: 6px;
+  text-align: center;
+  scroll-snap-align: start;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  font-size: 0.95rem;
+}
+
+/* Date style */
+.forecast-item-horizontal .date {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+/* Permet masquer le scroll bar sur certains navigateurs, ou le styliser si souhaité */
+.forecast-list-horizontal::-webkit-scrollbar {
+  height: 8px;
+}
+.forecast-list-horizontal::-webkit-scrollbar-thumb {
+  background: rgba(17,24,39,0.12);
+  border-radius: 999px;
+}
+
+/* Petit ajustement du titre */
+.multi-item-vertical h3 {
+  font-size: 1.05rem;
+  margin-bottom: 0.15rem;
 }
