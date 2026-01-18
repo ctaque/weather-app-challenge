@@ -1,7 +1,20 @@
 import React from 'react'
+import { format } from 'date-fns'
+import { fr } from 'date-fns/locale'
 
 type Props = {
   data: any
+}
+
+function formatDate(dateStr: string) {
+  try {
+    // dateStr comes from WeatherAPI as "YYYY-MM-DD"
+    const formatted = format(new Date(dateStr), 'EEEE d MMMM', { locale: fr })
+    // Capitalize first letter to match "Dimanche 18 janvier"
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1)
+  } catch {
+    return dateStr
+  }
 }
 
 export default function WeatherDisplay({ data }: Props) {
@@ -31,7 +44,7 @@ export default function WeatherDisplay({ data }: Props) {
           <div className="forecast-list">
             {forecast.forecastday.map((day: any) => (
               <div className="forecast-item" key={day.date}>
-                <div className="date">{day.date}</div>
+                <div className="date">{formatDate(day.date)}</div>
                 <img src={day.day.condition.icon} alt={day.day.condition.text} />
                 <div>{day.day.condition.text}</div>
                 <div>Max: {day.day.maxtemp_c}°C Min: {day.day.mintemp_c}°C</div>
