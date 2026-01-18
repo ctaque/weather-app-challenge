@@ -1,23 +1,52 @@
-@import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&display=swap");
 
+/* Light theme variables (default) */
 :root {
   --bg: #f3f4f6;
   --card: #ffffff;
-  --accent: #2563eb;
+  --text: #0f172a;
   --muted: #6b7280;
+  --accent: #2563eb;
+  --card-shadow: rgba(0, 0, 0, 0.06);
+  --surface-2: #f9fafb;
+  --button-bg: #111827;
+  --button-text: #ffffff;
+}
+
+/* Dark theme overrides */
+[data-theme="dark"] {
+  --bg: #0b1220;
+  --card: #071024;
+  --text: #e6eef8;
+  --muted: #9aa6bb;
+  --accent: #60a5fa;
+  --card-shadow: rgba(0, 0, 0, 0.5);
+  --surface-2: #071426;
+  --button-bg: #e6eef8;
+  --button-text: #0b1220;
+}
+
+:root,
+[data-theme="dark"] {
+  --radius: 8px;
 }
 
 body {
   margin: 0;
   /* Utilise Source Code Pro depuis Google Fonts, fallback monospace */
-  font-family: 'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', monospace;
+  font-family:
+    "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    "Roboto Mono", "Segoe UI Mono", monospace;
   background: var(--bg);
-  color: #111827;
+  color: var(--text);
   min-height: 100vh;
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding: 2rem;
+  transition:
+    background 200ms ease,
+    color 200ms ease;
 }
 
 .container {
@@ -25,10 +54,77 @@ body {
   max-width: 1200px;
 }
 
-h1 {
-  margin: 0 0 1rem 0;
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
 }
 
+/* Theme toggle button */
+.theme-toggle {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
+  background: var(--card);
+  color: var(--button-text);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 0 2px 6px var(--card-shadow);
+}
+.theme-toggle:hover {
+  transform: translateY(-1px);
+}
+.theme-toggle .theme-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* Ensure button colors invert sensibly for themes */
+[data-theme="dark"] .theme-toggle {
+  color: var(--button-text);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Icon sizing inside the theme toggle */
+.theme-toggle .theme-icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  color: var(--accent); /* couleur par défaut de l'icône */
+}
+
+/* Adjust icon color for dark/light so it's visible */
+[data-theme="dark"] .theme-toggle .theme-icon svg {
+  color: var(--accent);
+}
+[data-theme="light"] .theme-toggle .theme-icon svg {
+  color: var(--accent);
+}
+
+/* Label spacing */
+.theme-toggle .theme-label {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+/* form / search */
 .search-form {
   display: flex;
   gap: 0.5rem;
@@ -39,18 +135,34 @@ h1 {
 .search-form input {
   flex: 1 1 240px;
   padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 1px 3px var(--card-shadow);
 }
 
 .search-form select,
 .search-form button {
   padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--card);
+  color: var(--text);
 }
 
+.search-form button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Cards */
 .weather-card {
   background: var(--card);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 1rem;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  box-shadow: 0 6px 18px var(--card-shadow);
+  margin-bottom: 1rem;
 }
 
 .current {
@@ -77,45 +189,32 @@ h1 {
 }
 
 .forecast-item {
-  background: #f9fafb;
+  background: var(--surface-2);
   padding: 0.5rem;
   border-radius: 6px;
   width: 130px;
   text-align: center;
   font-size: 0.9rem;
+  color: var(--text);
 }
 
-/* --- Styles pour la grille multi-villes (ancienne version) --- */
-.multi-grid {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap; /* permet le retour à la ligne automatique */
-  align-items: flex-start;
-}
-
-.multi-item {
-  flex: 0 1 300px; /* largeur souhaitée par item, mais diminue si l'espace est limité */
-  background: var(--card);
-  border-radius: 8px;
-  padding: 0.75rem;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
-}
-
-/* --- Règles pour l'affichage vertical par ville (nouvelle version) --- */
+/* multi city / vertical layout */
 .multi-grid-vertical {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  margin-top: 1rem;
 }
 
 .multi-item-vertical {
   width: 100%;
   background: var(--card);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 0.75rem;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  box-shadow: 0 6px 18px var(--card-shadow);
 }
 
+/* forecast horizontal list inside each city */
 .forecast-list-horizontal {
   display: flex;
   gap: 0.5rem;
@@ -126,14 +225,15 @@ h1 {
 }
 
 .forecast-item-horizontal {
-  flex: 0 0 150px; /* largeur fixe par jour */
-  background: #f9fafb;
+  flex: 0 0 150px;
+  background: var(--surface-2);
   padding: 0.5rem;
   border-radius: 6px;
   text-align: center;
   scroll-snap-align: start;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
   font-size: 0.95rem;
+  color: var(--text);
 }
 
 .forecast-item-horizontal .date {
@@ -146,7 +246,7 @@ h1 {
   height: 8px;
 }
 .forecast-list-horizontal::-webkit-scrollbar-thumb {
-  background: rgba(17,24,39,0.12);
+  background: rgba(17, 24, 39, 0.12);
   border-radius: 999px;
 }
 
@@ -156,6 +256,6 @@ h1 {
 }
 
 .error {
-  color: #b91c1c;
+  color: #f87171; /* red-400 */
   margin-bottom: 1rem;
 }
