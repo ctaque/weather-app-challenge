@@ -1,30 +1,40 @@
-import React, { useState } from 'react'
-import WeatherDisplay from './components/Weather'
+import React, { useState } from "react";
+import WeatherDisplay from "./components/Weather";
 
-type WeatherData = any
+type WeatherData = any;
 
 export default function App() {
-  const [query, setQuery] = useState('San Francisco')
-  const [days, setDays] = useState(3)
-  const [loading, setLoading] = useState(false)
-  const [data, setData] = useState<WeatherData | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [query, setQuery] = useState("Nantes");
+  const [days, setDays] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<WeatherData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function fetchWeather(qParam?: string, daysParam?: number) {
+    const qToUse = qParam ?? query;
+    const daysToUse = daysParam ?? days;
+
+    setLoading(true);
+    setError(null);
+    setData(null);
+
+    try {
+      const res = await fetch(
+        `/api/weather?q=${encodeURIComponent(qToUse)}&days=${daysToUse}`,
+      );
+      if (!res.ok) throw new Error(await res.text());
+      const json = await res.json();
+      setData(json);
+    } catch (err: any) {
+      setError(err.message || "Failed to fetch");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function search(e?: React.FormEvent) {
-    if (e) e.preventDefault()
-    setLoading(true)
-    setError(null)
-    setData(null)
-    try {
-      const res = await fetch(`/api/weather?q=${encodeURIComponent(query)}&days=${days}`)
-      if (!res.ok) throw new Error(await res.text())
-      const json = await res.json()
-      setData(json)
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch')
-    } finally {
-      setLoading(false)
-    }
+    if (e) e.preventDefault();
+    await fetchWeather();
   }
 
   return (
@@ -40,29 +50,31 @@ export default function App() {
         <select value={days} onChange={(e) => setDays(Number(e.target.value))}>
           <option value={1}>1 day</option>
           <option value={3}>3 days</option>
+          <option value={7}>7 days</option>
+          <option value={10}>10 days</option>
         </select>
         <button type="submit" disabled={loading}>
-          {loading ? 'Loading...' : 'Search'}
+          {loading ? "Loading..." : "Search"}
         </button>
         <button
           type="button"
-          onClick={async () => {
+          onClick={() => {
             if (!navigator.geolocation) {
-              setError('Geolocation not supported')
-              return
+              setError("Geolocation not supported");
+              return;
             }
-            setLoading(true)
+            setLoading(true);
             navigator.geolocation.getCurrentPosition(
               async (pos) => {
-                setQuery(`${pos.coords.latitude},${pos.coords.longitude}`)
-                setLoading(false)
-                search()
+                const q = `${pos.coords.latitude},${pos.coords.longitude}`;
+                setQuery(q);
+                await fetchWeather(q);
               },
               (err) => {
-                setError(err.message)
-                setLoading(false)
-              }
-            )
+                setError(err.message);
+                setLoading(false);
+              },
+            );
           }}
         >
           Use my location
@@ -73,5 +85,5 @@ export default function App() {
 
       {data && <WeatherDisplay data={data} />}
     </div>
-  )
+  );
 }
