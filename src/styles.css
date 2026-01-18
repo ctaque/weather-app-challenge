@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&display=swap");
 
 /* Augmente la taille de base de la typographie à 120% */
 html {
@@ -12,33 +12,58 @@ html {
   --text: #0f172a;
   --muted: #6b7280;
   --accent: #2563eb;
-  --card-shadow: rgba(0,0,0,0.06);
+  --card-shadow: rgba(0, 0, 0, 0.06);
   --surface-2: #f9fafb;
   --button-bg: #111827;
   --button-text: #ffffff;
 }
 
 /* Dark theme overrides */
-[data-theme='dark'] {
+[data-theme="dark"] {
   --bg: #0b1220;
   --card: #071024;
   --text: #e6eef8;
   --muted: #9aa6bb;
   --accent: #60a5fa;
-  --card-shadow: rgba(0,0,0,0.5);
+  --card-shadow: rgba(0, 0, 0, 0.5);
   --surface-2: #071426;
   --button-bg: #e6eef8;
   --button-text: #0b1220;
 }
 
-:root, [data-theme='dark'] {
+/* Icon sizing inside the theme toggle */
+.theme-toggle .theme-icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  color: var(--accent); /* couleur par défaut de l'icône */
+}
+
+/* Adjust icon color for dark/light so it's visible */
+[data-theme="dark"] .theme-toggle .theme-icon svg {
+  color: var(--accent);
+}
+[data-theme="light"] .theme-toggle .theme-icon svg {
+  color: var(--accent);
+}
+
+/* Label spacing */
+.theme-toggle .theme-label {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+:root,
+[data-theme="dark"] {
   --radius: 8px;
 }
 
 body {
   margin: 0;
-  /* Utilise Source Code Pro depuis Google Fonts, fallback monospace */
-  font-family: 'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', monospace;
+  font-family:
+    "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    "Roboto Mono", "Segoe UI Mono", monospace;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -46,7 +71,9 @@ body {
   align-items: flex-start;
   justify-content: center;
   padding: 2rem;
-  transition: background 200ms ease, color 200ms ease;
+  transition:
+    background 200ms ease,
+    color 200ms ease;
 }
 
 /* Container */
@@ -55,7 +82,7 @@ body {
   max-width: 1200px;
 }
 
-/* Header */
+/* Header (app) */
 .app-header {
   display: flex;
   align-items: center;
@@ -63,133 +90,7 @@ body {
   margin-bottom: 1rem;
 }
 
-/* Theme toggle button */
-.theme-toggle {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  background: transparent;
-  border: 1px solid rgba(0,0,0,0.06);
-  padding: 6px 10px;
-  border-radius: 999px;
-  cursor: pointer;
-  font-size: 0.95rem;
-  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
-  background: var(--card);
-  color: var(--button-text);
-  border: 1px solid rgba(255,255,255,0.04);
-  box-shadow: 0 2px 6px var(--card-shadow);
-}
-.theme-toggle:hover {
-  transform: translateY(-1px);
-}
-.theme-toggle .theme-label {
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-
-/* Ensure button colors invert sensibly for themes */
-[data-theme='dark'] .theme-toggle {
-  color: var(--button-text);
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.04);
-}
-
-/* Icon sizing inside the theme toggle — uses rem so it scales with base font-size */
-.theme-toggle .theme-icon svg {
-  width: 1.125rem;
-  height: 1.125rem;
-  display: block;
-  color: var(--accent);
-}
-
-/* Label spacing */
-.theme-toggle .theme-label {
-  margin-left: 6px;
-  color: var(--muted);
-}
-
-/* Title */
-h1 {
-  margin: 0;
-  font-size: 1.5rem;
-}
-
-/* form / search */
-.search-form {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-}
-
-.search-form input {
-  flex: 1 1 240px;
-  padding: 0.5rem;
-  border-radius: 6px;
-  border: 1px solid rgba(0,0,0,0.08);
-  background: var(--card);
-  color: var(--text);
-  box-shadow: 0 1px 3px var(--card-shadow);
-}
-
-.search-form select,
-.search-form button {
-  padding: 0.5rem;
-  border-radius: 6px;
-  border: 1px solid rgba(0,0,0,0.06);
-  background: var(--card);
-  color: var(--text);
-}
-
-.search-form button[disabled] {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Cards */
-.weather-card {
-  background: var(--card);
-  border-radius: var(--radius);
-  padding: 1rem;
-  box-shadow: 0 6px 18px var(--card-shadow);
-  margin-bottom: 1rem;
-}
-
-.current {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-}
-
-.current img {
-  width: 64px;
-  height: 64px;
-}
-
-.temp {
-  font-size: 1.4rem;
-  font-weight: 600;
-}
-
-.forecast-list {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-top: 0.5rem;
-}
-
-.forecast-item {
-  background: var(--surface-2);
-  padding: 0.5rem;
-  border-radius: 6px;
-  width: 130px;
-  text-align: center;
-  font-size: 0.9rem;
-  color: var(--text);
-}
-
-/* multi city / vertical layout */
+/* City card */
 .multi-grid-vertical {
   display: flex;
   flex-direction: column;
@@ -205,62 +106,102 @@ h1 {
   box-shadow: 0 6px 18px var(--card-shadow);
 }
 
-/* city-row: forecast (left) + map (right) */
-.city-row {
+/* City header layout: left info, right trend + small map */
+.city-header {
   display: flex;
+  justify-content: space-between;
   gap: 1rem;
   align-items: flex-start;
-  margin-top: 0.5rem;
 }
 
-/* map column */
-.map-column {
-  flex: 0 0 320px; /* fixe une largeur pour la carte */
+.city-header-left {
+  flex: 1 1 auto;
+}
+
+.city-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+}
+
+/* Trend block (emoji + temp) */
+.trend-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 64px;
+}
+
+.trend-emoji {
+  font-size: 2rem;
+  line-height: 1;
+}
+.trend-block .temp {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+/* Small map in header */
+.header-map {
+  flex: 0 0 160px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-
-.map-embed {
-  width: 100%;
-  height: 220px;
+.map-embed-small {
+  width: 160px;
+  height: 110px;
   border: 0;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* responsive: sur petits écrans, stack verticalement */
-@media (max-width: 880px) {
-  .city-row {
+/* responsive: on small screens stack header elements vertically */
+@media (max-width: 720px) {
+  .city-header {
     flex-direction: column;
+    align-items: stretch;
   }
-  .map-column {
-    flex: none;
+  .city-header-right {
+    align-self: flex-end;
+  }
+  .header-map {
+    align-self: flex-end;
     width: 100%;
   }
-  .map-embed {
-    height: 200px;
+  .map-embed-small {
+    width: 100%;
+    height: 160px;
   }
 }
 
-/* forecast horizontal list inside each city */
+/* Forecast horizontal list (restored horizontal scroll) */
+.forecast {
+  margin-top: 0.5rem;
+}
+
 .forecast-list-horizontal {
   display: flex;
   gap: 0.5rem;
-  overflow-x: auto;
+  overflow-x: auto; /* scroll horizontal */
   padding-bottom: 0.25rem;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x proximity;
+  white-space: nowrap; /* help keep items inline */
 }
 
+/* Each day card in the horizontal list */
 .forecast-item-horizontal {
   flex: 0 0 150px;
+  display: inline-block; /* keep them in one row for horizontal scroll */
+  vertical-align: top;
   background: var(--surface-2);
   padding: 0.5rem;
   border-radius: 6px;
   text-align: center;
   scroll-snap-align: start;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
   font-size: 0.95rem;
   color: var(--text);
 }
@@ -275,16 +216,31 @@ h1 {
   height: 8px;
 }
 .forecast-list-horizontal::-webkit-scrollbar-thumb {
-  background: rgba(17,24,39,0.12);
+  background: rgba(17, 24, 39, 0.12);
   border-radius: 999px;
 }
 
-.multi-item-vertical h3 {
+/* Utilities */
+.city-title {
   font-size: 1.05rem;
-  margin-bottom: 0.15rem;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pin-wrap svg {
+  color: var(--accent);
+}
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.small {
+  font-size: 0.85rem;
 }
 
+/* Error */
 .error {
-  color: #f87171; /* red-400 */
+  color: #f87171;
   margin-bottom: 1rem;
 }
