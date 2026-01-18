@@ -19,7 +19,7 @@ body {
 
 .container {
   width: 100%;
-  max-width: 780px;
+  max-width: 1200px;
 }
 
 h1 {
@@ -68,7 +68,7 @@ h1 {
 
 .forecast-list {
   display: flex;
-  gap: 1rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
   margin-top: 0.5rem;
 }
@@ -77,11 +77,23 @@ h1 {
   background: #f9fafb;
   padding: 0.5rem;
   border-radius: 6px;
-  width: 150px;
+  width: 130px;
   text-align: center;
+  font-size: 0.9rem;
 }
 
-.error {
-  color: #b91c1c;
-  margin-bottom: 1rem;
+/* --- Styles pour la grille multi-villes --- */
+.multi-grid {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap; /* permet le retour à la ligne automatique */
+  align-items: flex-start;
+}
+
+.multi-item {
+  flex: 0 1 300px; /* largeur souhaitée par item, mais diminue si l'espace est limité */
+  background: var(--card);
+  border-radius: 8px;
+  padding: 0.75rem;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
 }

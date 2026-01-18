@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
 import WeatherDisplay from './components/Weather'
+import WeatherGrid from './components/WeatherGrid'
 
 type WeatherData = any
 
 export default function App() {
+  // (garde ton code existant)
   const [query, setQuery] = useState('Nantes')
   const [days, setDays] = useState(10)
   const [loading, setLoading] = useState(false)
@@ -82,6 +84,9 @@ export default function App() {
       {error && <div className="error">Error: {error}</div>}
 
       {data && <WeatherDisplay data={data} />}
+
+      {/* Composant avec données en dur pour les 5 villes */}
+      <WeatherGrid />
     </div>
   )
 }
