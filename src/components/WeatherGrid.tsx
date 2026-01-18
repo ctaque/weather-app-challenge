@@ -11,6 +11,7 @@ type CityForecast = {
     humidity: number
     wind_kph: number
     emoji: string
+    pressure_mb: number
   }
   forecast: {
     forecastday: Array<{
@@ -20,6 +21,7 @@ type CityForecast = {
         mintemp_c: number
         condition: { text: string; emoji: string }
         daily_chance_of_rain: number
+        pressure_mb: number
       }
     }>
   }
@@ -34,9 +36,12 @@ function formatDate(dateStr: string) {
   }
 }
 
-// Génère des prévisions "en dur" (déterministes) pour 10 jours à partir d'aujourd'hui
+// Génère des prévisions "en dur" (déterministes) pour 10 jours à partir d'aujourd'hui,
+// avec valeurs de pression aussi (exprimées en mb) pour montrer l'affichage.
 function makeForecastForCity(cityIndex: number, cityName: string): CityForecast {
   const today = new Date()
+  const basePressure = 1010 + cityIndex * 2 // base différente par ville
+
   const forecastday = Array.from({ length: 10 }).map((_, i) => {
     const base = 10 + cityIndex * 2
     const maxtemp_c = Math.round(base + 8 + (i % 5))
@@ -49,24 +54,31 @@ function makeForecastForCity(cityIndex: number, cityName: string): CityForecast 
     ][i % 3]
     const date = addDays(today, i)
     const dateStr = date.toISOString().slice(0, 10)
+
+    // Pression journalière générée (déterministe)
+    const pressure_mb = basePressure + (i % 5) - Math.floor(cityIndex / 2)
+
     return {
       date: dateStr,
       day: {
         maxtemp_c,
         mintemp_c,
         condition: { text: cond[0], emoji: cond[1] },
-        daily_chance_of_rain: chance
+        daily_chance_of_rain: chance,
+        pressure_mb
       }
     }
   })
 
+  const currentPressure = basePressure + 1 // pression actuelle proche de la base
   const current = {
     temp_c: forecastday[0].day.maxtemp_c - 2,
     temp_f: Math.round((forecastday[0].day.maxtemp_c - 2) * 9 / 5 + 32),
     condition_text: forecastday[0].day.condition.text,
     humidity: 60,
     wind_kph: 15 + cityIndex * 3,
-    emoji: forecastday[0].day.condition.emoji
+    emoji: forecastday[0].day.condition.emoji,
+    pressure_mb: currentPressure
   }
 
   return {
@@ -96,6 +108,9 @@ export default function WeatherGrid() {
                 <div style={{ color: '#6b7280', fontSize: 14 }}>
                   Situation actuelle: {data.current.condition_text}
                 </div>
+                <div style={{ color: '#6b7280', fontSize: 13 }}>
+                  Pression actuelle: {data.current.pressure_mb} mb
+                </div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 36 }}>{data.current.emoji}</div>
@@ -114,6 +129,7 @@ export default function WeatherGrid() {
                     <div>Max: {day.day.maxtemp_c}°C</div>
                     <div>Min: {day.day.mintemp_c}°C</div>
                     <div style={{ color: '#6b7280', fontSize: 12 }}>Pluie: {day.day.daily_chance_of_rain}%</div>
+                    <div style={{ color: '#6b7280', fontSize: 12 }}>Pression: {day.day.pressure_mb} mb</div>
                   </div>
                 ))}
               </div>

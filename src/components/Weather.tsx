@@ -8,9 +8,7 @@ type Props = {
 
 function formatDate(dateStr: string) {
   try {
-    // dateStr comes from WeatherAPI as "YYYY-MM-DD"
     const formatted = format(new Date(dateStr), 'EEEE d MMMM', { locale: fr })
-    // Capitalize first letter to match "Dimanche 18 janvier"
     return formatted.charAt(0).toUpperCase() + formatted.slice(1)
   } catch {
     return dateStr
@@ -33,8 +31,15 @@ export default function WeatherDisplay({ data }: Props) {
         <div>
           <div className="temp">{current.temp_c}°C / {current.temp_f}°F</div>
           <div>{current.condition.text}</div>
-          <div>Humidity: {current.humidity}%</div>
-          <div>Wind: {current.wind_kph} kph</div>
+          <div>Humidité: {current.humidity}%</div>
+          <div>Vent: {current.wind_kph} kph</div>
+
+          {/* Pression actuelle (WeatherAPI fournit current.pressure_mb / pressure_in) */}
+          {typeof current.pressure_mb !== 'undefined' ? (
+            <div>Pression: {current.pressure_mb} mb ({current.pressure_in} in)</div>
+          ) : (
+            <div>Pression: —</div>
+          )}
         </div>
       </div>
 
@@ -49,6 +54,14 @@ export default function WeatherDisplay({ data }: Props) {
                 <div>{day.day.condition.text}</div>
                 <div>Max: {day.day.maxtemp_c}°C Min: {day.day.mintemp_c}°C</div>
                 <div>Chance of rain: {day.day.daily_chance_of_rain}%</div>
+
+                {/* Pression journalière si disponible dans la réponse */}
+                {day.day && (typeof day.day.pressure_mb !== 'undefined' || typeof day.day.pressure_in !== 'undefined') ? (
+                  <div>
+                    Pression: {day.day.pressure_mb ? `${day.day.pressure_mb} mb` : '—'}
+                    {day.day.pressure_in ? ` (${day.day.pressure_in} in)` : ''}
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
