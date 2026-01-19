@@ -1,9 +1,33 @@
-@import url("https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&display=swap");
+/* Custom font */
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("/src/font/SF-Pro-Display-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("/src/font/SF-Pro-Display-Regular.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("/src/font/SF-Pro-Display-Regular.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 /* Empêche #root de dépasser la largeur disponible */
 #root {
   max-width: 100%;
   box-sizing: border-box;
+  padding-bottom: 1rem;
 }
 
 /* Base scaling */
@@ -31,7 +55,7 @@ html {
 /* Dark overrides */
 [data-theme="dark"] {
   --bg: #0b1220;
-  --card: #071024;
+  --card: rgb(7 16 36 / 40%);
   --text: #e6eef8;
   --muted: #9aa6bb;
   --accent: #444444;
@@ -44,14 +68,15 @@ html {
 body {
   margin: 0;
   font-family:
-    "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, Monaco,
-    "Roboto Mono", "Segoe UI Mono", monospace;
+    "SF Pro Display",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
   color: var(--text);
   min-height: 100vh;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 2rem;
   transition:
     background 160ms ease,
     color 160ms ease;
@@ -124,6 +149,7 @@ textarea {
   background: var(--card);
   backdrop-filter: blur(5px);
   border-radius: 0.8rem;
+  margin: 1rem auto;
 }
 
 /* Ensure vertical gap between weather components */
@@ -175,7 +201,6 @@ textarea {
   background: linear-gradient(180deg, var(--accent), var(--accent-600));
   color: #fff;
   transform: translateY(-3px);
-  box-shadow: 0 5px 5px rgba(37, 99, 235, 0.9);
   border: 2px solid var(--selection-border);
 }
 
@@ -186,6 +211,18 @@ textarea {
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
+  padding: 1rem 1.5rem;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  transition: background 160ms ease;
+}
+
+/* Dark mode header */
+[data-theme="dark"] .app-header {
+  background: rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* --------- THEME TOGGLE (restyled) --------- */
@@ -198,9 +235,10 @@ textarea {
   cursor: pointer;
   user-select: none;
   font-family: inherit;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgb(178 178 178 / 50%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   color: var(--text);
-  box-shadow: 0 2px 6px var(--card-shadow);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
   transition:
     transform 120ms ease,
     box-shadow 120ms ease,
@@ -217,14 +255,14 @@ textarea {
 .theme-toggle .theme-icon svg {
   width: 1.25rem;
   height: 1.25rem;
-  color: var(--accent);
+  color: var(--text);
   display: block;
 }
 
 /* Label */
 .theme-toggle .theme-label {
   font-size: 0.95rem;
-  color: var(--muted);
+  color: var(--text);
 }
 
 /* Focus visible for keyboard users */
@@ -238,8 +276,12 @@ textarea {
 
 /* In dark mode keep contrast */
 [data-theme="dark"] .theme-toggle {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* --------- SEARCH FORM (restyled) --------- */
@@ -486,7 +528,6 @@ textarea {
 .forecast-item-horizontal.active {
   background: linear-gradient(180deg, var(--accent), var(--accent-600));
   color: #ffffff;
-  box-shadow: 0 5px 5px rgba(37, 99, 235, 0.9);
   transform: translateY(-4px);
   border: 2px solid var(--selection-border);
 }
@@ -685,52 +726,51 @@ textarea {
 
 /* Responsive improvements for header + form */
 
-/* Allow header to wrap and keep title truncating nicely */
-.app-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap; /* allow wrapping when space is low */
-}
-
 /* Ensure title can shrink without overflowing */
 .app-header h1 {
   flex: 1 1 auto;
   min-width: 0; /* allow flex children to shrink */
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.35rem;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: -0.02em;
 }
 
-/* Keep the toggle aligned to the right on wide screens */
-.app-header .theme-toggle {
+/* Toggles container in header */
+.app-header > div {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
   flex: 0 0 auto;
-  margin-left: auto;
 }
 
 /* SEARCH FORM: layout adjustments at breakpoints */
 @media (max-width: 720px) {
   .container {
-    padding-left: 0;
-    padding-right: 0;
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 
   .app-header {
-    flex-direction: column;
-    align-items: stretch;
+    padding: 1rem;
+    margin: -1rem -1rem 1rem -1rem;
+    flex-wrap: wrap;
   }
+
   .app-header h1 {
     text-align: left;
     white-space: normal;
     font-size: 1.2rem;
+    flex: 1 1 100%;
     margin-bottom: 0.5rem;
   }
 
-  .app-header .theme-toggle {
-    align-self: flex-end;
+  .app-header > div {
+    flex: 0 0 auto;
+    margin-left: auto;
   }
 }
 
