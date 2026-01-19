@@ -104,4 +104,12 @@ export const en: Translations = {
   // Language selector
   language: "Language",
   languageAria: "Change language",
+
+  // Units selector
+  unitsAria: "Change units",
+  unitsKnotsCelsius: "Knots/°C",
+  unitsMphFahrenheit: "Mph/°F",
+  knots: "knots",
+  mph: "mph",
+  fahrenheit: "°F",
 };

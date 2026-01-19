@@ -10,7 +10,7 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
-import { LanguageContext } from "../App";
+import { LanguageContext, UnitContext } from "../App";
 
 type HourEntry = {
   time: string;
@@ -32,6 +32,18 @@ export default function WindSpeedChart({
   onHoverHour,
 }: WindSpeedChartProps) {
   const { t } = useContext(LanguageContext);
+  const { units } = useContext(UnitContext);
+
+  // Convert km/h to knots or mph based on unit system
+  const convertWindSpeed = (kph: number): number => {
+    if (units === "knots-celsius") {
+      return Math.round(kph / 1.852); // km/h to knots
+    } else {
+      return Math.round(kph / 1.60934); // km/h to mph
+    }
+  };
+
+  const windUnit = units === "knots-celsius" ? t.knots : t.mph;
 
   // Get current date and time
   const now = new Date();
@@ -44,7 +56,7 @@ export default function WindSpeedChart({
   // Transform the data for Recharts
   const chartData = hourlyData.map((entry) => ({
     hour: entry.time.slice(11, 16),
-    windSpeed: entry.wind_kph ?? 0,
+    windSpeed: convertWindSpeed(entry.wind_kph ?? 0),
     windDir: entry.wind_dir ?? "",
   }));
 
@@ -81,7 +93,7 @@ export default function WindSpeedChart({
         >
           <p style={{ margin: "0 0 4px 0", fontWeight: 600 }}>{data.hour}</p>
           <p style={{ margin: "2px 0", color: "#10b981" }}>
-            {t.windSpeed}: {data.windSpeed} km/h
+            {t.windSpeed}: {data.windSpeed} {windUnit}
           </p>
           {data.windDir && (
             <p style={{ margin: "2px 0", fontSize: "12px", color: "#666" }}>
@@ -113,7 +125,7 @@ export default function WindSpeedChart({
           />
           <YAxis
             label={{
-              value: `${t.windSpeed} (km/h)`,
+              value: `${t.windSpeed} (${windUnit})`,
               angle: -90,
               position: "insideLeft",
             }}
@@ -144,7 +156,7 @@ export default function WindSpeedChart({
             strokeWidth={2}
             dot={{ fill: "#10b981", r: 4 }}
             activeDot={{ r: 6 }}
-            name={`${t.windSpeed} (km/h)`}
+            name={`${t.windSpeed} (${windUnit})`}
           />
         </LineChart>
       </ResponsiveContainer>

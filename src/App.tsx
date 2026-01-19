@@ -5,6 +5,8 @@ import { getTranslations, type Language, type Translations } from "./i18n";
 
 type WeatherData = any;
 
+export type UnitSystem = "knots-celsius" | "mph-fahrenheit";
+
 export const ThemeContext = createContext<"light" | "dark">("light");
 export const LanguageContext = createContext<{
   lang: Language;
@@ -12,6 +14,13 @@ export const LanguageContext = createContext<{
 }>({
   lang: "fr",
   t: getTranslations("fr"),
+});
+export const UnitContext = createContext<{
+  units: UnitSystem;
+  setUnits: (units: UnitSystem) => void;
+}>({
+  units: "knots-celsius",
+  setUnits: () => {},
 });
 
 function SunIcon(props: { className?: string }) {
@@ -91,6 +100,9 @@ export default function App() {
   const [lang, setLang] = useState<Language>("fr");
   const t = getTranslations(lang);
 
+  // Units: 'knots-celsius' | 'mph-fahrenheit'
+  const [units, setUnits] = useState<UnitSystem>("knots-celsius");
+
   // Initialize theme from localStorage or system preference
   useEffect(() => {
     const saved = localStorage.getItem("theme") as "light" | "dark" | null;
@@ -131,12 +143,29 @@ export default function App() {
     document.documentElement.setAttribute("lang", lang);
   }, [lang]);
 
+  // Initialize units from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("units") as UnitSystem | null;
+    if (saved === "knots-celsius" || saved === "mph-fahrenheit") {
+      setUnits(saved);
+    }
+  }, []);
+
+  // Keep localStorage in sync when units change
+  useEffect(() => {
+    localStorage.setItem("units", units);
+  }, [units]);
+
   function toggleTheme() {
     setTheme((t) => (t === "light" ? "dark" : "light"));
   }
 
   function toggleLanguage() {
     setLang((l) => (l === "fr" ? "en" : "fr"));
+  }
+
+  function toggleUnits() {
+    setUnits((u) => (u === "knots-celsius" ? "mph-fahrenheit" : "knots-celsius"));
   }
 
   async function fetchWeather(qParam?: string, daysParam?: number) {
@@ -168,7 +197,8 @@ export default function App() {
 
   return (
     <LanguageContext.Provider value={{ lang, t }}>
-      <ThemeContext.Provider value={theme}>
+      <UnitContext.Provider value={{ units, setUnits }}>
+        <ThemeContext.Provider value={theme}>
         <div className="welcome-wallpaper-background" data-theme={theme} />
         <div className="welcome-gradient-background" />
         <header className="app-header">
@@ -197,6 +227,16 @@ export default function App() {
               </span>
               <span className="theme-label">
                 {theme === "dark" ? t.themeDark : t.themeLight}
+              </span>
+            </button>
+            <button
+              onClick={toggleUnits}
+              className="theme-toggle"
+              title={t.unitsAria}
+              aria-label={t.unitsAria}
+            >
+              <span className="theme-label">
+                {units === "knots-celsius" ? t.unitsKnotsCelsius : t.unitsMphFahrenheit}
               </span>
             </button>
           </div>
@@ -259,6 +299,7 @@ export default function App() {
           <WeatherGrid />
         </div>
       </ThemeContext.Provider>
+      </UnitContext.Provider>
     </LanguageContext.Provider>
   );
 }

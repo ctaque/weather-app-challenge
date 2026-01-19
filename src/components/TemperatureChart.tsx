@@ -10,7 +10,7 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
-import { LanguageContext } from "../App";
+import { LanguageContext, UnitContext } from "../App";
 
 type HourEntry = {
   time: string; // "YYYY-MM-DD HH:MM"
@@ -33,6 +33,17 @@ export default function TemperatureChart({
   date,
 }: TemperatureChartProps) {
   const { t } = useContext(LanguageContext);
+  const { units } = useContext(UnitContext);
+
+  // Convert Celsius to Fahrenheit if needed
+  const convertTemperature = (celsius: number): number => {
+    if (units === "mph-fahrenheit") {
+      return Math.round((celsius * 9) / 5 + 32);
+    }
+    return Math.round(celsius);
+  };
+
+  const tempUnit = units === "knots-celsius" ? t.degrees : t.fahrenheit;
 
   // Get current date and time
   const now = new Date();
@@ -45,7 +56,7 @@ export default function TemperatureChart({
   // Transform the data for Recharts
   const chartData = hourlyData.map((entry) => ({
     hour: entry.time.slice(11, 16), // Extract HH:MM from "YYYY-MM-DD HH:MM"
-    temperature: Math.round(entry.temp_c),
+    temperature: convertTemperature(entry.temp_c),
     condition: entry.condition.text,
     rain: entry.chance_of_rain ?? 0,
   }));
@@ -68,7 +79,7 @@ export default function TemperatureChart({
             {data.hour}
           </p>
           <p style={{ margin: "2px 0", color: "#10b981" }}>
-            {t.temperature}: {data.temperature}°C
+            {t.temperature}: {data.temperature}{tempUnit}
           </p>
           <p style={{ margin: "2px 0", fontSize: "12px", color: "#666" }}>
             {data.condition}
@@ -100,7 +111,7 @@ export default function TemperatureChart({
             stroke="#666"
           />
           <YAxis
-            label={{ value: `${t.temperature} (${t.degrees})`, angle: -90, position: "insideLeft" }}
+            label={{ value: `${t.temperature} (${tempUnit})`, angle: -90, position: "insideLeft" }}
             tick={{ fontSize: 12 }}
             stroke="#666"
           />
@@ -123,7 +134,7 @@ export default function TemperatureChart({
             strokeWidth={2}
             dot={{ fill: "#10b981", r: 4 }}
             activeDot={{ r: 6 }}
-            name={`${t.temperature} (${t.degrees})`}
+            name={`${t.temperature} (${tempUnit})`}
           />
         </LineChart>
       </ResponsiveContainer>

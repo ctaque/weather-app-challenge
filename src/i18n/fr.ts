@@ -102,6 +102,14 @@ export const fr = {
   // Language selector
   language: "Langue",
   languageAria: "Changer la langue",
+
+  // Units selector
+  unitsAria: "Changer les unités",
+  unitsKnotsCelsius: "Nœuds/°C",
+  unitsMphFahrenheit: "Mph/°F",
+  knots: "nœuds",
+  mph: "mph",
+  fahrenheit: "°F",
 };
 
 export type Translations = typeof fr;

@@ -6,7 +6,7 @@ import PressureChart from "./PressureChart";
 import RainChanceChart from "./RainChanceChart";
 import WindSpeedChart from "./WindSpeedChart";
 import WindDirectionChart from "./WindDirectionChart";
-import { ThemeContext, LanguageContext } from "../App";
+import { ThemeContext, LanguageContext, UnitContext } from "../App";
 
 type Condition = { text: string; emoji?: string; icon?: string };
 
@@ -651,6 +651,7 @@ const CityCard = React.forwardRef<
 >(({ data, locale }, ref) => {
   const theme = useContext(ThemeContext);
   const { t } = useContext(LanguageContext);
+  const { units } = useContext(UnitContext);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [highlightCurrentHour, setHighlightCurrentHour] =
     useState<boolean>(false);
@@ -759,7 +760,11 @@ const CityCard = React.forwardRef<
                 {data.current.emoji}
               </div>
             )}
-            <div className="temp">{Math.round(data.current.temp_c)}°C</div>
+            <div className="temp">
+              {units === "knots-celsius"
+                ? `${Math.round(data.current.temp_c)}°C`
+                : `${Math.round(data.current.temp_f)}°F`}
+            </div>
           </div>
         </div>
       </header>
@@ -808,10 +813,14 @@ const CityCard = React.forwardRef<
                 <div style={{ fontWeight: 600 }}>{day.day.condition.text}</div>
 
                 <div>
-                  {t.maxTemp}: {Math.round(dayDisplayedMax ?? 0)}°C
+                  {t.maxTemp}: {units === "knots-celsius"
+                    ? `${Math.round(dayDisplayedMax ?? 0)}°C`
+                    : `${Math.round(((dayDisplayedMax ?? 0) * 9) / 5 + 32)}°F`}
                 </div>
                 <div>
-                  {t.minTemp}: {Math.round(dayDisplayedMin ?? 0)}°C
+                  {t.minTemp}: {units === "knots-celsius"
+                    ? `${Math.round(dayDisplayedMin ?? 0)}°C`
+                    : `${Math.round(((dayDisplayedMin ?? 0) * 9) / 5 + 32)}°F`}
                 </div>
 
                 <div className="muted small">
@@ -890,7 +899,9 @@ const CityCard = React.forwardRef<
                       ...(isCurrentHour && { color: "#ffffff" }),
                     }}
                   >
-                    {Math.round(h.temp_c)}°C
+                    {units === "knots-celsius"
+                      ? `${Math.round(h.temp_c)}°C`
+                      : `${Math.round((h.temp_c * 9) / 5 + 32)}°F`}
                   </div>
                   <div
                     className="muted small"
@@ -911,16 +922,28 @@ const CityCard = React.forwardRef<
 
           {computedDayMinMax && (
             <div className="small muted" style={{ marginTop: 8 }}>
-              {t.computedFromHours} {Math.round(computedDayMinMax.mintemp_c)}°C
-              — {t.maxTemp} {Math.round(computedDayMinMax.maxtemp_c)}°C
+              {t.computedFromHours} {units === "knots-celsius"
+                ? `${Math.round(computedDayMinMax.mintemp_c)}°C`
+                : `${Math.round((computedDayMinMax.mintemp_c * 9) / 5 + 32)}°F`}
+              — {t.maxTemp} {units === "knots-celsius"
+                ? `${Math.round(computedDayMinMax.maxtemp_c)}°C`
+                : `${Math.round((computedDayMinMax.maxtemp_c * 9) / 5 + 32)}°F`}
             </div>
           )}
 
           {selectedDay?.day?.api_mintemp_c !== undefined ||
             selectedDay?.day?.api_maxtemp_c !== undefined ? (
             <div className="small muted" style={{ marginTop: 6 }}>
-              {t.apiValues} {selectedDay.day.api_mintemp_c ?? "—"}°C —{" "}
-              {t.maxTemp} {selectedDay.day.api_maxtemp_c ?? "—"}°C
+              {t.apiValues} {units === "knots-celsius"
+                ? `${selectedDay.day.api_mintemp_c ?? "—"}°C`
+                : selectedDay.day.api_mintemp_c !== undefined
+                  ? `${Math.round((selectedDay.day.api_mintemp_c * 9) / 5 + 32)}°F`
+                  : "—°F"} —{" "}
+              {t.maxTemp} {units === "knots-celsius"
+                ? `${selectedDay.day.api_maxtemp_c ?? "—"}°C`
+                : selectedDay.day.api_maxtemp_c !== undefined
+                  ? `${Math.round((selectedDay.day.api_maxtemp_c * 9) / 5 + 32)}°F`
+                  : "—°F"}
             </div>
           ) : null}
 

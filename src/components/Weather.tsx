@@ -1,7 +1,7 @@
 import React, { useState, useContext } from "react";
 import { format, parseISO } from "date-fns";
 import { fr as frLocale, enUS as enLocale } from "date-fns/locale";
-import { LanguageContext } from "../App";
+import { LanguageContext, UnitContext } from "../App";
 
 type Props = {
   data: any;
@@ -31,6 +31,7 @@ export default function Weather({ data }: Props) {
   if (!data) return null;
 
   const { lang, t } = useContext(LanguageContext);
+  const { units } = useContext(UnitContext);
   const locale = lang === 'fr' ? frLocale : enLocale;
   const location = data.location;
   const current = data.current;
@@ -62,11 +63,15 @@ export default function Weather({ data }: Props) {
           ) : null}
           <div>
             <div className="temp">
-              {current.temp_c}°C / {current.temp_f}°F
+              {units === "knots-celsius"
+                ? `${Math.round(current.temp_c)}°C`
+                : `${Math.round(current.temp_f)}°F`}
             </div>
             <div>{current.condition.text}</div>
             <div>{t.humidity}: {current.humidity}%</div>
-            <div>{t.wind}: {current.wind_kph} kph</div>
+            <div>{t.wind}: {units === "knots-celsius"
+                ? `${Math.round(current.wind_kph / 1.852)} ${t.knots}`
+                : `${Math.round(current.wind_kph / 1.60934)} ${t.mph}`}</div>
             {typeof current.pressure_mb !== "undefined" ? (
               <div>
                 {t.pressure}: {current.pressure_mb} mb ({current.pressure_in ?? ""}{" "}
@@ -113,8 +118,12 @@ export default function Weather({ data }: Props) {
                   </div>
                 )}
                 <div style={{ fontWeight: 600 }}>{day.day.condition.text}</div>
-                <div>{t.maxTemp}: {Math.round(day.day.maxtemp_c)}°C</div>
-                <div>{t.minTemp}: {Math.round(day.day.mintemp_c)}°C</div>
+                <div>{t.maxTemp}: {units === "knots-celsius"
+                  ? `${Math.round(day.day.maxtemp_c)}°C`
+                  : `${Math.round((day.day.maxtemp_c * 9) / 5 + 32)}°F`}</div>
+                <div>{t.minTemp}: {units === "knots-celsius"
+                  ? `${Math.round(day.day.mintemp_c)}°C`
+                  : `${Math.round((day.day.mintemp_c * 9) / 5 + 32)}°F`}</div>
                 <div style={{ color: "var(--muted)", fontSize: 12 }}>
                   {t.rain}: {day.day.daily_chance_of_rain}%
                 </div>
@@ -160,7 +169,9 @@ export default function Weather({ data }: Props) {
                       </div>
                     )}
                     <div style={{ fontWeight: 700 }}>
-                      {Math.round(h.temp_c)}°
+                      {units === "knots-celsius"
+                        ? `${Math.round(h.temp_c)}°C`
+                        : `${Math.round((h.temp_c * 9) / 5 + 32)}°F`}
                     </div>
                     <div className="muted small">{h.condition?.text}</div>
                     <div className="muted small">

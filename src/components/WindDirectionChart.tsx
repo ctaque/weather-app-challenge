@@ -9,7 +9,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { LanguageContext } from "../App";
+import { LanguageContext, UnitContext } from "../App";
 
 type HourEntry = {
   time: string;
@@ -30,6 +30,18 @@ export default function WindDirectionChart({
   hoveredHourData,
 }: WindDirectionChartProps) {
   const { t } = useContext(LanguageContext);
+  const { units } = useContext(UnitContext);
+
+  // Convert km/h to knots or mph based on unit system
+  const convertWindSpeed = (kph: number): number => {
+    if (units === "knots-celsius") {
+      return Math.round(kph / 1.852); // km/h to knots
+    } else {
+      return Math.round(kph / 1.60934); // km/h to mph
+    }
+  };
+
+  const windUnit = units === "knots-celsius" ? t.knots : t.mph;
 
   // Convert wind direction degrees to compass directions (16 directions)
   const degreesToDirection = (degrees: number): string => {
@@ -86,7 +98,7 @@ export default function WindDirectionChart({
     const hoveredDirection =
       hoveredHourData.wind_dir ||
       degreesToDirection(hoveredHourData.wind_degree || 0);
-    const hoveredSpeed = hoveredHourData.wind_kph || 0;
+    const hoveredSpeed = convertWindSpeed(hoveredHourData.wind_kph || 0);
     const hoveredTime = hoveredHourData.time.slice(11, 16);
 
     chartData = allDirections.map((dir) => ({
@@ -96,7 +108,7 @@ export default function WindDirectionChart({
     }));
 
     chartTitle = `${t.windDirectionPolar} - ${hoveredTime}`;
-    chartDescription = `${t.windDirection}: ${getDirectionFullName(hoveredDirection, t)} (${hoveredDirection}) - ${hoveredSpeed} km/h`;
+    chartDescription = `${t.windDirection}: ${getDirectionFullName(hoveredDirection, t)} (${hoveredDirection}) - ${hoveredSpeed} ${windUnit}`;
   } else {
     // Group data by direction and calculate average wind speed
     const directionData: { [key: string]: { total: number; count: number } } =
@@ -114,10 +126,11 @@ export default function WindDirectionChart({
       directionData[direction].count += 1;
     });
 
-    // Create chart data with all 8 directions
+    // Create chart data with all 16 directions
     chartData = allDirections.map((dir) => {
       const data = directionData[dir];
-      const avgSpeed = data ? Math.round(data.total / data.count) : 0;
+      const avgSpeedKph = data ? data.total / data.count : 0;
+      const avgSpeed = convertWindSpeed(avgSpeedKph);
       return {
         direction: dir,
         speed: avgSpeed,
@@ -166,7 +179,7 @@ export default function WindDirectionChart({
             {data.fullName} ({data.direction})
           </p>
           <p style={{ margin: "2px 0", color: "#8b5cf6" }}>
-            {t.windSpeed}: {data.speed} km/h
+            {t.windSpeed}: {data.speed} {windUnit}
           </p>
         </div>
       );
@@ -192,7 +205,7 @@ export default function WindDirectionChart({
             stroke="#666"
           />
           <Radar
-            name={`${t.windSpeed} (km/h)`}
+            name={`${t.windSpeed} (${windUnit})`}
             dataKey="speed"
             stroke={hoveredHourData ? "#f59e0b" : "#8b5cf6"}
             fill={hoveredHourData ? "#f59e0b" : "#8b5cf6"}
