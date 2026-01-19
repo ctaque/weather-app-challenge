@@ -36,20 +36,44 @@ export default function WindDirectionChart({
     if (degrees === undefined || degrees === null) return "N";
 
     const directions = [
-      "N", "NNE", "NE", "ENE",
-      "E", "ESE", "SE", "SSE",
-      "S", "SSW", "SW", "WSW",
-      "W", "WNW", "NW", "NNW"
+      "N",
+      "NNE",
+      "NE",
+      "ENE",
+      "E",
+      "ESE",
+      "SE",
+      "SSE",
+      "S",
+      "SSW",
+      "SW",
+      "WSW",
+      "W",
+      "WNW",
+      "NW",
+      "NNW",
     ];
     const index = Math.round((degrees % 360) / 22.5) % 16;
     return directions[index];
   };
 
   const allDirections = [
-    "N", "NNE", "NE", "ENE",
-    "E", "ESE", "SE", "SSE",
-    "S", "SSW", "SW", "WSW",
-    "W", "WNW", "NW", "NNW"
+    "N",
+    "NNE",
+    "NE",
+    "ENE",
+    "E",
+    "ESE",
+    "SE",
+    "SSE",
+    "S",
+    "SSW",
+    "SW",
+    "WSW",
+    "W",
+    "WNW",
+    "NW",
+    "NNW",
   ];
 
   // If a specific hour is hovered, show only that hour's wind direction
@@ -173,7 +197,7 @@ export default function WindDirectionChart({
             stroke={hoveredHourData ? "#f59e0b" : "#8b5cf6"}
             fill={hoveredHourData ? "#f59e0b" : "#8b5cf6"}
             fillOpacity={0.5}
-            strokeWidth={2}
+            strokeWidth={4}
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend />
