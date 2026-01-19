@@ -65,7 +65,7 @@ export default function RainChanceChart({
           <p style={{ margin: "0 0 4px 0", fontWeight: 600 }}>
             {data.hour}
           </p>
-          <p style={{ margin: "2px 0", color: "#2563eb" }}>
+          <p style={{ margin: "2px 0", color: "#10b981" }}>
             {t.rainChance}: {data.rain}%
           </p>
         </div>
@@ -115,7 +115,7 @@ export default function RainChanceChart({
           )}
           <Bar
             dataKey="rain"
-            fill="#2563eb"
+            fill="#10b981"
             name={`${t.rainChance} (${t.percent})`}
             radius={[4, 4, 0, 0]}
           />

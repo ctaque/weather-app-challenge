@@ -68,7 +68,7 @@ export default function PressureChart({
           <p style={{ margin: "0 0 4px 0", fontWeight: 600 }}>
             {data.hour}
           </p>
-          <p style={{ margin: "2px 0", color: "#2563eb" }}>
+          <p style={{ margin: "2px 0", color: "#10b981" }}>
             {t.pressure}: {data.pressure} mb
           </p>
         </div>
@@ -119,9 +119,9 @@ export default function PressureChart({
           <Line
             type="monotone"
             dataKey="pressure"
-            stroke="#2563eb"
+            stroke="#10b981"
             strokeWidth={2}
-            dot={{ fill: "#2563eb", r: 4 }}
+            dot={{ fill: "#10b981", r: 4 }}
             activeDot={{ r: 6 }}
             name={`${t.pressure} (mb)`}
           />

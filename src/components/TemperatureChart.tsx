@@ -67,13 +67,13 @@ export default function TemperatureChart({
           <p style={{ margin: "0 0 4px 0", fontWeight: 600 }}>
             {data.hour}
           </p>
-          <p style={{ margin: "2px 0", color: "#2563eb" }}>
+          <p style={{ margin: "2px 0", color: "#10b981" }}>
             {t.temperature}: {data.temperature}°C
           </p>
           <p style={{ margin: "2px 0", fontSize: "12px", color: "#666" }}>
             {data.condition}
           </p>
-          <p style={{ margin: "2px 0", fontSize: "12px", color: "#2563eb" }}>
+          <p style={{ margin: "2px 0", fontSize: "12px", color: "#10b981" }}>
             {t.rain}: {data.rain}%
           </p>
         </div>
@@ -119,9 +119,9 @@ export default function TemperatureChart({
           <Line
             type="monotone"
             dataKey="temperature"
-            stroke="#2563eb"
+            stroke="#10b981"
             strokeWidth={2}
-            dot={{ fill: "#2563eb", r: 4 }}
+            dot={{ fill: "#10b981", r: 4 }}
             activeDot={{ r: 6 }}
             name={`${t.temperature} (${t.degrees})`}
           />
