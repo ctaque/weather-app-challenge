@@ -116,7 +116,7 @@ export default function App() {
     setData(null)
 
     try {
-      const res = await fetch(`/api/weather?q=${encodeURIComponent(qToUse)}&days=${daysToUse}`)
+      const res = await fetch(`/api/weather?q=${encodeURIComponent(qToUse)}&days=${daysToUse}&lang=${lang}`)
       if (!res.ok) throw new Error(await res.text())
       const json = await res.json()
       setData(json)

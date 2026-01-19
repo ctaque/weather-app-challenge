@@ -18,6 +18,7 @@ app.use(express.json())
 app.get('/api/weather', async (req, res) => {
   const q = req.query.q
   const days = req.query.days || '1'
+  const lang = req.query.lang || 'en'
 
   if (!q) {
     return res.status(400).send('Missing required "q" query parameter (city or "lat,lon")')
@@ -33,7 +34,8 @@ app.get('/api/weather', async (req, res) => {
       params: {
         key: WEATHER_KEY,
         q,
-        days
+        days,
+        lang
       },
       timeout: 10000
     })

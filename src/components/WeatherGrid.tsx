@@ -106,10 +106,11 @@ function generateHoursForDay(
 }
 
 /* ---------- Fetch & normalize /api/weather (WeatherAPI backend) ---------- */
-async function fetchWeatherApiFromServer(q: string, days = 10) {
+async function fetchWeatherApiFromServer(q: string, days = 10, lang = 'en') {
   const params = new URLSearchParams({
     q,
     days: String(days),
+    lang,
   });
   const url = `/api/weather?${params.toString()}`;
 
@@ -295,7 +296,7 @@ export default function WeatherGrid() {
         const q = `${city.lat},${city.lon}`;
         const days = 10;
 
-        const normalized = await fetchWeatherApiFromServer(q, days);
+        const normalized = await fetchWeatherApiFromServer(q, days, lang);
         if (canceled) return;
 
         setDataList((prev) => {
@@ -495,7 +496,7 @@ export default function WeatherGrid() {
     return () => {
       canceled = true;
     };
-  }, [selectedCityIndex, setDataList]);
+  }, [selectedCityIndex, setDataList, lang]);
 
   function onKeySelect(e: React.KeyboardEvent, idx: number) {
     if (e.key === "Enter" || e.key === " ") {
