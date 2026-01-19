@@ -60,6 +60,13 @@ body{
   box-sizing: border-box;
 }
 
+/* Ensure vertical gap between weather components */
+.multi-grid-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem; /* vertical spacing between each .multi-item-vertical */
+}
+
 /* App header */
 .app-header{
   display:flex;
