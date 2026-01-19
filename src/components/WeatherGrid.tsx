@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { format, addDays } from "date-fns";
 import { fr } from "date-fns/locale";
+import TemperatureChart from "./TemperatureChart";
+import PressureChart from "./PressureChart";
+import RainChanceChart from "./RainChanceChart";
 
 type Condition = { text: string; emoji?: string; icon?: string };
 
@@ -9,6 +12,7 @@ type HourEntry = {
   temp_c: number; // integer (rounded)
   condition: Condition;
   chance_of_rain?: number;
+  pressure_mb?: number;
 };
 
 type ForecastDay = {
@@ -87,11 +91,15 @@ function generateHoursForDay(
       { text: "Nuageux", emoji: "⛅" },
       { text: "Pluie légère", emoji: "🌧️" },
     ][condIdx];
+    const basePressure = 1010 + cityIndex * 2;
+    const pressureVariation = Math.sin(((h - 12) / 24) * Math.PI * 2) * 3;
+    const pressure_mb = Math.round(basePressure + pressureVariation + (i % 3));
     return {
       time,
       temp_c: Math.round(hourTemp),
       condition: { text: condForHour.text, emoji: condForHour.emoji },
       chance_of_rain: Math.max(0, (chance + (h % 5) * 4) % 100),
+      pressure_mb,
     };
   });
 }
@@ -301,11 +309,16 @@ export default function WeatherGrid() {
                       : typeof h.pop !== "undefined"
                         ? Math.round(Number(h.pop))
                         : undefined;
+                  const pressure_mb =
+                    typeof h.pressure_mb !== "undefined"
+                      ? Math.round(Number(h.pressure_mb))
+                      : undefined;
                   return {
                     time,
                     temp_c,
                     condition: { text: condText, icon: condIcon },
                     chance_of_rain,
+                    pressure_mb,
                   } as HourEntry;
                 });
               } else {
@@ -711,6 +724,14 @@ function CityCard({ data }: { data: CityForecast }) {
               {selectedDay.day.api_maxtemp_c ?? "—"}°C
             </div>
           ) : null}
+
+          <TemperatureChart hourlyData={selectedDay.hour} date={selectedDay.date} />
+          <RainChanceChart hourlyData={selectedDay.hour} date={selectedDay.date} />
+          <PressureChart
+            hourlyData={selectedDay.hour}
+            date={selectedDay.date}
+            dayPressure={selectedDay.day.pressure_mb}
+          />
         </div>
       )}
     </article>
