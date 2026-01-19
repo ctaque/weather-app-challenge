@@ -67,6 +67,43 @@ body{
   gap: 1rem; /* vertical spacing between each .multi-item-vertical */
 }
 
+/* Location buttons list (new) */
+.location-list{
+  display:flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+  align-items: center;
+  white-space: nowrap;
+}
+.location-button{
+  display:inline-flex;
+  flex-direction:column;
+  gap:2px;
+  align-items:flex-start;
+  justify-content:center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.06);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  min-width: 110px;
+  box-shadow: 0 2px 6px var(--card-shadow);
+  transition: transform 120ms ease, box-shadow 120ms ease, background 160ms ease;
+}
+.location-button .loc-name { font-weight:600; }
+.location-button .loc-country { font-size: 0.75rem; color: var(--muted); }
+
+/* active location */
+.location-button.active{
+  background: linear-gradient(180deg, var(--accent), var(--accent-600));
+  color: #fff;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(37,99,235,0.16);
+}
+
 /* App header */
 .app-header{
   display:flex;
@@ -534,6 +571,10 @@ body{
     order: 2;
     background: transparent;
   }
+
+  /* location buttons stack better on tiny screens */
+  .location-list { gap: 0.4rem; padding: 0.15rem; }
+  .location-button { min-width: 90px; padding: 8px 10px; border-radius: 8px; }
 }
 
 /* Medium screens: keep form inline but adapt sizes */
@@ -555,7 +596,10 @@ body{
   .search-form input:focus,
   .search-form select:focus,
   .theme-toggle:focus,
-  .search-form button:focus {
+  .search-form button:focus,
+  .location-button:focus,
+  .forecast-item-horizontal:focus,
+  .hour-item:focus {
     outline: none;
     box-shadow: 0 0 0 4px rgba(37,99,235,0.08);
   }

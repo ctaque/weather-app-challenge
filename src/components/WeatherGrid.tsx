@@ -63,7 +63,7 @@ function makeForecastForCity(cityIndex: number, cityName: string, lat: number, l
 
     // hourly: 24 entries for the day
     const hour = Array.from({ length: 24 }).map((__, h) => {
-      const hourTemp = Math.round(((maxtemp_c + mintemp_c) / 2) + Math.sin(h / 24 * Math.PI * 2) * 3 + (cityIndex % 3))
+      const hourTemp = Math.round(((maxtemp_c + mintemp_c) / 2) + Math.sin((h / 24) * Math.PI * 2) * 3 + (cityIndex % 3))
       const time = `${dateStr} ${String(h).padStart(2, '0')}:00`
       const condIdx = (h + i + cityIndex) % 3
       const condForHour = [
@@ -75,7 +75,7 @@ function makeForecastForCity(cityIndex: number, cityName: string, lat: number, l
         time,
         temp_c: hourTemp,
         condition: { text: condForHour.text, emoji: condForHour.emoji },
-        chance_of_rain: Math.max(0, (chance + (h % 5 * 4)) % 100)
+        chance_of_rain: Math.max(0, (chance + (h % 5) * 4) % 100)
       }
     })
 
@@ -110,6 +110,7 @@ function makeForecastForCity(cityIndex: number, cityName: string, lat: number, l
   }
 }
 
+// Coordonnées / villes (exemple)
 const CITY_INFO: Array<{ name: string; lat: number; lon: number }> = [
   { name: 'Nantes', lat: 47.218371, lon: -1.553621 },
   { name: 'Mesquer', lat: 47.3333, lon: -2.4167 },
@@ -126,22 +127,55 @@ function PinIcon({ className }: { className?: string }) {
   )
 }
 
+/*
+  New behavior:
+  - show a horizontal list of location buttons at the top (.location-list)
+  - selecting a location shows only that city's card (with day forecast + hourly strip)
+*/
+
 export default function WeatherGrid() {
   const dataList: CityForecast[] = CITY_INFO.map((c, idx) => makeForecastForCity(idx, c.name, c.lat, c.lon))
+  const [selectedCityIndex, setSelectedCityIndex] = useState<number>(0)
+
+  function onKeySelect(e: React.KeyboardEvent, idx: number) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      setSelectedCityIndex(idx)
+    }
+  }
 
   return (
     <section>
-      <h2>Pr��visions (données en dur)</h2>
-      <div className="multi-grid-vertical">
-        {dataList.map((data) => (
-          <CityCard key={data.location.name} data={data} />
+      <h2>Prévisions (données en dur)</h2>
+
+      {/* Location buttons */}
+      <div className="location-list" role="tablist" aria-label="Choisir une localisation">
+        {dataList.map((d, idx) => (
+          <button
+            key={d.location.name}
+            role="tab"
+            aria-selected={idx === selectedCityIndex}
+            tabIndex={0}
+            className={`location-button ${idx === selectedCityIndex ? 'active' : ''}`}
+            onClick={() => setSelectedCityIndex(idx)}
+            onKeyDown={(e) => onKeySelect(e, idx)}
+            title={`Afficher les prévisions pour ${d.location.name}`}
+          >
+            <span className="loc-name">{d.location.name}</span>
+            <span className="loc-country muted small">{d.location.country}</span>
+          </button>
         ))}
+      </div>
+
+      {/* Single selected city card */}
+      <div style={{ marginTop: 12 }}>
+        <CityCard data={dataList[selectedCityIndex]} />
       </div>
     </section>
   )
 }
 
-/* Sub-component for each city card so each card keeps its own selected day state */
+/* Sub-component for the chosen city (same behavior as before) */
 function CityCard({ data }: { data: CityForecast }) {
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0)
   const forecastDays = data.forecast.forecastday
@@ -184,7 +218,7 @@ function CityCard({ data }: { data: CityForecast }) {
         </div>
       </header>
 
-      {/* 10-day forecast (horizontal) - clickable items that select the day */}
+      {/* 10-day forecast (horizontal) - clicking selects the day */}
       <div className="forecast" style={{ marginTop: '0.75rem' }}>
         <h4 style={{ marginTop: '0.75rem', marginBottom: '0.5rem' }}>10 jours (cliquez pour sélectionner)</h4>
         <div className="forecast-list-horizontal" role="list" aria-label={`Prévisions 10 jours ${data.location.name}`}>
@@ -211,7 +245,7 @@ function CityCard({ data }: { data: CityForecast }) {
         </div>
       </div>
 
-      {/* Hourly strip for selected day (shown under the day forecast) */}
+      {/* Hourly strip for selected day */}
       {selectedDay && selectedDay.hour && (
         <div style={{ marginTop: 12 }}>
           <h4 style={{ marginTop: 8 }}>Prévisions horaires — {formatDate(selectedDay.date)}</h4>
