@@ -135,6 +135,8 @@ export default function App() {
   return (
     <LanguageContext.Provider value={{ lang, t }}>
       <ThemeContext.Provider value={theme}>
+        <div className="wallpaper-background" data-theme={theme} />
+        <div className="welcome-gradient-background" />
         <div className="container">
           <header className="app-header">
             <h1>{t.appTitle}</h1>
