@@ -112,4 +112,12 @@ export const en: Translations = {
   knots: "knots",
   mph: "mph",
   fahrenheit: "°F",
+
+  // Weather Summary (AI)
+  aiSummary: "AI Summary",
+  viewAiSummary: "View AI Summary",
+  generatingSummary: "Generating summary...",
+  errorGeneratingSummary: "Error generating summary",
+  noSummaryAvailable: "No summary available",
+  rateLimitExceeded: "Rate limit exceeded. Please try again in a few minutes.",
 };

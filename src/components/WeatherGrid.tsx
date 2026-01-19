@@ -6,6 +6,7 @@ import PressureChart from "./PressureChart";
 import RainChanceChart from "./RainChanceChart";
 import WindSpeedChart from "./WindSpeedChart";
 import WindDirectionChart from "./WindDirectionChart";
+import WeatherSummary from "./WeatherSummary";
 import { ThemeContext, LanguageContext, UnitContext } from "../App";
 
 type Condition = { text: string; emoji?: string; icon?: string };
@@ -972,6 +973,13 @@ const CityCard = React.forwardRef<
               hoveredHourData={hoveredHourData}
             />
           </div>
+
+          <WeatherSummary
+            location={data.location.name}
+            date={selectedDay.date}
+            day={selectedDay.day}
+            hour={selectedDay.hour}
+          />
 
           <div
             style={{ marginTop: "1.5rem", width: "100%", aspectRatio: "3 / 1" }}

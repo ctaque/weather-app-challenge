@@ -110,6 +110,14 @@ export const fr = {
   knots: "nœuds",
   mph: "mph",
   fahrenheit: "°F",
+
+  // Weather Summary (AI)
+  aiSummary: "Résumé IA",
+  viewAiSummary: "Voir le résumé IA",
+  generatingSummary: "Génération du résumé...",
+  errorGeneratingSummary: "Erreur lors de la génération",
+  noSummaryAvailable: "Aucun résumé disponible",
+  rateLimitExceeded: "Limite de requêtes atteinte. Veuillez réessayer dans quelques minutes.",
 };
 
 export type Translations = typeof fr;
