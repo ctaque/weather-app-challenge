@@ -23,6 +23,12 @@ type CityForecast = {
         daily_chance_of_rain: number
         pressure_mb: number
       }
+      hour: Array<{
+        time: string
+        temp_c: number
+        condition: { text: string; emoji?: string }
+        chance_of_rain?: number
+      }>
     }>
   }
 }
@@ -48,12 +54,30 @@ function makeForecastForCity(cityIndex: number, cityName: string, lat: number, l
     const cond = [
       ['Ensoleillé', '☀️'],
       ['Partiellement nuageux', '⛅'],
-      ['Pluvieux', '🌧️']
+      ['Pluvieux', '���️']
     ][i % 3]
     const date = addDays(today, i)
     const dateStr = date.toISOString().slice(0, 10)
 
     const pressure_mb = basePressure + (i % 5) - Math.floor(cityIndex / 2)
+
+    // hourly: 24 entries for the day
+    const hour = Array.from({ length: 24 }).map((__, h) => {
+      const hourTemp = Math.round(((maxtemp_c + mintemp_c) / 2) + Math.sin(h / 24 * Math.PI * 2) * 3 + (cityIndex % 3))
+      const time = `${dateStr} ${String(h).padStart(2, '0')}:00`
+      const condIdx = (h + i + cityIndex) % 3
+      const condForHour = [
+        { text: 'Ensoleillé', emoji: '☀️' },
+        { text: 'Nuageux', emoji: '⛅' },
+        { text: 'Pluie légère', emoji: '🌧️' }
+      ][condIdx]
+      return {
+        time,
+        temp_c: hourTemp,
+        condition: { text: condForHour.text, emoji: condForHour.emoji },
+        chance_of_rain: Math.max(0, (chance + (h % 5 * 4)) % 100)
+      }
+    })
 
     return {
       date: dateStr,
@@ -63,7 +87,8 @@ function makeForecastForCity(cityIndex: number, cityName: string, lat: number, l
         condition: { text: cond[0], emoji: cond[1] },
         daily_chance_of_rain: chance,
         pressure_mb
-      }
+      },
+      hour
     }
   })
 
@@ -85,6 +110,7 @@ function makeForecastForCity(cityIndex: number, cityName: string, lat: number, l
   }
 }
 
+// Coordonnées approximatives (Loire-Atlantique / Bretagne)
 const CITY_INFO: Array<{ name: string; lat: number; lon: number }> = [
   { name: 'Nantes', lat: 47.218371, lon: -1.553621 },
   { name: 'Mesquer', lat: 47.3333, lon: -2.4167 },
@@ -139,8 +165,25 @@ export default function WeatherGrid() {
               </div>
             </header>
 
-            {/* Forecast: horizontal scroll */}
-            <div className="forecast">
+            {/* Hourly strip for current day */}
+            {data.forecast.forecastday[0]?.hour && (
+              <div style={{ marginTop: 12 }}>
+                <h4 style={{ marginTop: 0 }}>Aujourd'hui — Prévisions horaires</h4>
+                <div className="hour-list-horizontal">
+                  {data.forecast.forecastday[0].hour.map((h) => (
+                    <div className="hour-item" key={h.time}>
+                      <div className="hour-time">{h.time.slice(11)}</div>
+                      <div style={{ fontSize: 18 }}>{h.condition.emoji ?? h.condition.text?.[0]}</div>
+                      <div style={{ fontWeight: 700 }}>{h.temp_c}°C</div>
+                      <div className="muted small">{h.condition.text}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Forecast: horizontal scroll of days */}
+            <div className="forecast" style={{ marginTop: '0.75rem' }}>
               <h4 style={{ marginTop: '0.75rem', marginBottom: '0.5rem' }}>10 jours</h4>
               <div className="forecast-list-horizontal">
                 {data.forecast.forecastday.map((day) => (

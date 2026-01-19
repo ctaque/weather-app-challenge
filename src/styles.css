@@ -302,6 +302,60 @@ body{
   border-radius: 999px;
 }
 
+/* Hourly list (horizontal) — réutilise la logique des forecast */
+.hour-list-horizontal {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  white-space: nowrap;
+  align-items: center;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+  margin-top: 8px;
+}
+
+/* Each hour item */
+.hour-item {
+  flex: 0 0 88px;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  padding: 8px;
+  border-radius: 8px;
+  text-align: center;
+  scroll-snap-align: start;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  min-height: 96px;
+}
+
+.hour-item .hour-time {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+/* Slightly larger hour items on medium screens */
+@media (min-width: 520px) {
+  .hour-item { flex: 0 0 100px; padding: 10px; min-height: 104px; }
+}
+
+/* Larger on wide screens */
+@media (min-width: 1000px) {
+  .hour-item { flex: 0 0 110px; padding: 12px; min-height: 112px; }
+}
+
+/* Ensure focus outlines are visible */
+.hour-item:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(37,99,235,0.08);
+  border-radius: 8px;
+}
+
 /* Adjust card sizes for medium devices */
 @media (min-width: 520px) {
   .forecast-item-horizontal {
