@@ -774,6 +774,7 @@ const CityCard = React.forwardRef<
                       ? {
                           backgroundColor: "var(--accent)",
                           color: "#ffffff",
+                          border: "2px solid var(--selection-border)",
                         }
                       : undefined
                   }
