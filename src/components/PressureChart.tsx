@@ -8,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  ReferenceLine,
 } from "recharts";
 
 type HourEntry = {
@@ -33,6 +34,14 @@ export default function PressureChart({
   date,
   dayPressure,
 }: PressureChartProps) {
+  // Get current date and time
+  const now = new Date();
+  const todayDateStr = now.toISOString().slice(0, 10); // "YYYY-MM-DD"
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:00`;
+
+  // Check if we're viewing today's forecast
+  const isToday = date === todayDateStr;
+
   // Transform the data for Recharts
   const chartData = hourlyData.map((entry) => ({
     hour: entry.time.slice(11, 16),
@@ -94,6 +103,16 @@ export default function PressureChart({
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend />
+          {isToday && (
+            <ReferenceLine
+              x={currentTime}
+              stroke="#ef4444"
+              strokeWidth={2}
+              strokeDasharray="3 3"
+              label={{ value: "Maintenant", position: "top", fill: "#ef4444", fontSize: 12 }}
+              isFront={true}
+            />
+          )}
           <Line
             type="monotone"
             dataKey="pressure"
