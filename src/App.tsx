@@ -202,6 +202,7 @@ export default function App() {
           </div>
         </header>
         <div className="container">
+          <h2 style={{ marginTop: 0 }}>{t.forecastByCity}</h2>
           <form onSubmit={search} className="search-form">
             <input
               value={query}

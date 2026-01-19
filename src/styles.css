@@ -295,6 +295,7 @@ textarea {
   background: var(--card);
   box-shadow: 0 6px 18px var(--card-shadow);
   border: 1px solid rgba(0, 0, 0, 0.04);
+  margin-bottom: 1rem;
 }
 
 /* Input */
@@ -556,6 +557,7 @@ textarea {
 /* Scrollbar styling (desktop) */
 .forecast-list-horizontal::-webkit-scrollbar {
   height: 8px;
+  display: none;
 }
 .forecast-list-horizontal::-webkit-scrollbar-thumb {
   background: rgba(17, 24, 39, 0.12);
