@@ -390,6 +390,12 @@ input, select, button, textarea{
   padding-left: 0.25rem;
   padding-right: 0.25rem;
   margin-top: 8px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.hour-list-horizontal::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 /* Each hour item */

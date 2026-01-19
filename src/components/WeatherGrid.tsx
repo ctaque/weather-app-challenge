@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { format, addDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import TemperatureChart from "./TemperatureChart";
 import PressureChart from "./PressureChart";
 import RainChanceChart from "./RainChanceChart";
+import { ThemeContext } from "../App";
 
 type Condition = { text: string; emoji?: string; icon?: string };
 
@@ -256,6 +257,7 @@ export default function WeatherGrid() {
   const [selectedCityIndex, setSelectedCityIndex] = useState<number>(0);
   const [loadingCityIndex, setLoadingCityIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const cityCardRef = useRef<{ goToNow: () => void }>(null);
 
   // When selected city changes, fetch weather from /api/weather?q=lat,lon&days=10 and merge
   useEffect(() => {
@@ -482,37 +484,49 @@ export default function WeatherGrid() {
     <section>
       <h2>Prévisions par ville</h2>
 
-      <div
-        className="location-list"
-        role="tablist"
-        aria-label="Choisir une localisation"
-      >
-        {dataList.map((d, idx) => (
-          <button
-            key={d.location.name}
-            role="tab"
-            aria-selected={idx === selectedCityIndex}
-            tabIndex={0}
-            className={`location-button ${idx === selectedCityIndex ? "active" : ""}`}
-            onClick={() => setSelectedCityIndex(idx)}
-            onKeyDown={(e) => onKeySelect(e, idx)}
-            title={`Afficher les prévisions pour ${d.location.name}`}
-          >
-            <span className="loc-name">{d.location.name}</span>
-            <span className="loc-country muted small">
-              {d.location.country}
-            </span>
-            {loadingCityIndex === idx && (
-              <span className="small muted" style={{ marginTop: 4 }}>
-                Chargement…
+      <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
+        <div
+          className="location-list"
+          role="tablist"
+          aria-label="Choisir une localisation"
+          style={{ flex: 1 }}
+        >
+          {dataList.map((d, idx) => (
+            <button
+              key={d.location.name}
+              role="tab"
+              aria-selected={idx === selectedCityIndex}
+              tabIndex={0}
+              className={`location-button ${idx === selectedCityIndex ? "active" : ""}`}
+              onClick={() => setSelectedCityIndex(idx)}
+              onKeyDown={(e) => onKeySelect(e, idx)}
+              title={`Afficher les prévisions pour ${d.location.name}`}
+            >
+              <span className="loc-name">{d.location.name}</span>
+              <span className="loc-country muted small">
+                {d.location.country}
               </span>
-            )}
-          </button>
-        ))}
+              {loadingCityIndex === idx && (
+                <span className="small muted" style={{ marginTop: 4 }}>
+                  Chargement…
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <button
+          className="location-button"
+          onClick={() => cityCardRef.current?.goToNow()}
+          title="Aller à l'heure actuelle"
+          style={{ padding: "0.75rem 1.5rem", whiteSpace: "nowrap" }}
+        >
+          Maintenant
+        </button>
       </div>
 
       <div style={{ marginTop: 12 }}>
-        <CityCard data={dataList[selectedCityIndex]} />
+        <CityCard ref={cityCardRef} data={dataList[selectedCityIndex]} />
         {error && (
           <div className="error" role="alert" style={{ marginTop: 8 }}>
             {error}
@@ -524,17 +538,42 @@ export default function WeatherGrid() {
 }
 
 /* ---------- City card (display logic) ---------- */
-function CityCard({ data }: { data: CityForecast }) {
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
-  const forecastDays = data.forecast.forecastday;
-  const selectedDay = forecastDays[selectedDayIndex];
+const CityCard = React.forwardRef<{ goToNow: () => void }, { data: CityForecast }>(
+  ({ data }, ref) => {
+    const theme = useContext(ThemeContext);
+    const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
+    const [highlightCurrentHour, setHighlightCurrentHour] = useState<boolean>(false);
+    const forecastDays = data.forecast.forecastday;
+    const selectedDay = forecastDays[selectedDayIndex];
+    const hourListRef = useRef<HTMLDivElement>(null);
 
-  function onKeySelect(e: React.KeyboardEvent, idx: number) {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      setSelectedDayIndex(idx);
+    React.useImperativeHandle(ref, () => ({
+      goToNow: () => {
+        // Select today (index 0)
+        setSelectedDayIndex(0);
+        setHighlightCurrentHour(true);
+
+        // After a short delay to allow the day selection to render, scroll to current hour
+        setTimeout(() => {
+          const now = new Date();
+          const currentHour = String(now.getHours()).padStart(2, '0');
+          const hourElement = hourListRef.current?.querySelector(
+            `[data-hour="${currentHour}:00"]`
+          );
+          if (hourElement) {
+            hourElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        }, 100);
+      },
+    }));
+
+    function onKeySelect(e: React.KeyboardEvent, idx: number) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        setSelectedDayIndex(idx);
+        setHighlightCurrentHour(false); // Reset highlight when manually selecting a day
+      }
     }
-  }
 
   const computedDayMinMax = selectedDay
     ? computeDayMinMaxFromHours(selectedDay.hour)
@@ -661,20 +700,35 @@ function CityCard({ data }: { data: CityForecast }) {
             Prévisions horaires — {formatDate(selectedDay.date)}
           </h4>
           <div
+            ref={hourListRef}
             className="hour-list-horizontal"
             role="list"
             aria-label={`Heures ${data.location.name} ${selectedDay.date}`}
           >
             {selectedDay.hour.map((h) => {
               const iconUrl = resolveIconUrl(h.condition.icon);
+              const hourTime = h.time.slice(11, 16); // Extract HH:MM
+
+              // Check if this is the current hour and we should highlight it
+              const now = new Date();
+              const currentHour = `${String(now.getHours()).padStart(2, '0')}:00`;
+              const isCurrentHour = highlightCurrentHour && selectedDayIndex === 0 && hourTime === currentHour;
+
               return (
                 <div
                   className="hour-item"
                   key={h.time}
                   role="listitem"
                   tabIndex={0}
+                  data-hour={hourTime}
+                  style={isCurrentHour ? {
+                    backgroundColor: 'var(--accent)',
+                    color: '#ffffff'
+                  } : undefined}
                 >
-                  <div className="hour-time">{h.time.slice(11)}</div>
+                  <div className="hour-time" style={isCurrentHour ? { color: '#ffffff' } : undefined}>
+                    {hourTime}
+                  </div>
                   {iconUrl ? (
                     <img
                       src={iconUrl}
@@ -687,11 +741,13 @@ function CityCard({ data }: { data: CityForecast }) {
                       {h.condition.emoji ?? h.condition.text?.[0]}
                     </div>
                   )}
-                  <div style={{ fontWeight: 700 }}>
+                  <div style={{ fontWeight: 700, ...(isCurrentHour && { color: '#ffffff' }) }}>
                     {Math.round(h.temp_c)}°C
                   </div>
-                  <div className="muted small">{h.condition.text}</div>
-                  <div className="muted small">
+                  <div className="muted small" style={isCurrentHour ? { color: '#ffffff' } : undefined}>
+                    {h.condition.text}
+                  </div>
+                  <div className="muted small" style={isCurrentHour ? { color: '#ffffff' } : undefined}>
                     Pluie: {h.chance_of_rain ?? "-"}%
                   </div>
                 </div>
@@ -729,11 +785,20 @@ function CityCard({ data }: { data: CityForecast }) {
               src={`https://maps.google.com/maps?q=${data.location.lat},${data.location.lon}&z=12&output=embed`}
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
-              style={{ width: "100%", height: "100%", border: "0", borderRadius: "8px" }}
+              style={{
+                width: "100%",
+                height: "100%",
+                border: "0",
+                borderRadius: "8px",
+                filter: theme === 'dark' ? "invert(90%) hue-rotate(180deg) saturate(1.2) brightness(0.9)" : "hue-rotate(100deg) saturate(1.1)"
+              }}
             />
           </div>
         </div>
       )}
     </article>
-  );
-}
+    );
+  }
+);
+
+CityCard.displayName = "CityCard";

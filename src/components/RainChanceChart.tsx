@@ -103,10 +103,10 @@ export default function RainChanceChart({
           {isToday && (
             <ReferenceLine
               x={currentTime}
-              stroke="#ef4444"
-              strokeWidth={2}
+              stroke="var(--accent)"
+              strokeWidth={4}
               strokeDasharray="3 3"
-              label={{ value: "Maintenant", position: "top", fill: "#ef4444", fontSize: 12 }}
+              label={{ value: "Maintenant", position: "top", fill: "var(--accent)", fontSize: 12 }}
               isFront={true}
             />
           )}

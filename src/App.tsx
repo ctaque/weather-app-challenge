@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, createContext } from 'react'
 import WeatherDisplay from './components/Weather'
 import WeatherGrid from './components/WeatherGrid'
 
 type WeatherData = any
+
+export const ThemeContext = createContext<'light' | 'dark'>('light')
 
 function SunIcon(props: { className?: string }) {
   return (
@@ -154,7 +156,9 @@ export default function App() {
       {data && <WeatherDisplay data={data} />}
 
       {/* Composant avec données en dur pour les 5 villes */}
-      <WeatherGrid />
+      <ThemeContext.Provider value={theme}>
+        <WeatherGrid />
+      </ThemeContext.Provider>
     </div>
   )
 }
