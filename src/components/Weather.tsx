@@ -110,8 +110,8 @@ export default function Weather({ data }: Props) {
                   </div>
                 )}
                 <div style={{ fontWeight: 600 }}>{day.day.condition.text}</div>
-                <div>Max: {day.day.maxtemp_c}°C</div>
-                <div>Min: {day.day.mintemp_c}°C</div>
+                <div>Max: {Math.round(day.day.maxtemp_c)}°C</div>
+                <div>Min: {Math.round(day.day.mintemp_c)}°C</div>
                 <div style={{ color: "var(--muted)", fontSize: 12 }}>
                   Pluie: {day.day.daily_chance_of_rain}%
                 </div>
