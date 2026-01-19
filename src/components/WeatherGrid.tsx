@@ -4,6 +4,8 @@ import { fr as frLocale, enUS as enLocale } from "date-fns/locale";
 import TemperatureChart from "./TemperatureChart";
 import PressureChart from "./PressureChart";
 import RainChanceChart from "./RainChanceChart";
+import WindSpeedChart from "./WindSpeedChart";
+import WindDirectionChart from "./WindDirectionChart";
 import { ThemeContext, LanguageContext } from "../App";
 
 type Condition = { text: string; emoji?: string; icon?: string };
@@ -14,6 +16,10 @@ type HourEntry = {
   condition: Condition;
   chance_of_rain?: number;
   pressure_mb?: number;
+  wind_kph?: number;
+  wind_mph?: number;
+  wind_degree?: number;
+  wind_dir?: string;
 };
 
 type ForecastDay = {
@@ -98,12 +104,29 @@ function generateHoursForDay(
     const basePressure = 1010 + cityIndex * 2;
     const pressureVariation = Math.sin(((h - 12) / 24) * Math.PI * 2) * 3;
     const pressure_mb = Math.round(basePressure + pressureVariation + (i % 3));
+    // Wind data (synthetic)
+    const baseWindSpeed = 10 + (cityIndex % 5) * 3;
+    const windVariation = Math.sin(((h - 8) / 24) * Math.PI * 2) * 5;
+    const wind_kph = Math.round(
+      Math.max(0, baseWindSpeed + windVariation + (i % 4)),
+    );
+    const wind_degree = (h * 15 + cityIndex * 30 + i * 10) % 360;
+    const directions = [
+      "N", "NNE", "NE", "ENE",
+      "E", "ESE", "SE", "SSE",
+      "S", "SSW", "SW", "WSW",
+      "W", "WNW", "NW", "NNW"
+    ];
+    const wind_dir = directions[Math.round((wind_degree / 22.5) % 16)];
     return {
       time,
       temp_c: Math.round(hourTemp),
       condition: { text: condForHour.text, emoji: condForHour.emoji },
       chance_of_rain: Math.max(0, (chance + (h % 5) * 4) % 100),
       pressure_mb,
+      wind_kph,
+      wind_degree,
+      wind_dir,
     };
   });
 }
@@ -347,12 +370,29 @@ export default function WeatherGrid() {
                     typeof h.pressure_mb !== "undefined"
                       ? Math.round(Number(h.pressure_mb))
                       : undefined;
+                  const wind_kph =
+                    typeof h.wind_kph !== "undefined"
+                      ? Math.round(Number(h.wind_kph))
+                      : undefined;
+                  const wind_mph =
+                    typeof h.wind_mph !== "undefined"
+                      ? Math.round(Number(h.wind_mph))
+                      : undefined;
+                  const wind_degree =
+                    typeof h.wind_degree !== "undefined"
+                      ? Number(h.wind_degree)
+                      : undefined;
+                  const wind_dir = h.wind_dir ?? undefined;
                   return {
                     time,
                     temp_c,
                     condition: { text: condText, icon: condIcon },
                     chance_of_rain,
                     pressure_mb,
+                    wind_kph,
+                    wind_mph,
+                    wind_degree,
+                    wind_dir,
                   } as HourEntry;
                 });
               } else {
@@ -614,6 +654,9 @@ const CityCard = React.forwardRef<
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [highlightCurrentHour, setHighlightCurrentHour] =
     useState<boolean>(false);
+  const [hoveredHourData, setHoveredHourData] = useState<HourEntry | null>(
+    null,
+  );
   const forecastDays = data.forecast.forecastday;
   const selectedDay = forecastDays[selectedDayIndex];
   const hourListRef = useRef<HTMLDivElement>(null);
@@ -894,6 +937,18 @@ const CityCard = React.forwardRef<
             date={selectedDay.date}
             dayPressure={selectedDay.day.pressure_mb}
           />
+          <div style={{ display: "flex" }}>
+            <WindSpeedChart
+              hourlyData={selectedDay.hour}
+              date={selectedDay.date}
+              onHoverHour={setHoveredHourData}
+            />
+            <WindDirectionChart
+              hourlyData={selectedDay.hour}
+              date={selectedDay.date}
+              hoveredHourData={hoveredHourData}
+            />
+          </div>
 
           <div
             style={{ marginTop: "1.5rem", width: "100%", aspectRatio: "3 / 1" }}
