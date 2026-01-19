@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useContext } from "react";
 import {
   LineChart,
   Line,
@@ -10,6 +10,7 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
+import { LanguageContext } from "../App";
 
 type HourEntry = {
   time: string;
@@ -34,6 +35,8 @@ export default function PressureChart({
   date,
   dayPressure,
 }: PressureChartProps) {
+  const { t } = useContext(LanguageContext);
+
   // Get current date and time
   const now = new Date();
   const todayDateStr = now.toISOString().slice(0, 10); // "YYYY-MM-DD"
@@ -66,7 +69,7 @@ export default function PressureChart({
             {data.hour}
           </p>
           <p style={{ margin: "2px 0", color: "#2563eb" }}>
-            Pression: {data.pressure} mb
+            {t.pressure}: {data.pressure} mb
           </p>
         </div>
       );
@@ -77,7 +80,7 @@ export default function PressureChart({
   return (
     <div style={{ marginTop: "1.5rem" }}>
       <h4 style={{ marginBottom: "1rem" }}>
-        Graphique de la pression atmosphérique
+        {t.pressure}
       </h4>
       <ResponsiveContainer width="100%" height={300}>
         <LineChart
@@ -93,7 +96,7 @@ export default function PressureChart({
           />
           <YAxis
             label={{
-              value: "Pression (mb)",
+              value: `${t.pressure} (mb)`,
               angle: -90,
               position: "insideLeft",
             }}
@@ -109,7 +112,7 @@ export default function PressureChart({
               stroke="var(--accent)"
               strokeWidth={4}
               strokeDasharray="3 3"
-              label={{ value: "Maintenant", position: "top", fill: "var(--accent)", fontSize: 12 }}
+              label={{ value: t.now, position: "top", fill: "var(--accent)", fontSize: 12 }}
               isFront={true}
             />
           )}
@@ -120,7 +123,7 @@ export default function PressureChart({
             strokeWidth={2}
             dot={{ fill: "#2563eb", r: 4 }}
             activeDot={{ r: 6 }}
-            name="Pression (mb)"
+            name={`${t.pressure} (mb)`}
           />
         </LineChart>
       </ResponsiveContainer>

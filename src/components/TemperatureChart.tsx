@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useContext } from "react";
 import {
   LineChart,
   Line,
@@ -10,6 +10,7 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
+import { LanguageContext } from "../App";
 
 type HourEntry = {
   time: string; // "YYYY-MM-DD HH:MM"
@@ -31,6 +32,8 @@ export default function TemperatureChart({
   hourlyData,
   date,
 }: TemperatureChartProps) {
+  const { t } = useContext(LanguageContext);
+
   // Get current date and time
   const now = new Date();
   const todayDateStr = now.toISOString().slice(0, 10); // "YYYY-MM-DD"
@@ -65,13 +68,13 @@ export default function TemperatureChart({
             {data.hour}
           </p>
           <p style={{ margin: "2px 0", color: "#2563eb" }}>
-            Température: {data.temperature}°C
+            {t.temperature}: {data.temperature}°C
           </p>
           <p style={{ margin: "2px 0", fontSize: "12px", color: "#666" }}>
             {data.condition}
           </p>
           <p style={{ margin: "2px 0", fontSize: "12px", color: "#2563eb" }}>
-            Pluie: {data.rain}%
+            {t.rain}: {data.rain}%
           </p>
         </div>
       );
@@ -82,7 +85,7 @@ export default function TemperatureChart({
   return (
     <div style={{ marginTop: "1.5rem" }}>
       <h4 style={{ marginBottom: "1rem" }}>
-        Graphique des températures
+        {t.temperature}
       </h4>
       <ResponsiveContainer width="100%" height={300}>
         <LineChart
@@ -97,7 +100,7 @@ export default function TemperatureChart({
             stroke="#666"
           />
           <YAxis
-            label={{ value: "Température (°C)", angle: -90, position: "insideLeft" }}
+            label={{ value: `${t.temperature} (${t.degrees})`, angle: -90, position: "insideLeft" }}
             tick={{ fontSize: 12 }}
             stroke="#666"
           />
@@ -109,7 +112,7 @@ export default function TemperatureChart({
               stroke="var(--accent)"
               strokeWidth={4}
               strokeDasharray="3 3"
-              label={{ value: "Maintenant", position: "top", fill: "var(--accent)", fontSize: 12 }}
+              label={{ value: t.now, position: "top", fill: "var(--accent)", fontSize: 12 }}
               isFront={true}
             />
           )}
@@ -120,7 +123,7 @@ export default function TemperatureChart({
             strokeWidth={2}
             dot={{ fill: "#2563eb", r: 4 }}
             activeDot={{ r: 6 }}
-            name="Température (°C)"
+            name={`${t.temperature} (${t.degrees})`}
           />
         </LineChart>
       </ResponsiveContainer>

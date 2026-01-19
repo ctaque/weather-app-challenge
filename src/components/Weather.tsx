@@ -1,14 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { format, parseISO } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr as frLocale, enUS as enLocale } from "date-fns/locale";
+import { LanguageContext } from "../App";
 
 type Props = {
   data: any;
 };
 
-function formatDate(dateStr: string) {
+function formatDate(dateStr: string, locale: typeof frLocale | typeof enLocale) {
   try {
-    const formatted = format(new Date(dateStr), "EEEE d MMMM", { locale: fr });
+    const formatted = format(new Date(dateStr), "EEEE d MMMM", { locale });
     return formatted.charAt(0).toUpperCase() + formatted.slice(1);
   } catch {
     return dateStr;
@@ -29,6 +30,8 @@ function formatHour(timeStr: string) {
 export default function Weather({ data }: Props) {
   if (!data) return null;
 
+  const { lang, t } = useContext(LanguageContext);
+  const locale = lang === 'fr' ? frLocale : enLocale;
   const location = data.location;
   const current = data.current;
   const forecast = data.forecast;
@@ -62,11 +65,11 @@ export default function Weather({ data }: Props) {
               {current.temp_c}°C / {current.temp_f}°F
             </div>
             <div>{current.condition.text}</div>
-            <div>Humidité: {current.humidity}%</div>
-            <div>Vent: {current.wind_kph} kph</div>
+            <div>{t.humidity}: {current.humidity}%</div>
+            <div>{t.wind}: {current.wind_kph} kph</div>
             {typeof current.pressure_mb !== "undefined" ? (
               <div>
-                Pression: {current.pressure_mb} mb ({current.pressure_in ?? ""}{" "}
+                {t.pressure}: {current.pressure_mb} mb ({current.pressure_in ?? ""}{" "}
                 in)
               </div>
             ) : null}
@@ -78,13 +81,13 @@ export default function Weather({ data }: Props) {
       {days.length > 0 && (
         <div className="forecast" style={{ marginTop: "0.75rem" }}>
           <h3 style={{ marginTop: 0 }}>
-            Prévision (cliquez sur un jour pour voir les heures)
+            {t.forecast}
           </h3>
 
           <div
             className="forecast-list-horizontal"
             role="list"
-            aria-label={`Prévision journalière pour ${location.name}`}
+            aria-label={`${t.forecast} ${location.name}`}
           >
             {days.map((day: any, idx: number) => (
               <div
@@ -97,7 +100,7 @@ export default function Weather({ data }: Props) {
                 className={`forecast-item-horizontal ${idx === selectedDayIndex ? "active" : ""}`}
                 style={{ cursor: "pointer", userSelect: "none" }}
               >
-                <div className="date">{formatDate(day.date)}</div>
+                <div className="date">{formatDate(day.date, locale)}</div>
                 {day.day?.condition?.icon ? (
                   <img
                     src={day.day.condition.icon}
@@ -110,14 +113,14 @@ export default function Weather({ data }: Props) {
                   </div>
                 )}
                 <div style={{ fontWeight: 600 }}>{day.day.condition.text}</div>
-                <div>Max: {Math.round(day.day.maxtemp_c)}°C</div>
-                <div>Min: {Math.round(day.day.mintemp_c)}°C</div>
+                <div>{t.maxTemp}: {Math.round(day.day.maxtemp_c)}°C</div>
+                <div>{t.minTemp}: {Math.round(day.day.mintemp_c)}°C</div>
                 <div style={{ color: "var(--muted)", fontSize: 12 }}>
-                  Pluie: {day.day.daily_chance_of_rain}%
+                  {t.rain}: {day.day.daily_chance_of_rain}%
                 </div>
                 {day.day && typeof day.day.pressure_mb !== "undefined" ? (
                   <div style={{ color: "var(--muted)", fontSize: 12 }}>
-                    Pression: {day.day.pressure_mb} mb
+                    {t.pressure}: {day.day.pressure_mb} mb
                   </div>
                 ) : null}
               </div>
@@ -128,12 +131,12 @@ export default function Weather({ data }: Props) {
           {selectedDay && selectedDay.hour && (
             <div style={{ marginTop: 12 }}>
               <h4 style={{ marginBottom: 8 }}>
-                Prévisions horaires — {formatDate(selectedDay.date)}
+                {t.hourlyForecastFor} {formatDate(selectedDay.date, locale)}
               </h4>
               <div
                 className="hour-list-horizontal"
                 role="list"
-                aria-label={`Prévisions horaires ${selectedDay.date}`}
+                aria-label={`${t.hourlyForecast} ${selectedDay.date}`}
               >
                 {selectedDay.hour.map((h: any) => (
                   <div
@@ -161,7 +164,7 @@ export default function Weather({ data }: Props) {
                     </div>
                     <div className="muted small">{h.condition?.text}</div>
                     <div className="muted small">
-                      Pluie: {h.chance_of_rain ?? h.daily_chance_of_rain ?? "-"}
+                      {t.rain}: {h.chance_of_rain ?? h.daily_chance_of_rain ?? "-"}
                       %
                     </div>
                   </div>

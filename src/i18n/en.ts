@@ -1,0 +1,83 @@
+import type { Translations } from "./fr";
+
+export const en: Translations = {
+  // Header
+  appTitle: "Weather App",
+  themeDark: "Dark",
+  themeLight: "Light",
+  themeDarkAria: "Switch to light theme",
+  themeLightAria: "Switch to dark theme",
+
+  // Search form
+  searchPlaceholder: "City name or 'lat,lon' (e.g. London or 51.5,-0.12)",
+  searchButton: "Search",
+  loading: "Loading...",
+  useLocation: "Use my location",
+  errorPrefix: "Error: ",
+  geolocationNotSupported: "Geolocation not supported",
+
+  // Days
+  day: "day",
+  days: "days",
+
+  // Weather display
+  humidity: "Humidity",
+  wind: "Wind",
+  pressure: "Pressure",
+  currentPressure: "Current pressure",
+  forecast: "Forecast (click on a day to see hours)",
+  hourlyForecast: "Hourly forecast",
+  rain: "Rain",
+  maxTemp: "Max",
+  minTemp: "Min",
+  currentSituation: "Current situation",
+
+  // WeatherGrid
+  forecastByCity: "Forecast by city",
+  chooseLocation: "Choose a location",
+  showForecast: "Show forecast for",
+  now: "Now",
+  goToNow: "Go to current hour",
+  loadingInProgress: "Loading in progress",
+  fetchError: "Unable to fetch weather data",
+  tenDays: "10 days (click to select)",
+  hourlyForecastFor: "Hourly forecast —",
+  hoursFor: "Hours",
+  computedFromHours: "Temperatures from hours (recalculated): min",
+  apiValues: "API values: min",
+  map: "Map",
+
+  // Days of week
+  monday: "Monday",
+  tuesday: "Tuesday",
+  wednesday: "Wednesday",
+  thursday: "Thursday",
+  friday: "Friday",
+  saturday: "Saturday",
+  sunday: "Sunday",
+
+  // Months
+  january: "January",
+  february: "February",
+  march: "March",
+  april: "April",
+  may: "May",
+  june: "June",
+  july: "July",
+  august: "August",
+  september: "September",
+  october: "October",
+  november: "November",
+  december: "December",
+
+  // Charts
+  temperature: "Temperature",
+  rainChance: "Rain chance",
+  hour: "Hour",
+  degrees: "°C",
+  percent: "%",
+
+  // Language selector
+  language: "Language",
+  languageAria: "Change language",
+};

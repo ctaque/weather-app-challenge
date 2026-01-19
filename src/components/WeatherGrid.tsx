@@ -1,10 +1,10 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { format, addDays } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr as frLocale, enUS as enLocale } from "date-fns/locale";
 import TemperatureChart from "./TemperatureChart";
 import PressureChart from "./PressureChart";
 import RainChanceChart from "./RainChanceChart";
-import { ThemeContext } from "../App";
+import { ThemeContext, LanguageContext } from "../App";
 
 type Condition = { text: string; emoji?: string; icon?: string };
 
@@ -54,9 +54,9 @@ type CityForecast = {
   };
 };
 
-function formatDate(dateStr: string) {
+function formatDate(dateStr: string, locale: typeof frLocale | typeof enLocale) {
   try {
-    const formatted = format(new Date(dateStr), "EEEE d MMMM", { locale: fr });
+    const formatted = format(new Date(dateStr), "EEEE d MMMM", { locale });
     return formatted.charAt(0).toUpperCase() + formatted.slice(1);
   } catch {
     return dateStr;
@@ -268,6 +268,9 @@ function LoaderIcon() {
 
 /* ---------- Main component ---------- */
 export default function WeatherGrid() {
+  const { lang, t } = useContext(LanguageContext);
+  const locale = lang === 'fr' ? frLocale : enLocale;
+
   // initial synthetic data
   const initial = useMemo(
     () =>
@@ -503,13 +506,13 @@ export default function WeatherGrid() {
 
   return (
     <section>
-      <h2>Prévisions par ville</h2>
+      <h2>{t.forecastByCity}</h2>
 
       <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
         <div
           className="location-list"
           role="tablist"
-          aria-label="Choisir une localisation"
+          aria-label={t.chooseLocation}
           style={{ flex: 1 }}
         >
           {dataList.map((d, idx) => (
@@ -521,7 +524,7 @@ export default function WeatherGrid() {
               className={`location-button ${idx === selectedCityIndex ? "active" : ""}`}
               onClick={() => setSelectedCityIndex(idx)}
               onKeyDown={(e) => onKeySelect(e, idx)}
-              title={`Afficher les prévisions pour ${d.location.name}`}
+              title={`${t.showForecast} ${d.location.name}`}
             >
               <span className="loc-name">{d.location.name}</span>
               <span className="loc-country muted small">
@@ -538,7 +541,7 @@ export default function WeatherGrid() {
                 padding: "0.25rem",
               }}
               aria-live="polite"
-              aria-label="Chargement en cours"
+              aria-label={t.loadingInProgress}
             >
               <LoaderIcon />
             </div>
@@ -555,16 +558,16 @@ export default function WeatherGrid() {
           <button
             className="location-button"
             onClick={() => cityCardRef.current?.goToNow()}
-            title="Aller à l'heure actuelle"
+            title={t.goToNow}
             style={{ padding: "0.75rem 1.5rem", whiteSpace: "nowrap" }}
           >
-            Maintenant
+            {t.now}
           </button>
         </div>
       </div>
 
       <div style={{ marginTop: 12 }}>
-        <CityCard ref={cityCardRef} data={dataList[selectedCityIndex]} />
+        <CityCard ref={cityCardRef} data={dataList[selectedCityIndex]} locale={locale} />
         {error && (
           <div className="error" role="alert" style={{ marginTop: 8 }}>
             {error}
@@ -578,9 +581,10 @@ export default function WeatherGrid() {
 /* ---------- City card (display logic) ---------- */
 const CityCard = React.forwardRef<
   { goToNow: () => void },
-  { data: CityForecast }
->(({ data }, ref) => {
+  { data: CityForecast; locale: typeof frLocale | typeof enLocale }
+>(({ data, locale }, ref) => {
   const theme = useContext(ThemeContext);
+  const { t } = useContext(LanguageContext);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [highlightCurrentHour, setHighlightCurrentHour] =
     useState<boolean>(false);
@@ -654,10 +658,10 @@ const CityCard = React.forwardRef<
             </span>
           </h3>
           <div className="muted">
-            Situation actuelle: {data.current.condition_text}
+            {t.currentSituation}: {data.current.condition_text}
           </div>
           <div className="muted">
-            Pression actuelle: {data.current.pressure_mb} mb
+            {t.currentPressure}: {data.current.pressure_mb} mb
           </div>
         </div>
 
@@ -683,12 +687,12 @@ const CityCard = React.forwardRef<
 
       <div className="forecast" style={{ marginTop: "0.75rem" }}>
         <h4 style={{ marginTop: "0.75rem", marginBottom: "0.5rem" }}>
-          10 jours (cliquez pour sélectionner)
+          {t.tenDays}
         </h4>
         <div
           className="forecast-list-horizontal"
           role="list"
-          aria-label={`Prévisions 10 jours ${data.location.name}`}
+          aria-label={`${t.tenDays} ${data.location.name}`}
         >
           {forecastDays.map((day, idx) => {
             const dayIconUrl = resolveIconUrl(day.day.condition.icon);
@@ -707,7 +711,7 @@ const CityCard = React.forwardRef<
                 className={`forecast-item-horizontal ${idx === selectedDayIndex ? "active" : ""}`}
                 style={{ cursor: "pointer", userSelect: "none" }}
               >
-                <div className="date">{formatDate(day.date)}</div>
+                <div className="date">{formatDate(day.date, locale)}</div>
 
                 {dayIconUrl ? (
                   <img
@@ -724,14 +728,14 @@ const CityCard = React.forwardRef<
 
                 <div style={{ fontWeight: 600 }}>{day.day.condition.text}</div>
 
-                <div>Max: {Math.round(dayDisplayedMax ?? 0)}°C</div>
-                <div>Min: {Math.round(dayDisplayedMin ?? 0)}°C</div>
+                <div>{t.maxTemp}: {Math.round(dayDisplayedMax ?? 0)}°C</div>
+                <div>{t.minTemp}: {Math.round(dayDisplayedMin ?? 0)}°C</div>
 
                 <div className="muted small">
-                  Pluie: {day.day.daily_chance_of_rain}%
+                  {t.rain}: {day.day.daily_chance_of_rain}%
                 </div>
                 <div className="muted small">
-                  Pression: {day.day.pressure_mb} mb
+                  {t.pressure}: {day.day.pressure_mb} mb
                 </div>
               </div>
             );
@@ -742,13 +746,13 @@ const CityCard = React.forwardRef<
       {selectedDay && selectedDay.hour && (
         <div style={{ marginTop: 12 }}>
           <h4 style={{ marginTop: 8 }}>
-            Prévisions horaires — {formatDate(selectedDay.date)}
+            {t.hourlyForecastFor} {formatDate(selectedDay.date, locale)}
           </h4>
           <div
             ref={hourListRef}
             className="hour-list-horizontal"
             role="list"
-            aria-label={`Heures ${data.location.name} ${selectedDay.date}`}
+            aria-label={`${t.hoursFor} ${data.location.name} ${selectedDay.date}`}
           >
             {selectedDay.hour.map((h) => {
               const iconUrl = resolveIconUrl(h.condition.icon);
@@ -815,7 +819,7 @@ const CityCard = React.forwardRef<
                     className="muted small"
                     style={isCurrentHour ? { color: "#ffffff" } : undefined}
                   >
-                    Pluie: {h.chance_of_rain ?? "-"}%
+                    {t.rain}: {h.chance_of_rain ?? "-"}%
                   </div>
                 </div>
               );
@@ -824,8 +828,8 @@ const CityCard = React.forwardRef<
 
           {computedDayMinMax && (
             <div className="small muted" style={{ marginTop: 8 }}>
-              Températures issues des heures (recalculées) : min{" "}
-              {Math.round(computedDayMinMax.mintemp_c)}°C �� max{" "}
+              {t.computedFromHours}{" "}
+              {Math.round(computedDayMinMax.mintemp_c)}°C — {t.maxTemp}{" "}
               {Math.round(computedDayMinMax.maxtemp_c)}°C
             </div>
           )}
@@ -833,7 +837,7 @@ const CityCard = React.forwardRef<
           {selectedDay?.day?.api_mintemp_c !== undefined ||
           selectedDay?.day?.api_maxtemp_c !== undefined ? (
             <div className="small muted" style={{ marginTop: 6 }}>
-              Valeurs API : min {selectedDay.day.api_mintemp_c ?? "—"}°C — max{" "}
+              {t.apiValues} {selectedDay.day.api_mintemp_c ?? "—"}°C — {t.maxTemp}{" "}
               {selectedDay.day.api_maxtemp_c ?? "—"}°C
             </div>
           ) : null}
@@ -856,7 +860,7 @@ const CityCard = React.forwardRef<
             style={{ marginTop: "1.5rem", width: "100%", aspectRatio: "3 / 1" }}
           >
             <iframe
-              title={`Carte ${data.location.name}`}
+              title={`${t.map} ${data.location.name}`}
               src={`https://maps.google.com/maps?q=${data.location.lat},${data.location.lon}&z=12&output=embed`}
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"

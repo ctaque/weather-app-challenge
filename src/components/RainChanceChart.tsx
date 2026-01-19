@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useContext } from "react";
 import {
   BarChart,
   Bar,
@@ -10,6 +10,7 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
+import { LanguageContext } from "../App";
 
 type HourEntry = {
   time: string;
@@ -31,6 +32,8 @@ export default function RainChanceChart({
   hourlyData,
   date,
 }: RainChanceChartProps) {
+  const { t } = useContext(LanguageContext);
+
   // Get current date and time
   const now = new Date();
   const todayDateStr = now.toISOString().slice(0, 10); // "YYYY-MM-DD"
@@ -63,7 +66,7 @@ export default function RainChanceChart({
             {data.hour}
           </p>
           <p style={{ margin: "2px 0", color: "#2563eb" }}>
-            Risque de pluie: {data.rain}%
+            {t.rainChance}: {data.rain}%
           </p>
         </div>
       );
@@ -74,7 +77,7 @@ export default function RainChanceChart({
   return (
     <div style={{ marginTop: "1.5rem" }}>
       <h4 style={{ marginBottom: "1rem" }}>
-        Graphique du risque de pluie
+        {t.rainChance}
       </h4>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart
@@ -90,7 +93,7 @@ export default function RainChanceChart({
           />
           <YAxis
             label={{
-              value: "Risque de pluie (%)",
+              value: `${t.rainChance} (${t.percent})`,
               angle: -90,
               position: "insideLeft",
             }}
@@ -106,14 +109,14 @@ export default function RainChanceChart({
               stroke="var(--accent)"
               strokeWidth={4}
               strokeDasharray="3 3"
-              label={{ value: "Maintenant", position: "top", fill: "var(--accent)", fontSize: 12 }}
+              label={{ value: t.now, position: "top", fill: "var(--accent)", fontSize: 12 }}
               isFront={true}
             />
           )}
           <Bar
             dataKey="rain"
             fill="#2563eb"
-            name="Risque de pluie (%)"
+            name={`${t.rainChance} (${t.percent})`}
             radius={[4, 4, 0, 0]}
           />
         </BarChart>

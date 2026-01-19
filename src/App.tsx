@@ -1,10 +1,15 @@
 import React, { useEffect, useState, createContext } from 'react'
 import WeatherDisplay from './components/Weather'
 import WeatherGrid from './components/WeatherGrid'
+import { getTranslations, type Language, type Translations } from './i18n'
 
 type WeatherData = any
 
 export const ThemeContext = createContext<'light' | 'dark'>('light')
+export const LanguageContext = createContext<{ lang: Language; t: Translations }>({
+  lang: 'fr',
+  t: getTranslations('fr'),
+})
 
 function SunIcon(props: { className?: string }) {
   return (
@@ -32,6 +37,16 @@ function MoonIcon(props: { className?: string }) {
   )
 }
 
+function LanguageIcon(props: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={props.className}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  )
+}
+
 export default function App() {
   const [query, setQuery] = useState('Nantes')
   const [days, setDays] = useState(10)
@@ -41,6 +56,10 @@ export default function App() {
 
   // Theme: 'light' | 'dark'
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
+
+  // Language: 'fr' | 'en'
+  const [lang, setLang] = useState<Language>('fr')
+  const t = getTranslations(lang)
 
   // Initialize theme from localStorage or system preference
   useEffect(() => {
@@ -56,14 +75,36 @@ export default function App() {
     }
   }, [])
 
+  // Initialize language from localStorage or browser preference
+  useEffect(() => {
+    const saved = localStorage.getItem('language') as Language | null
+    if (saved === 'fr' || saved === 'en') {
+      setLang(saved)
+    } else {
+      const browserLang = navigator.language.toLowerCase()
+      const initial: Language = browserLang.startsWith('fr') ? 'fr' : 'en'
+      setLang(initial)
+    }
+  }, [])
+
   // Keep document attribute and localStorage in sync when theme changes
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('theme', theme)
   }, [theme])
 
+  // Keep localStorage in sync when language changes
+  useEffect(() => {
+    localStorage.setItem('language', lang)
+    document.documentElement.setAttribute('lang', lang)
+  }, [lang])
+
   function toggleTheme() {
     setTheme((t) => (t === 'light' ? 'dark' : 'light'))
+  }
+
+  function toggleLanguage() {
+    setLang((l) => (l === 'fr' ? 'en' : 'fr'))
   }
 
   async function fetchWeather(qParam?: string, daysParam?: number) {
@@ -92,73 +133,86 @@ export default function App() {
   }
 
   return (
-    <div className="container">
-      <header className="app-header">
-        <h1>Weather App</h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button
-            aria-pressed={theme === 'dark'}
-            onClick={toggleTheme}
-            className="theme-toggle"
-            title={theme === 'dark' ? 'Activer le thème clair' : 'Activer le thème sombre'}
-            aria-label={theme === 'dark' ? 'Activer le thème clair' : 'Activer le thème sombre'}
-          >
-            <span className="theme-icon" aria-hidden>
-              {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-            </span>
-            <span className="theme-label">{theme === 'dark' ? 'Jour' : 'Nuit'}</span>
-          </button>
-        </div>
-      </header>
-
-      <form onSubmit={search} className="search-form">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="City name or 'lat,lon' (e.g. London or 51.5,-0.12)"
-        />
-        <select value={days} onChange={(e) => setDays(Number(e.target.value))}>
-          <option value={1}>1 day</option>
-          <option value={3}>3 days</option>
-          <option value={7}>7 days</option>
-          <option value={10}>10 days</option>
-        </select>
-        <button type="submit" disabled={loading}>
-          {loading ? 'Loading...' : 'Search'}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (!navigator.geolocation) {
-              setError('Geolocation not supported')
-              return
-            }
-            setLoading(true)
-            navigator.geolocation.getCurrentPosition(
-              async (pos) => {
-                const q = `${pos.coords.latitude},${pos.coords.longitude}`
-                setQuery(q)
-                await fetchWeather(q)
-              },
-              (err) => {
-                setError(err.message)
-                setLoading(false)
-              }
-            )
-          }}
-        >
-          Use my location
-        </button>
-      </form>
-
-      {error && <div className="error">Error: {error}</div>}
-
-      {data && <WeatherDisplay data={data} />}
-
-      {/* Composant avec données en dur pour les 5 villes */}
+    <LanguageContext.Provider value={{ lang, t }}>
       <ThemeContext.Provider value={theme}>
-        <WeatherGrid />
+        <div className="container">
+          <header className="app-header">
+            <h1>{t.appTitle}</h1>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                onClick={toggleLanguage}
+                className="theme-toggle"
+                title={t.languageAria}
+                aria-label={t.languageAria}
+              >
+                <span className="theme-icon" aria-hidden>
+                  <LanguageIcon />
+                </span>
+                <span className="theme-label">{lang.toUpperCase()}</span>
+              </button>
+              <button
+                aria-pressed={theme === 'dark'}
+                onClick={toggleTheme}
+                className="theme-toggle"
+                title={theme === 'dark' ? t.themeDarkAria : t.themeLightAria}
+                aria-label={theme === 'dark' ? t.themeDarkAria : t.themeLightAria}
+              >
+                <span className="theme-icon" aria-hidden>
+                  {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+                </span>
+                <span className="theme-label">{theme === 'dark' ? t.themeDark : t.themeLight}</span>
+              </button>
+            </div>
+          </header>
+
+          <form onSubmit={search} className="search-form">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t.searchPlaceholder}
+            />
+            <select value={days} onChange={(e) => setDays(Number(e.target.value))}>
+              <option value={1}>1 {t.day}</option>
+              <option value={3}>3 {t.days}</option>
+              <option value={7}>7 {t.days}</option>
+              <option value={10}>10 {t.days}</option>
+            </select>
+            <button type="submit" disabled={loading}>
+              {loading ? t.loading : t.searchButton}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!navigator.geolocation) {
+                  setError(t.geolocationNotSupported)
+                  return
+                }
+                setLoading(true)
+                navigator.geolocation.getCurrentPosition(
+                  async (pos) => {
+                    const q = `${pos.coords.latitude},${pos.coords.longitude}`
+                    setQuery(q)
+                    await fetchWeather(q)
+                  },
+                  (err) => {
+                    setError(err.message)
+                    setLoading(false)
+                  }
+                )
+              }}
+            >
+              {t.useLocation}
+            </button>
+          </form>
+
+          {error && <div className="error">{t.errorPrefix}{error}</div>}
+
+          {data && <WeatherDisplay data={data} />}
+
+          {/* Composant avec données en dur pour les 5 villes */}
+          <WeatherGrid />
+        </div>
       </ThemeContext.Provider>
-    </div>
+    </LanguageContext.Provider>
   )
 }
