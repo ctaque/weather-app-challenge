@@ -54,7 +54,10 @@ type CityForecast = {
   };
 };
 
-function formatDate(dateStr: string, locale: typeof frLocale | typeof enLocale) {
+function formatDate(
+  dateStr: string,
+  locale: typeof frLocale | typeof enLocale,
+) {
   try {
     const formatted = format(new Date(dateStr), "EEEE d MMMM", { locale });
     return formatted.charAt(0).toUpperCase() + formatted.slice(1);
@@ -106,7 +109,7 @@ function generateHoursForDay(
 }
 
 /* ---------- Fetch & normalize /api/weather (WeatherAPI backend) ---------- */
-async function fetchWeatherApiFromServer(q: string, days = 10, lang = 'en') {
+async function fetchWeatherApiFromServer(q: string, days = 10, lang = "en") {
   const params = new URLSearchParams({
     q,
     days: String(days),
@@ -270,7 +273,7 @@ function LoaderIcon() {
 /* ---------- Main component ---------- */
 export default function WeatherGrid() {
   const { lang, t } = useContext(LanguageContext);
-  const locale = lang === 'fr' ? frLocale : enLocale;
+  const locale = lang === "fr" ? frLocale : enLocale;
 
   // initial synthetic data
   const initial = useMemo(
@@ -282,7 +285,11 @@ export default function WeatherGrid() {
   const [selectedCityIndex, setSelectedCityIndex] = useState<number>(0);
   const [loadingCityIndex, setLoadingCityIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const cityCardRef = useRef<{ goToNow: () => void }>(null);
+  const cityCardRef = useRef<{
+    goToNow: () => void;
+    goToDayPlus1: () => void;
+    goToDayPlus2: () => void;
+  }>(null);
 
   // When selected city changes, fetch weather from /api/weather?q=lat,lon&days=10 and merge
   useEffect(() => {
@@ -551,7 +558,7 @@ export default function WeatherGrid() {
         <div
           style={{
             display: "flex",
-            flexDirection: "column",
+            flexDirection: "row",
             gap: "0.5rem",
             alignItems: "center",
           }}
@@ -564,11 +571,31 @@ export default function WeatherGrid() {
           >
             {t.now}
           </button>
+          <button
+            className="location-button"
+            onClick={() => cityCardRef.current?.goToDayPlus1()}
+            title={t.goToDayPlus1}
+            style={{ padding: "0.75rem 1.5rem", whiteSpace: "nowrap" }}
+          >
+            {t.dayPlus1}
+          </button>
+          <button
+            className="location-button"
+            onClick={() => cityCardRef.current?.goToDayPlus2()}
+            title={t.goToDayPlus2}
+            style={{ padding: "0.75rem 1.5rem", whiteSpace: "nowrap" }}
+          >
+            {t.dayPlus2}
+          </button>
         </div>
       </div>
 
       <div style={{ marginTop: 12 }}>
-        <CityCard ref={cityCardRef} data={dataList[selectedCityIndex]} locale={locale} />
+        <CityCard
+          ref={cityCardRef}
+          data={dataList[selectedCityIndex]}
+          locale={locale}
+        />
         {error && (
           <div className="error" role="alert" style={{ marginTop: 8 }}>
             {error}
@@ -581,7 +608,7 @@ export default function WeatherGrid() {
 
 /* ---------- City card (display logic) ---------- */
 const CityCard = React.forwardRef<
-  { goToNow: () => void },
+  { goToNow: () => void; goToDayPlus1: () => void; goToDayPlus2: () => void },
   { data: CityForecast; locale: typeof frLocale | typeof enLocale }
 >(({ data, locale }, ref) => {
   const theme = useContext(ThemeContext);
@@ -614,6 +641,16 @@ const CityCard = React.forwardRef<
           });
         }
       }, 100);
+    },
+    goToDayPlus1: () => {
+      // Select tomorrow (index 1)
+      setSelectedDayIndex(1);
+      setHighlightCurrentHour(false);
+    },
+    goToDayPlus2: () => {
+      // Select day after tomorrow (index 2)
+      setSelectedDayIndex(2);
+      setHighlightCurrentHour(false);
     },
   }));
 
@@ -729,8 +766,12 @@ const CityCard = React.forwardRef<
 
                 <div style={{ fontWeight: 600 }}>{day.day.condition.text}</div>
 
-                <div>{t.maxTemp}: {Math.round(dayDisplayedMax ?? 0)}°C</div>
-                <div>{t.minTemp}: {Math.round(dayDisplayedMin ?? 0)}°C</div>
+                <div>
+                  {t.maxTemp}: {Math.round(dayDisplayedMax ?? 0)}°C
+                </div>
+                <div>
+                  {t.minTemp}: {Math.round(dayDisplayedMin ?? 0)}°C
+                </div>
 
                 <div className="muted small">
                   {t.rain}: {day.day.daily_chance_of_rain}%
@@ -829,17 +870,16 @@ const CityCard = React.forwardRef<
 
           {computedDayMinMax && (
             <div className="small muted" style={{ marginTop: 8 }}>
-              {t.computedFromHours}{" "}
-              {Math.round(computedDayMinMax.mintemp_c)}°C — {t.maxTemp}{" "}
-              {Math.round(computedDayMinMax.maxtemp_c)}°C
+              {t.computedFromHours} {Math.round(computedDayMinMax.mintemp_c)}°C
+              — {t.maxTemp} {Math.round(computedDayMinMax.maxtemp_c)}°C
             </div>
           )}
 
           {selectedDay?.day?.api_mintemp_c !== undefined ||
           selectedDay?.day?.api_maxtemp_c !== undefined ? (
             <div className="small muted" style={{ marginTop: 6 }}>
-              {t.apiValues} {selectedDay.day.api_mintemp_c ?? "—"}°C — {t.maxTemp}{" "}
-              {selectedDay.day.api_maxtemp_c ?? "—"}°C
+              {t.apiValues} {selectedDay.day.api_mintemp_c ?? "—"}°C —{" "}
+              {t.maxTemp} {selectedDay.day.api_maxtemp_c ?? "—"}°C
             </div>
           ) : null}
 
