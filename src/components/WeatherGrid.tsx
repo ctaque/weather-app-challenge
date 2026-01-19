@@ -594,16 +594,6 @@ function CityCard({ data }: { data: CityForecast }) {
             )}
             <div className="temp">{Math.round(data.current.temp_c)}°C</div>
           </div>
-
-          <div className="header-map">
-            <iframe
-              title={`Carte ${data.location.name}`}
-              className="map-embed-small"
-              src={`https://maps.google.com/maps?q=${data.location.lat},${data.location.lon}&z=12&output=embed`}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-          </div>
         </div>
       </header>
 
@@ -732,6 +722,16 @@ function CityCard({ data }: { data: CityForecast }) {
             date={selectedDay.date}
             dayPressure={selectedDay.day.pressure_mb}
           />
+
+          <div style={{ marginTop: "1.5rem", width: "100%", aspectRatio: "3 / 1" }}>
+            <iframe
+              title={`Carte ${data.location.name}`}
+              src={`https://maps.google.com/maps?q=${data.location.lat},${data.location.lon}&z=12&output=embed`}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              style={{ width: "100%", height: "100%", border: "0", borderRadius: "8px" }}
+            />
+          </div>
         </div>
       )}
     </article>
