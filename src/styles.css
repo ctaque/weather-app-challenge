@@ -1,5 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&display=swap');
 
+/* Empêche #root de dépasser la largeur disponible */
+#root {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 /* Base scaling */
 html { font-size: 120%; }
 
@@ -45,8 +51,14 @@ body{
   transition: background 160ms ease, color 160ms ease;
 }
 
-/* Container */
-.container{ width: 100%; max-width: 1200px; }
+/* Container - lateral padding removed */
+.container{
+  width: 100%;
+  max-width: 1200px;
+  padding-left: 0;
+  padding-right: 0;
+  box-sizing: border-box;
+}
 
 /* App header */
 .app-header{
@@ -185,9 +197,27 @@ body{
   .search-form{
     gap: 0.5rem;
   }
-  .search-form input{ flex-basis: 100%; }
-  .search-form select{ width: 140px; }
-  .search-form button{ width: 100%; }
+
+  /* keep flex behavior for input/select on small screens (no width:100%) */
+  .search-form input,
+  .search-form select {
+    flex: none;
+  }
+
+  .search-form button {
+    width: 100%;
+    padding: 0.8rem 0.9rem;
+    border-radius: 8px;
+    font-size: 1rem;
+  }
+
+  .search-form button[type="submit"] {
+    order: 1;
+  }
+  .search-form button[type="button"] {
+    order: 2;
+    background: transparent;
+  }
 }
 
 /* --------- REST OF LAYOUT (kept from previous) --------- */
@@ -222,18 +252,24 @@ body{
   .map-embed-small{ width:100%; height:160px; }
 }
 
-/* Forecast horizontal list */
+/* Forecast horizontal list (mobile-first: always horizontal/scrollable) */
+/* We force horizontal scrolling for all breakpoints, but adjust item sizes and snap behavior */
 .forecast-list-horizontal{
   display:flex;
   gap:0.5rem;
   overflow-x:auto;
   padding-bottom:0.25rem;
   -webkit-overflow-scrolling: touch;
-  scroll-snap-type:x proximity;
+  scroll-snap-type:x mandatory; /* mandatory snap for better swipe UX */
   white-space:nowrap;
+  align-items: flex-start;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
 }
+
+/* Day card (default small screens) */
 .forecast-item-horizontal{
-  flex:0 0 150px;
+  flex:0 0 150px;              /* fixed basis keeps consistent swipe targets */
   display:inline-block;
   vertical-align:top;
   background:var(--surface-2);
@@ -244,8 +280,78 @@ body{
   box-shadow:0 2px 6px rgba(0,0,0,0.04);
   font-size:0.95rem;
   color:var(--text);
+  min-height: 120px;
 }
+
+/* Date style inside day card */
 .forecast-item-horizontal .date{ font-size:0.9rem; color:var(--muted); margin-bottom:0.35rem; }
+
+/* Scrollbar styling (desktop) */
+.forecast-list-horizontal::-webkit-scrollbar{
+  height: 8px;
+}
+.forecast-list-horizontal::-webkit-scrollbar-thumb{
+  background: rgba(17,24,39,0.12);
+  border-radius: 999px;
+}
+
+/* Adjust card sizes for medium devices */
+@media (min-width: 520px) {
+  .forecast-item-horizontal {
+    flex: 0 0 160px;
+    min-height: 140px;
+    padding: 0.6rem;
+  }
+}
+
+/* Adjust card sizes for large devices but KEEP horizontal scrolling */
+@media (min-width: 1000px) {
+  .forecast-item-horizontal {
+    flex: 0 0 180px;
+    min-height: 150px;
+    padding: 0.75rem;
+  }
+  .forecast-list-horizontal {
+    gap: 0.75rem;
+  }
+}
+
+/* Accessibility: ensure focusable items are visible in scroll mode */
+.forecast-list-horizontal a:focus,
+.forecast-item-horizontal:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(37,99,235,0.08);
+  border-radius: 6px;
+}
+
+/* On very small screens, slightly reduce width so 1.5 cards visible */
+@media (max-width: 360px) {
+  .forecast-item-horizontal { flex: 0 0 140px; }
+}
+
+/* Optional: add left/right fade to hint horizontal scroll on larger screens */
+.forecast-list-horizontal::before,
+.forecast-list-horizontal::after {
+  content: "";
+  position: sticky;
+  top: 0;
+  height: 100%;
+  width: 32px;
+  pointer-events: none;
+  z-index: 2;
+}
+.forecast-list-horizontal::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--bg), rgba(255,255,255,0));
+}
+.forecast-list-horizontal::after {
+  right: 0;
+  background: linear-gradient(-90deg, var(--bg), rgba(255,255,255,0));
+}
+[data-theme='dark'] .forecast-list-horizontal::before,
+[data-theme='dark'] .forecast-list-horizontal::after {
+  background: linear-gradient(90deg, var(--bg), rgba(255,255,255,0));
+}
 
 /* Misc */
 .city-title{ font-size:1.05rem; margin:0; display:flex; align-items:center; gap:8px; }
@@ -253,3 +359,108 @@ body{
 .muted{ color:var(--muted); font-size:0.9rem; }
 .small{ font-size:0.85rem; }
 .error{ color:#f87171; margin-bottom:1rem; }
+
+/* Responsive improvements for header + form */
+
+/* Allow header to wrap and keep title truncating nicely */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap; /* allow wrapping when space is low */
+}
+
+/* Ensure title can shrink without overflowing */
+.app-header h1 {
+  flex: 1 1 auto;
+  min-width: 0; /* allow flex children to shrink */
+  margin: 0;
+  font-size: 1.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Keep the toggle aligned to the right on wide screens */
+.app-header .theme-toggle {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+/* SEARCH FORM: layout adjustments at breakpoints */
+@media (max-width: 720px) {
+  .container { padding-left: 0; padding-right: 0; }
+
+  .app-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .app-header h1 {
+    text-align: left;
+    white-space: normal;
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .app-header .theme-toggle {
+    align-self: flex-end;
+  }
+}
+
+/* Very small devices: form elements full width and buttons stacked */
+@media (max-width: 520px) {
+  .search-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+    padding: 0.6rem;
+  }
+
+  /* keep flex behavior for input/select on very small screens (no width:100%) */
+  .search-form input,
+  .search-form select {
+    flex: none;
+  }
+
+  .search-form button {
+    width: 100%;
+    padding: 0.8rem 0.9rem;
+    border-radius: 8px;
+    font-size: 1rem;
+  }
+
+  .search-form button[type="submit"] {
+    order: 1;
+  }
+  .search-form button[type="button"] {
+    order: 2;
+    background: transparent;
+  }
+}
+
+/* Medium screens: keep form inline but adapt sizes */
+@media (min-width: 521px) and (max-width: 1000px) {
+  .search-form input {
+    flex: 1 1 60%;
+    min-width: 180px;
+  }
+  .search-form select {
+    flex: 0 0 110px;
+  }
+  .search-form button {
+    flex: 0 0 auto;
+  }
+}
+
+/* Focus outlines */
+@media (prefers-reduced-motion: no-preference) {
+  .search-form input:focus,
+  .search-form select:focus,
+  .theme-toggle:focus,
+  .search-form button:focus {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(37,99,235,0.08);
+  }
+}
