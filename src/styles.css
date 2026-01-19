@@ -260,7 +260,7 @@ body{
 }
 
 /* Forecast horizontal list (mobile-first: always horizontal/scrollable) */
-/* We force horizontal scrolling for all breakpoints, but adjust item sizes and snap behavior */
+/* We force horizontal scrolling, adjust item sizes and snap behavior */
 .forecast-list-horizontal{
   display:flex;
   gap:0.5rem;
@@ -288,6 +288,34 @@ body{
   font-size:0.95rem;
   color:var(--text);
   min-height: 120px;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 160ms ease, color 160ms ease;
+}
+
+/* Default hover */
+.forecast-item-horizontal:hover {
+  transform: translateY(-2px);
+}
+
+/* active (selected) day visual */
+.forecast-item-horizontal.active {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(37,99,235,0.18);
+  transform: translateY(-4px);
+}
+
+.forecast-item-horizontal.active .date,
+.forecast-item-horizontal.active .muted,
+.forecast-item-horizontal.active .small {
+  color: rgba(255,255,255,0.95);
+  opacity: 0.95;
+}
+
+/* focus visible for accessibility */
+.forecast-item-horizontal:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(37,99,235,0.12);
+  border-radius: 6px;
 }
 
 /* Date style inside day card */
@@ -356,6 +384,12 @@ body{
   border-radius: 8px;
 }
 
+/* If selected day has images, subtle drop shadow */
+.forecast-item-horizontal.active img,
+.hour-item img {
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.08));
+}
+
 /* Adjust card sizes for medium devices */
 @media (min-width: 520px) {
   .forecast-item-horizontal {
@@ -388,6 +422,7 @@ body{
 /* On very small screens, slightly reduce width so 1.5 cards visible */
 @media (max-width: 360px) {
   .forecast-item-horizontal { flex: 0 0 140px; }
+  .hour-item { flex: 0 0 78px; min-height: 88px; padding: 6px; }
 }
 
 /* Optional: add left/right fade to hint horizontal scroll on larger screens */

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { format, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -54,7 +54,7 @@ function makeForecastForCity(cityIndex: number, cityName: string, lat: number, l
     const cond = [
       ['Ensoleillé', '☀️'],
       ['Partiellement nuageux', '⛅'],
-      ['Pluvieux', '���️']
+      ['Pluvieux', '🌧️']
     ][i % 3]
     const date = addDays(today, i)
     const dateStr = date.toISOString().slice(0, 10)
@@ -110,7 +110,6 @@ function makeForecastForCity(cityIndex: number, cityName: string, lat: number, l
   }
 }
 
-// Coordonnées approximatives (Loire-Atlantique / Bretagne)
 const CITY_INFO: Array<{ name: string; lat: number; lon: number }> = [
   { name: 'Nantes', lat: 47.218371, lon: -1.553621 },
   { name: 'Mesquer', lat: 47.3333, lon: -2.4167 },
@@ -132,76 +131,102 @@ export default function WeatherGrid() {
 
   return (
     <section>
-      <h2>Prévisions (données en dur)</h2>
+      <h2>Pr��visions (données en dur)</h2>
       <div className="multi-grid-vertical">
         {dataList.map((data) => (
-          <article className="multi-item-vertical" key={data.location.name}>
-            {/* Header: left = info, right = trend + map */}
-            <header className="city-header">
-              <div className="city-header-left">
-                <h3 className="city-title">
-                  <span className="pin-wrap"><PinIcon /></span>
-                  <span>{data.location.name}{data.location.region ? `, ${data.location.region}` : ''} — {data.location.country}</span>
-                </h3>
-                <div className="muted">Situation actuelle: {data.current.condition_text}</div>
-                <div className="muted">Pression actuelle: {data.current.pressure_mb} mb</div>
-              </div>
-
-              <div className="city-header-right">
-                <div className="trend-block">
-                  <div className="trend-emoji" aria-hidden>{data.current.emoji}</div>
-                  <div className="temp">{data.current.temp_c}°C</div>
-                </div>
-
-                <div className="header-map">
-                  <iframe
-                    title={`Carte ${data.location.name}`}
-                    className="map-embed-small"
-                    src={`https://maps.google.com/maps?q=${data.location.lat},${data.location.lon}&z=12&output=embed`}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
-                </div>
-              </div>
-            </header>
-
-            {/* Hourly strip for current day */}
-            {data.forecast.forecastday[0]?.hour && (
-              <div style={{ marginTop: 12 }}>
-                <h4 style={{ marginTop: 0 }}>Aujourd'hui — Prévisions horaires</h4>
-                <div className="hour-list-horizontal">
-                  {data.forecast.forecastday[0].hour.map((h) => (
-                    <div className="hour-item" key={h.time}>
-                      <div className="hour-time">{h.time.slice(11)}</div>
-                      <div style={{ fontSize: 18 }}>{h.condition.emoji ?? h.condition.text?.[0]}</div>
-                      <div style={{ fontWeight: 700 }}>{h.temp_c}°C</div>
-                      <div className="muted small">{h.condition.text}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Forecast: horizontal scroll of days */}
-            <div className="forecast" style={{ marginTop: '0.75rem' }}>
-              <h4 style={{ marginTop: '0.75rem', marginBottom: '0.5rem' }}>10 jours</h4>
-              <div className="forecast-list-horizontal">
-                {data.forecast.forecastday.map((day) => (
-                  <div className="forecast-item-horizontal" key={day.date}>
-                    <div className="date">{formatDate(day.date)}</div>
-                    <div style={{ fontSize: 20 }}>{day.day.condition.emoji}</div>
-                    <div style={{ fontWeight: 600 }}>{day.day.condition.text}</div>
-                    <div>Max: {day.day.maxtemp_c}°C</div>
-                    <div>Min: {day.day.mintemp_c}°C</div>
-                    <div className="muted small">Pluie: {day.day.daily_chance_of_rain}%</div>
-                    <div className="muted small">Pression: {day.day.pressure_mb} mb</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </article>
+          <CityCard key={data.location.name} data={data} />
         ))}
       </div>
     </section>
+  )
+}
+
+/* Sub-component for each city card so each card keeps its own selected day state */
+function CityCard({ data }: { data: CityForecast }) {
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0)
+  const forecastDays = data.forecast.forecastday
+  const selectedDay = forecastDays[selectedDayIndex]
+
+  function onKeySelect(e: React.KeyboardEvent, idx: number) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      setSelectedDayIndex(idx)
+    }
+  }
+
+  return (
+    <article className="multi-item-vertical">
+      <header className="city-header">
+        <div className="city-header-left">
+          <h3 className="city-title">
+            <span className="pin-wrap"><PinIcon /></span>
+            <span>{data.location.name}{data.location.region ? `, ${data.location.region}` : ''} — {data.location.country}</span>
+          </h3>
+          <div className="muted">Situation actuelle: {data.current.condition_text}</div>
+          <div className="muted">Pression actuelle: {data.current.pressure_mb} mb</div>
+        </div>
+
+        <div className="city-header-right">
+          <div className="trend-block">
+            <div className="trend-emoji" aria-hidden>{data.current.emoji}</div>
+            <div className="temp">{data.current.temp_c}°C</div>
+          </div>
+
+          <div className="header-map">
+            <iframe
+              title={`Carte ${data.location.name}`}
+              className="map-embed-small"
+              src={`https://maps.google.com/maps?q=${data.location.lat},${data.location.lon}&z=12&output=embed`}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+        </div>
+      </header>
+
+      {/* 10-day forecast (horizontal) - clickable items that select the day */}
+      <div className="forecast" style={{ marginTop: '0.75rem' }}>
+        <h4 style={{ marginTop: '0.75rem', marginBottom: '0.5rem' }}>10 jours (cliquez pour sélectionner)</h4>
+        <div className="forecast-list-horizontal" role="list" aria-label={`Prévisions 10 jours ${data.location.name}`}>
+          {forecastDays.map((day, idx) => (
+            <div
+              key={day.date}
+              role="button"
+              tabIndex={0}
+              aria-pressed={idx === selectedDayIndex}
+              onClick={() => setSelectedDayIndex(idx)}
+              onKeyDown={(e) => onKeySelect(e, idx)}
+              className={`forecast-item-horizontal ${idx === selectedDayIndex ? 'active' : ''}`}
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+            >
+              <div className="date">{formatDate(day.date)}</div>
+              <div style={{ fontSize: 20 }}>{day.day.condition.emoji}</div>
+              <div style={{ fontWeight: 600 }}>{day.day.condition.text}</div>
+              <div>Max: {day.day.maxtemp_c}°C</div>
+              <div>Min: {day.day.mintemp_c}°C</div>
+              <div className="muted small">Pluie: {day.day.daily_chance_of_rain}%</div>
+              <div className="muted small">Pression: {day.day.pressure_mb} mb</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Hourly strip for selected day (shown under the day forecast) */}
+      {selectedDay && selectedDay.hour && (
+        <div style={{ marginTop: 12 }}>
+          <h4 style={{ marginTop: 8 }}>Prévisions horaires — {formatDate(selectedDay.date)}</h4>
+          <div className="hour-list-horizontal" role="list" aria-label={`Heures ${data.location.name} ${selectedDay.date}`}>
+            {selectedDay.hour.map((h) => (
+              <div className="hour-item" key={h.time} role="listitem" tabIndex={0}>
+                <div className="hour-time">{h.time.slice(11)}</div>
+                <div style={{ fontSize: 18 }}>{h.condition.emoji ?? h.condition.text?.[0]}</div>
+                <div style={{ fontWeight: 700 }}>{h.temp_c}°C</div>
+                <div className="muted small">{h.condition.text}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </article>
   )
 }
