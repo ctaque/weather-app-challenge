@@ -245,6 +245,27 @@ function PinIcon({ className }: { className?: string }) {
   );
 }
 
+function LoaderIcon() {
+  return (
+    <svg
+      width="1rem"
+      height="1rem"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{
+        animation: "spin 1s linear infinite",
+      }}
+    >
+      <circle cx="12" cy="12" r="10" opacity="0.25" />
+      <path d="M12 2a10 10 0 0 1 10 10" />
+    </svg>
+  );
+}
+
 /* ---------- Main component ---------- */
 export default function WeatherGrid() {
   // initial synthetic data
@@ -506,23 +527,40 @@ export default function WeatherGrid() {
               <span className="loc-country muted small">
                 {d.location.country}
               </span>
-              {loadingCityIndex === idx && (
-                <span className="small muted" style={{ marginTop: 4 }}>
-                  Chargement…
-                </span>
-              )}
             </button>
           ))}
+          {loadingCityIndex !== null && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "0.25rem",
+              }}
+              aria-live="polite"
+              aria-label="Chargement en cours"
+            >
+              <LoaderIcon />
+            </div>
+          )}
         </div>
-
-        <button
-          className="location-button"
-          onClick={() => cityCardRef.current?.goToNow()}
-          title="Aller à l'heure actuelle"
-          style={{ padding: "0.75rem 1.5rem", whiteSpace: "nowrap" }}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.5rem",
+            alignItems: "center",
+          }}
         >
-          Maintenant
-        </button>
+          <button
+            className="location-button"
+            onClick={() => cityCardRef.current?.goToNow()}
+            title="Aller à l'heure actuelle"
+            style={{ padding: "0.75rem 1.5rem", whiteSpace: "nowrap" }}
+          >
+            Maintenant
+          </button>
+        </div>
       </div>
 
       <div style={{ marginTop: 12 }}>
@@ -538,42 +576,49 @@ export default function WeatherGrid() {
 }
 
 /* ---------- City card (display logic) ---------- */
-const CityCard = React.forwardRef<{ goToNow: () => void }, { data: CityForecast }>(
-  ({ data }, ref) => {
-    const theme = useContext(ThemeContext);
-    const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
-    const [highlightCurrentHour, setHighlightCurrentHour] = useState<boolean>(false);
-    const forecastDays = data.forecast.forecastday;
-    const selectedDay = forecastDays[selectedDayIndex];
-    const hourListRef = useRef<HTMLDivElement>(null);
+const CityCard = React.forwardRef<
+  { goToNow: () => void },
+  { data: CityForecast }
+>(({ data }, ref) => {
+  const theme = useContext(ThemeContext);
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
+  const [highlightCurrentHour, setHighlightCurrentHour] =
+    useState<boolean>(false);
+  const forecastDays = data.forecast.forecastday;
+  const selectedDay = forecastDays[selectedDayIndex];
+  const hourListRef = useRef<HTMLDivElement>(null);
 
-    React.useImperativeHandle(ref, () => ({
-      goToNow: () => {
-        // Select today (index 0)
-        setSelectedDayIndex(0);
-        setHighlightCurrentHour(true);
+  React.useImperativeHandle(ref, () => ({
+    goToNow: () => {
+      // Select today (index 0)
+      setSelectedDayIndex(0);
+      setHighlightCurrentHour(true);
 
-        // After a short delay to allow the day selection to render, scroll to current hour
-        setTimeout(() => {
-          const now = new Date();
-          const currentHour = String(now.getHours()).padStart(2, '0');
-          const hourElement = hourListRef.current?.querySelector(
-            `[data-hour="${currentHour}:00"]`
-          );
-          if (hourElement) {
-            hourElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-          }
-        }, 100);
-      },
-    }));
+      // After a short delay to allow the day selection to render, scroll to current hour
+      setTimeout(() => {
+        const now = new Date();
+        const currentHour = String(now.getHours()).padStart(2, "0");
+        const hourElement = hourListRef.current?.querySelector(
+          `[data-hour="${currentHour}:00"]`,
+        );
+        if (hourElement) {
+          hourElement.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest",
+            inline: "center",
+          });
+        }
+      }, 100);
+    },
+  }));
 
-    function onKeySelect(e: React.KeyboardEvent, idx: number) {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        setSelectedDayIndex(idx);
-        setHighlightCurrentHour(false); // Reset highlight when manually selecting a day
-      }
+  function onKeySelect(e: React.KeyboardEvent, idx: number) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setSelectedDayIndex(idx);
+      setHighlightCurrentHour(false); // Reset highlight when manually selecting a day
     }
+  }
 
   const computedDayMinMax = selectedDay
     ? computeDayMinMaxFromHours(selectedDay.hour)
@@ -711,8 +756,11 @@ const CityCard = React.forwardRef<{ goToNow: () => void }, { data: CityForecast 
 
               // Check if this is the current hour and we should highlight it
               const now = new Date();
-              const currentHour = `${String(now.getHours()).padStart(2, '0')}:00`;
-              const isCurrentHour = highlightCurrentHour && selectedDayIndex === 0 && hourTime === currentHour;
+              const currentHour = `${String(now.getHours()).padStart(2, "0")}:00`;
+              const isCurrentHour =
+                highlightCurrentHour &&
+                selectedDayIndex === 0 &&
+                hourTime === currentHour;
 
               return (
                 <div
@@ -721,12 +769,19 @@ const CityCard = React.forwardRef<{ goToNow: () => void }, { data: CityForecast 
                   role="listitem"
                   tabIndex={0}
                   data-hour={hourTime}
-                  style={isCurrentHour ? {
-                    backgroundColor: 'var(--accent)',
-                    color: '#ffffff'
-                  } : undefined}
+                  style={
+                    isCurrentHour
+                      ? {
+                          backgroundColor: "var(--accent)",
+                          color: "#ffffff",
+                        }
+                      : undefined
+                  }
                 >
-                  <div className="hour-time" style={isCurrentHour ? { color: '#ffffff' } : undefined}>
+                  <div
+                    className="hour-time"
+                    style={isCurrentHour ? { color: "#ffffff" } : undefined}
+                  >
                     {hourTime}
                   </div>
                   {iconUrl ? (
@@ -741,13 +796,24 @@ const CityCard = React.forwardRef<{ goToNow: () => void }, { data: CityForecast 
                       {h.condition.emoji ?? h.condition.text?.[0]}
                     </div>
                   )}
-                  <div style={{ fontWeight: 700, ...(isCurrentHour && { color: '#ffffff' }) }}>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      ...(isCurrentHour && { color: "#ffffff" }),
+                    }}
+                  >
                     {Math.round(h.temp_c)}°C
                   </div>
-                  <div className="muted small" style={isCurrentHour ? { color: '#ffffff' } : undefined}>
+                  <div
+                    className="muted small"
+                    style={isCurrentHour ? { color: "#ffffff" } : undefined}
+                  >
                     {h.condition.text}
                   </div>
-                  <div className="muted small" style={isCurrentHour ? { color: '#ffffff' } : undefined}>
+                  <div
+                    className="muted small"
+                    style={isCurrentHour ? { color: "#ffffff" } : undefined}
+                  >
                     Pluie: {h.chance_of_rain ?? "-"}%
                   </div>
                 </div>
@@ -771,15 +837,23 @@ const CityCard = React.forwardRef<{ goToNow: () => void }, { data: CityForecast 
             </div>
           ) : null}
 
-          <TemperatureChart hourlyData={selectedDay.hour} date={selectedDay.date} />
-          <RainChanceChart hourlyData={selectedDay.hour} date={selectedDay.date} />
+          <TemperatureChart
+            hourlyData={selectedDay.hour}
+            date={selectedDay.date}
+          />
+          <RainChanceChart
+            hourlyData={selectedDay.hour}
+            date={selectedDay.date}
+          />
           <PressureChart
             hourlyData={selectedDay.hour}
             date={selectedDay.date}
             dayPressure={selectedDay.day.pressure_mb}
           />
 
-          <div style={{ marginTop: "1.5rem", width: "100%", aspectRatio: "3 / 1" }}>
+          <div
+            style={{ marginTop: "1.5rem", width: "100%", aspectRatio: "3 / 1" }}
+          >
             <iframe
               title={`Carte ${data.location.name}`}
               src={`https://maps.google.com/maps?q=${data.location.lat},${data.location.lon}&z=12&output=embed`}
@@ -790,15 +864,17 @@ const CityCard = React.forwardRef<{ goToNow: () => void }, { data: CityForecast 
                 height: "100%",
                 border: "0",
                 borderRadius: "8px",
-                filter: theme === 'dark' ? "invert(90%) hue-rotate(180deg) saturate(1.2) brightness(0.9)" : "hue-rotate(100deg) saturate(1.1)"
+                filter:
+                  theme === "dark"
+                    ? "invert(90%) hue-rotate(180deg) saturate(0) brightness(0.7) contrast(0.9)"
+                    : "saturate(0) brightness(1.1)",
               }}
             />
           </div>
         </div>
       )}
     </article>
-    );
-  }
-);
+  );
+});
 
 CityCard.displayName = "CityCard";
