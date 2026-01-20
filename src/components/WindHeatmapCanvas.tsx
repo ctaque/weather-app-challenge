@@ -314,6 +314,40 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
           gap: 0.5rem;
         }
 
+        .wind-heatmap-controls button {
+          display: inline-flex;
+          flex-direction: column;
+          gap: 2px;
+          align-items: center;
+          justify-content: center;
+          padding: 8px 12px;
+          border-radius: 10px;
+          border: 1px solid rgba(0, 0, 0, 0.06);
+          background: var(--card);
+          color: var(--text);
+          font-family: inherit;
+          cursor: pointer;
+          box-shadow: 0 2px 6px var(--card-shadow);
+          transition: transform 120ms ease, box-shadow 120ms ease, background 160ms ease;
+          font-size: 0.9em;
+        }
+
+        .wind-heatmap-controls button:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px var(--card-shadow);
+          background: var(--card-hover);
+        }
+
+        .wind-heatmap-controls button:active:not(:disabled) {
+          transform: translateY(0);
+          box-shadow: 0 2px 4px var(--card-shadow);
+        }
+
+        .wind-heatmap-controls button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
         .wind-heatmap-info {
           background: var(--card-bg);
           padding: 0.75rem;
