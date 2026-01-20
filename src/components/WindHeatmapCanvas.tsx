@@ -123,27 +123,39 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
 
     updateCanvasSize();
 
-    // Create bounds - Global coverage
-    const bounds = {
-      minLat: -90,
-      maxLat: 90,
-      minLon: -180,
-      maxLon: 180
+    // Helper to get current visible bounds
+    const getVisibleBounds = () => {
+      const mapBounds = map.getBounds();
+      return {
+        minLat: mapBounds.getSouth(),
+        maxLat: mapBounds.getNorth(),
+        minLon: mapBounds.getWest(),
+        maxLon: mapBounds.getEast()
+      };
     };
+
+    // Get initial visible bounds
+    const initialBounds = getVisibleBounds();
 
     // Create heatmap system
     heatmapSystemRef.current = new WindHeatmap(
       heatmapCanvas,
       windData.points,
-      bounds,
+      initialBounds,
       0.5 // opacity
     );
 
-    // Create particle system
+    // Create particle system with global bounds (particles work globally)
+    const globalBounds = {
+      minLat: -90,
+      maxLat: 90,
+      minLon: -180,
+      maxLon: 180
+    };
     particleSystemRef.current = new WindParticlesCanvas(
       particlesCanvas,
       windData.points,
-      bounds
+      globalBounds
     );
 
     // Create projection helper
@@ -173,12 +185,23 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
       particleSystemRef.current.start();
     }
 
+    // Throttle and debounce for performance
+    let moveTimeout: NodeJS.Timeout | null = null;
+
     // Update on map move/zoom
+    const handleMoveStart = () => {
+      if (heatmapSystemRef.current) {
+        heatmapSystemRef.current.setMoving(true);
+      }
+    };
+
     const handleMove = () => {
       const proj = getProjection();
+      const visibleBounds = getVisibleBounds();
 
       if (heatmapSystemRef.current) {
         heatmapSystemRef.current.setProjection(proj);
+        heatmapSystemRef.current.updateBounds(visibleBounds);
         if (showHeatmap) {
           heatmapSystemRef.current.redraw();
         }
@@ -187,6 +210,19 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
       if (particleSystemRef.current) {
         particleSystemRef.current.updateProjection(proj);
       }
+
+      // Clear existing timeout
+      if (moveTimeout) clearTimeout(moveTimeout);
+
+      // Set moving to false after movement stops
+      moveTimeout = setTimeout(() => {
+        if (heatmapSystemRef.current) {
+          heatmapSystemRef.current.setMoving(false);
+          if (showHeatmap) {
+            heatmapSystemRef.current.redraw(); // Final high-quality redraw
+          }
+        }
+      }, 150);
     };
 
     const handleResize = () => {
@@ -204,11 +240,15 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
       }
     };
 
+    map.on('movestart', handleMoveStart);
     map.on('move', handleMove);
     map.on('zoom', handleMove);
     map.on('resize', handleResize);
 
     return () => {
+      if (moveTimeout) clearTimeout(moveTimeout);
+
+      map.off('movestart', handleMoveStart);
       map.off('move', handleMove);
       map.off('zoom', handleMove);
       map.off('resize', handleResize);
@@ -250,19 +290,25 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
 
     updateCanvasSize();
 
-    // Create bounds - Global coverage
-    const bounds = {
-      minLat: -90,
-      maxLat: 90,
-      minLon: -180,
-      maxLon: 180
+    // Helper to get current visible bounds
+    const getVisibleBounds = () => {
+      const mapBounds = map.getBounds();
+      return {
+        minLat: mapBounds.getSouth(),
+        maxLat: mapBounds.getNorth(),
+        minLon: mapBounds.getWest(),
+        maxLon: mapBounds.getEast()
+      };
     };
+
+    // Get initial visible bounds
+    const initialBounds = getVisibleBounds();
 
     // Create precipitation system
     precipitationSystemRef.current = new PrecipitationHeatmapCanvas(
       precipCanvas,
       precipData.points,
-      bounds,
+      initialBounds,
       0.7 // opacity
     );
 
@@ -287,16 +333,40 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
       precipitationSystemRef.current.draw();
     }
 
+    // Throttle and debounce for performance
+    let moveTimeout: NodeJS.Timeout | null = null;
+
     // Update on map move/zoom
+    const handleMoveStart = () => {
+      if (precipitationSystemRef.current) {
+        precipitationSystemRef.current.setMoving(true);
+      }
+    };
+
     const handleMove = () => {
       const proj = getProjection();
+      const visibleBounds = getVisibleBounds();
 
       if (precipitationSystemRef.current) {
         precipitationSystemRef.current.setProjection(proj);
+        precipitationSystemRef.current.updateBounds(visibleBounds);
         if (showPrecipitation) {
           precipitationSystemRef.current.redraw();
         }
       }
+
+      // Clear existing timeout
+      if (moveTimeout) clearTimeout(moveTimeout);
+
+      // Set moving to false after movement stops
+      moveTimeout = setTimeout(() => {
+        if (precipitationSystemRef.current) {
+          precipitationSystemRef.current.setMoving(false);
+          if (showPrecipitation) {
+            precipitationSystemRef.current.redraw(); // Final high-quality redraw
+          }
+        }
+      }, 150);
     };
 
     const handleResize = () => {
@@ -310,11 +380,15 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
       }
     };
 
+    map.on('movestart', handleMoveStart);
     map.on('move', handleMove);
     map.on('zoom', handleMove);
     map.on('resize', handleResize);
 
     return () => {
+      if (moveTimeout) clearTimeout(moveTimeout);
+
+      map.off('movestart', handleMoveStart);
       map.off('move', handleMove);
       map.off('zoom', handleMove);
       map.off('resize', handleResize);

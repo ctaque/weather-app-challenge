@@ -18,6 +18,7 @@ export class PrecipitationHeatmapCanvas {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private precipData: PrecipitationDataPoint[] = [];
+  private filteredPrecipData: PrecipitationDataPoint[] = [];
   private bounds: {
     minLat: number;
     maxLat: number;
@@ -26,6 +27,7 @@ export class PrecipitationHeatmapCanvas {
   };
   private mapProjection?: MapProjection;
   private opacity: number = 0.7;
+  private isMoving: boolean = false;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -78,14 +80,32 @@ export class PrecipitationHeatmapCanvas {
   }
 
   /**
+   * Filter precipitation data to only include points near the visible bounds
+   */
+  private filterDataByBounds() {
+    // Add margin for interpolation (degrees)
+    const margin = 5;
+
+    this.filteredPrecipData = this.precipData.filter(point =>
+      point.lat >= this.bounds.minLat - margin &&
+      point.lat <= this.bounds.maxLat + margin &&
+      point.lon >= this.bounds.minLon - margin &&
+      point.lon <= this.bounds.maxLon + margin
+    );
+
+    console.log(`Filtered precipitation data: ${this.filteredPrecipData.length} points (from ${this.precipData.length})`);
+  }
+
+  /**
    * Interpolate precipitation rate at a position using inverse distance weighting
    */
   private interpolateRate(lng: number, lat: number): number {
-    const maxDistance = 2.0; // Maximum distance to search (degrees)
+    const maxDistance = 1.5; // Reduced for better performance
     let totalWeight = 0;
     let weightedRate = 0;
 
-    for (const point of this.precipData) {
+    // Use filtered data instead of all data
+    for (const point of this.filteredPrecipData) {
       const distance = Math.sqrt(
         Math.pow(point.lat - lat, 2) + Math.pow(point.lon - lng, 2)
       );
@@ -108,11 +128,14 @@ export class PrecipitationHeatmapCanvas {
   draw() {
     if (!this.mapProjection) return;
 
+    // Filter data by visible bounds first
+    this.filterDataByBounds();
+
     // Clear canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Grid resolution for drawing (pixels between sample points)
-    const gridSize = 25;
+    // Grid resolution: larger during movement for better performance
+    const gridSize = this.isMoving ? 40 : 25;
 
     // Create temporary canvas for better performance
     const tempCanvas = document.createElement('canvas');
@@ -151,8 +174,10 @@ export class PrecipitationHeatmapCanvas {
       }
     }
 
-    // Apply blur for smooth gradient effect
-    this.ctx.filter = 'blur(15px)';
+    // Apply blur for smooth gradient effect (skip during movement)
+    if (!this.isMoving) {
+      this.ctx.filter = 'blur(15px)';
+    }
     this.ctx.drawImage(tempCanvas, 0, 0);
     this.ctx.filter = 'none';
   }
@@ -184,5 +209,19 @@ export class PrecipitationHeatmapCanvas {
    */
   setOpacity(opacity: number) {
     this.opacity = Math.max(0, Math.min(1, opacity));
+  }
+
+  /**
+   * Update bounds (e.g., when map viewport changes)
+   */
+  updateBounds(bounds: { minLat: number; maxLat: number; minLon: number; maxLon: number }) {
+    this.bounds = bounds;
+  }
+
+  /**
+   * Set moving state (for performance optimization during pan/zoom)
+   */
+  setMoving(moving: boolean) {
+    this.isMoving = moving;
   }
 }

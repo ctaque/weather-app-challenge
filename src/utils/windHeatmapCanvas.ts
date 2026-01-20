@@ -20,6 +20,7 @@ export class WindHeatmapCanvas {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private windData: WindDataPoint[] = [];
+  private filteredWindData: WindDataPoint[] = [];
   private bounds: {
     minLat: number;
     maxLat: number;
@@ -28,6 +29,7 @@ export class WindHeatmapCanvas {
   };
   private mapProjection?: MapProjection;
   private opacity: number = 0.6;
+  private isMoving: boolean = false;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -63,14 +65,32 @@ export class WindHeatmapCanvas {
   }
 
   /**
+   * Filter wind data to only include points near the visible bounds
+   */
+  private filterDataByBounds() {
+    // Add margin for interpolation (degrees)
+    const margin = 5;
+
+    this.filteredWindData = this.windData.filter(point =>
+      point.lat >= this.bounds.minLat - margin &&
+      point.lat <= this.bounds.maxLat + margin &&
+      point.lon >= this.bounds.minLon - margin &&
+      point.lon <= this.bounds.maxLon + margin
+    );
+
+    console.log(`Filtered wind data: ${this.filteredWindData.length} points (from ${this.windData.length})`);
+  }
+
+  /**
    * Interpolate wind speed at a position using inverse distance weighting
    */
   private interpolateSpeed(lng: number, lat: number): number {
-    const maxDistance = 2.0; // Maximum distance to search (degrees)
+    const maxDistance = 1.5; // Reduced for better performance
     let totalWeight = 0;
     let weightedSpeed = 0;
 
-    for (const point of this.windData) {
+    // Use filtered data instead of all data
+    for (const point of this.filteredWindData) {
       const distance = Math.sqrt(
         Math.pow(point.lat - lat, 2) + Math.pow(point.lon - lng, 2)
       );
@@ -93,11 +113,14 @@ export class WindHeatmapCanvas {
   draw() {
     if (!this.mapProjection) return;
 
+    // Filter data by visible bounds first
+    this.filterDataByBounds();
+
     // Clear canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Grid resolution for drawing (pixels between sample points)
-    const gridSize = 25;
+    // Grid resolution: larger during movement for better performance
+    const gridSize = this.isMoving ? 40 : 25;
 
     // Create temporary canvas for better performance
     const tempCanvas = document.createElement('canvas');
@@ -133,8 +156,10 @@ export class WindHeatmapCanvas {
       }
     }
 
-    // Apply blur for smooth gradient effect
-    this.ctx.filter = 'blur(15px)';
+    // Apply blur for smooth gradient effect (skip during movement)
+    if (!this.isMoving) {
+      this.ctx.filter = 'blur(15px)';
+    }
     this.ctx.drawImage(tempCanvas, 0, 0);
     this.ctx.filter = 'none';
   }
@@ -166,5 +191,19 @@ export class WindHeatmapCanvas {
    */
   setOpacity(opacity: number) {
     this.opacity = Math.max(0, Math.min(1, opacity));
+  }
+
+  /**
+   * Update bounds (e.g., when map viewport changes)
+   */
+  updateBounds(bounds: { minLat: number; maxLat: number; minLon: number; maxLon: number }) {
+    this.bounds = bounds;
+  }
+
+  /**
+   * Set moving state (for performance optimization during pan/zoom)
+   */
+  setMoving(moving: boolean) {
+    this.isMoving = moving;
   }
 }
