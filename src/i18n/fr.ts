@@ -118,6 +118,30 @@ export const fr = {
   errorGeneratingSummary: "Erreur lors de la génération",
   noSummaryAvailable: "Aucun résumé disponible",
   rateLimitExceeded: "Limite de requêtes atteinte. Veuillez réessayer dans quelques minutes.",
+
+  // Wind Heatmap
+  globalWindMap: "Carte Mondiale des Vents",
+  globalPrecipitationMap: "Carte Mondiale des Précipitations",
+  refreshData: "Actualiser",
+  winds: "Vents",
+  precipitation: "Précipitations",
+  precipitationDataNotAvailable: "Données de précipitations non disponibles",
+  error: "Erreur",
+  source: "Source",
+  updated: "Mise à jour",
+  points: "Points",
+  windSpeedLabel: "Vitesse du vent (m/s)",
+  precipitationLabel: "Précipitations (mm/h)",
+  calm: "Calme",
+  light: "Léger",
+  moderate: "Modéré",
+  strong: "Fort",
+  veryStrong: "Très fort",
+  violent: "Violent",
+  veryLight: "Très léger",
+  moderateStrong: "Moyen-fort",
+  intense: "Intense",
+  extreme: "Extrême",
 };
 
 export type Translations = typeof fr;

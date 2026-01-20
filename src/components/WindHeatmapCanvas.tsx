@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useContext } from "react";
 import Map, { NavigationControl } from "react-map-gl/maplibre";
 import type { MapRef } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { ThemeContext } from "../App";
+import { ThemeContext, LanguageContext } from "../App";
 import type { WindDataPoint } from "../utils/windParticlesCanvas";
 import { WindParticlesCanvas } from "../utils/windParticlesCanvas";
 import { WindHeatmapCanvas as WindHeatmap } from "../utils/windHeatmapCanvas";
@@ -63,6 +63,7 @@ export default function WindHeatmapCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const theme = useContext(ThemeContext);
+  const { t } = useContext(LanguageContext);
 
   // Load wind data
   useEffect(() => {
@@ -443,16 +444,14 @@ export default function WindHeatmapCanvas({
       : "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 
   return (
-    <div className="wind-heatmap-container">
+    <div className="wind-heatmap-container" style={{ paddingTop: "2rem" }}>
       <div className="wind-heatmap-header">
         <h2>
-          {displayMode === "wind"
-            ? "Carte Mondiale des Vents"
-            : "Carte Mondiale des Précipitations"}
+          {displayMode === "wind" ? t.globalWindMap : t.globalPrecipitationMap}
         </h2>
         <div className="wind-heatmap-controls">
           <button onClick={loadWindData} disabled={loading}>
-            {loading ? "Chargement..." : "Actualiser"}
+            {loading ? t.loading : t.refreshData}
           </button>
 
           <div className="button-group">
@@ -460,15 +459,15 @@ export default function WindHeatmapCanvas({
               className={displayMode === "wind" ? "active" : ""}
               onClick={() => setDisplayMode("wind")}
             >
-              Vents
+              {t.winds}
             </button>
             <button
               className={displayMode === "precipitation" ? "active" : ""}
               onClick={() => setDisplayMode("precipitation")}
               disabled={!precipData}
-              title={!precipData ? "Precipitation data not available" : ""}
+              title={!precipData ? t.precipitationDataNotAvailable : ""}
             >
-              Precipitation
+              {t.precipitation}
             </button>
           </div>
         </div>
@@ -476,60 +475,60 @@ export default function WindHeatmapCanvas({
 
       {error && (
         <div className="error" style={{ margin: "1rem 0" }}>
-          Error: {error}
+          {t.error}: {error}
         </div>
       )}
 
       {displayMode === "wind" && windData && (
         <div className="wind-heatmap-info">
           <p>
-            Source: {windData.source} | Updated:{" "}
-            {new Date(windData.timestamp).toLocaleString()} | Points:{" "}
+            {t.source}: {windData.source} | {t.updated}:{" "}
+            {new Date(windData.timestamp).toLocaleString()} | {t.points}:{" "}
             {windData.points.length}
           </p>
           <div className="wind-legend">
-            <span className="legend-title">Wind Speed (m/s):</span>
+            <span className="legend-title">{t.windSpeedLabel}:</span>
             <div className="legend-item">
               <span
                 className="legend-color"
                 style={{ background: "rgb(50, 136, 189)" }}
               ></span>{" "}
-              0-2 (Calme)
+              0-2 ({t.calm})
             </div>
             <div className="legend-item">
               <span
                 className="legend-color"
                 style={{ background: "rgb(102, 194, 165)" }}
               ></span>{" "}
-              2-5 (Léger)
+              2-5 ({t.light})
             </div>
             <div className="legend-item">
               <span
                 className="legend-color"
                 style={{ background: "rgb(171, 221, 164)" }}
               ></span>{" "}
-              5-8 (Modéré)
+              5-8 ({t.moderate})
             </div>
             <div className="legend-item">
               <span
                 className="legend-color"
                 style={{ background: "rgb(254, 224, 139)" }}
               ></span>{" "}
-              8-14 (Fort)
+              8-14 ({t.strong})
             </div>
             <div className="legend-item">
               <span
                 className="legend-color"
                 style={{ background: "rgb(244, 109, 67)" }}
               ></span>{" "}
-              14-20 (Très fort)
+              14-20 ({t.veryStrong})
             </div>
             <div className="legend-item">
               <span
                 className="legend-color"
                 style={{ background: "rgb(215, 48, 39)" }}
               ></span>{" "}
-              20+ (Violent)
+              20+ ({t.violent})
             </div>
           </div>
         </div>
@@ -538,67 +537,67 @@ export default function WindHeatmapCanvas({
       {displayMode === "precipitation" && precipData && (
         <div className="wind-heatmap-info">
           <p>
-            Source: {precipData.source} | Updated:{" "}
-            {new Date(precipData.timestamp).toLocaleString()} | Points:{" "}
+            {t.source}: {precipData.source} | {t.updated}:{" "}
+            {new Date(precipData.timestamp).toLocaleString()} | {t.points}:{" "}
             {precipData.points.length}
           </p>
           <div className="precipitation-legend">
-            <span className="legend-title">Precipitation (mm/h):</span>
+            <span className="legend-title">{t.precipitationLabel}:</span>
             <div className="legend-item">
               <span
                 className="legend-color"
                 style={{ background: "rgba(173, 216, 230, 0.5)" }}
               ></span>{" "}
-              0.1-0.5 (Très léger)
+              0.1-0.5 ({t.veryLight})
             </div>
             <div className="legend-item">
               <span
                 className="legend-color"
                 style={{ background: "rgba(135, 206, 250, 0.7)" }}
               ></span>{" "}
-              0.5-1 (Léger)
+              0.5-1 ({t.light})
             </div>
             <div className="legend-item">
               <span
                 className="legend-color"
                 style={{ background: "rgba(70, 130, 180, 0.7)" }}
               ></span>{" "}
-              1-2.5 (Modéré)
+              1-2.5 ({t.moderate})
             </div>
             <div className="legend-item">
               <span
                 className="legend-color"
                 style={{ background: "rgba(30, 144, 255, 0.7)" }}
               ></span>{" "}
-              2.5-5 (Moyen-fort)
+              2.5-5 ({t.moderateStrong})
             </div>
             <div className="legend-item">
               <span
                 className="legend-color"
                 style={{ background: "rgba(75, 0, 130, 0.8)" }}
               ></span>{" "}
-              5-10 (Fort)
+              5-10 ({t.strong})
             </div>
             <div className="legend-item">
               <span
                 className="legend-color"
                 style={{ background: "rgba(138, 43, 226, 0.85)" }}
               ></span>{" "}
-              10-20 (Très fort)
+              10-20 ({t.veryStrong})
             </div>
             <div className="legend-item">
               <span
                 className="legend-color"
                 style={{ background: "rgba(199, 21, 133, 0.9)" }}
               ></span>{" "}
-              20-40 (Intense)
+              20-40 ({t.intense})
             </div>
             <div className="legend-item">
               <span
                 className="legend-color"
                 style={{ background: "rgba(220, 20, 60, 0.95)" }}
               ></span>{" "}
-              40+ (Extrême)
+              40+ ({t.extreme})
             </div>
           </div>
         </div>
