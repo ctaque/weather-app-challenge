@@ -88,12 +88,12 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
 
     updateCanvasSize();
 
-    // Create bounds
+    // Create bounds - Global coverage
     const bounds = {
-      minLat: 35,
-      maxLat: 71,
-      minLon: -10,
-      maxLon: 45
+      minLat: -90,
+      maxLat: 90,
+      minLon: -180,
+      maxLon: 180
     };
 
     // Create heatmap system
@@ -214,7 +214,7 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
   return (
     <div className="wind-heatmap-container">
       <div className="wind-heatmap-header">
-        <h2>Europe Wind Map</h2>
+        <h2>Global Wind Map</h2>
         <div className="wind-heatmap-controls">
           <button onClick={loadWindData} disabled={loading}>
             {loading ? "Loading..." : "Refresh Data"}
@@ -258,9 +258,9 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
         <Map
           ref={mapRef}
           initialViewState={{
-            longitude: location?.lon ?? 15,
-            latitude: location?.lat ?? 50,
-            zoom: location ? 8 : 3.5,
+            longitude: location?.lon ?? 0,
+            latitude: location?.lat ?? 20,
+            zoom: location ? 8 : 1.5,
           }}
           style={{ width: "100%", height: "600px" }}
           mapStyle={mapStyle}

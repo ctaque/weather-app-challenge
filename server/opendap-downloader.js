@@ -135,13 +135,13 @@ async function downloadWindDataForRun(date, hour, forecastOffset, latMin, latMax
     const latStartIndex = Math.floor((latMin + 90) / 0.5);
     const latEndIndex = Math.floor((latMax + 90) / 0.5);
 
-    // Handle longitude wraparound for western Europe
+    // Handle longitude wraparound
     // GFS uses 0-359.5° (not -180 to +180)
-    // For -10°, we need 350° (360 - 10)
+    // For negative longitudes, we need to convert: -180° → 180° in GFS grid
     const needsWrap = lonMin < 0;
 
     console.log(`Grid indices: time=${forecastOffset}, lat=${latStartIndex}:${latEndIndex}`);
-    console.log(`Zone: ${lonMin}° to ${lonMax}°E (Europe: Portugal to Russia)`);
+    console.log(`Zone: ${lonMin}° to ${lonMax}° (Global coverage)`);
 
       let allLatValues = [];
       let allLonValues = [];
@@ -282,18 +282,29 @@ async function downloadWindDataForRun(date, hour, forecastOffset, latMin, latMax
         throw new Error(`Invalid parsed data: width=${width}, height=${height}, uValues=${allUValues.length}`);
       }
 
-      const uMin = Math.min(...allUValues);
-      const uMax = Math.max(...allUValues);
-      const vMin = Math.min(...allVValues);
-      const vMax = Math.max(...allVValues);
+      // Calculate min/max without spread operator (avoids stack overflow on large arrays)
+      let uMin = Infinity, uMax = -Infinity;
+      let vMin = Infinity, vMax = -Infinity;
+
+      for (let i = 0; i < allUValues.length; i++) {
+        if (allUValues[i] < uMin) uMin = allUValues[i];
+        if (allUValues[i] > uMax) uMax = allUValues[i];
+        if (allVValues[i] < vMin) vMin = allVValues[i];
+        if (allVValues[i] > vMax) vMax = allVValues[i];
+      }
 
       // Create arrays with all lat/lon combinations
-      const allLats = [];
-      const allLons = [];
+      // Pre-allocate arrays for better performance with large datasets
+      const totalPoints = width * height;
+      const allLats = new Array(totalPoints);
+      const allLons = new Array(totalPoints);
+
+      let idx = 0;
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-          allLats.push(allLatValues[y]);
-          allLons.push(allLonValues[x]);
+          allLats[idx] = allLatValues[y];
+          allLons[idx] = allLonValues[x];
+          idx++;
         }
       }
 
@@ -513,17 +524,20 @@ async function getWindData() {
   try {
     const windData = await downloadWindDataOpenDAP({
       forecastOffset: 3,
-      latMin: 35,  // Toute l'Europe : du sud de l'Espagne/Grèce
-      latMax: 71,  // au nord de la Scandinavie
-      lonMin: -10, // De l'ouest du Portugal/Irlande
-      lonMax: 45   // À l'est de la Russie européenne
+      latMin: -90,  // Globe entier : du pôle Sud
+      latMax: 90,   // au pôle Nord
+      lonMin: -180, // Tout le globe : méridien international Ouest
+      lonMax: 180   // méridien international Est
     });
 
     const { pngBuffer, metadata } = convertToPNG(windData);
 
-    const windPoints = [];
-    for (let i = 0; i < windData.lats.length; i++) {
-      windPoints.push({
+    // Pre-allocate array for better performance with large datasets
+    const pointCount = windData.lats.length;
+    const windPoints = new Array(pointCount);
+
+    for (let i = 0; i < pointCount; i++) {
+      windPoints[i] = {
         lat: parseFloat(windData.lats[i].toFixed(2)),
         lon: parseFloat(windData.lons[i].toFixed(2)),
         u: parseFloat(windData.uData[i].toFixed(2)),
@@ -531,7 +545,7 @@ async function getWindData() {
         speed: parseFloat(Math.sqrt(windData.uData[i]**2 + windData.vData[i]**2).toFixed(1)),
         direction: parseFloat((Math.atan2(windData.vData[i], windData.uData[i]) * 180 / Math.PI).toFixed(0)),
         gusts: 0
-      });
+      };
     }
 
     return {
