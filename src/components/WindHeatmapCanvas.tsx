@@ -444,7 +444,10 @@ export default function WindHeatmapCanvas({
       : "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 
   return (
-    <div className="wind-heatmap-container" style={{ paddingTop: "2rem" }}>
+    <div
+      className="wind-heatmap-container  multi-item-vertical"
+      style={{ paddingTop: "2rem" }}
+    >
       <div className="wind-heatmap-header">
         <h2>
           {displayMode === "wind" ? t.globalWindMap : t.globalPrecipitationMap}
@@ -656,7 +659,13 @@ export default function WindHeatmapCanvas({
 
       <style>{`
         .wind-heatmap-container {
-          margin: 0.2rem 0;
+          margin: 1rem 0 0 0;
+        }
+
+        @media screen and (max-width: 460px) {
+            .wind-heatmap-header{
+                  flex-direction: column;
+             }
         }
 
         .wind-heatmap-header {
