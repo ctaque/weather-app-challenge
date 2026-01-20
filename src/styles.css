@@ -149,7 +149,7 @@ textarea {
   background: var(--card);
   backdrop-filter: blur(5px);
   border-radius: 0.8rem;
-  margin: 1rem auto;
+  margin: 0rem auto;
 }
 
 /* Ensure vertical gap between weather components */

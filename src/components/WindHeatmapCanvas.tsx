@@ -35,19 +35,21 @@ interface WindHeatmapCanvasProps {
   location?: Location;
 }
 
-type DisplayMode = 'wind' | 'precipitation';
+type DisplayMode = "wind" | "precipitation";
 
-export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) {
+export default function WindHeatmapCanvas({
+  location,
+}: WindHeatmapCanvasProps) {
   const [windData, setWindData] = useState<WindData | null>(null);
   const [precipData, setPrecipData] = useState<PrecipitationData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [displayMode, setDisplayMode] = useState<DisplayMode>('wind');
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("wind");
 
   // Computed values based on display mode
-  const showParticles = displayMode === 'wind';
-  const showHeatmap = displayMode === 'wind';
-  const showPrecipitation = displayMode === 'precipitation';
+  const showParticles = displayMode === "wind";
+  const showHeatmap = displayMode === "wind";
+  const showPrecipitation = displayMode === "precipitation";
 
   const mapRef = useRef<MapRef>(null);
   const heatmapCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -55,7 +57,9 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
   const precipitationCanvasRef = useRef<HTMLCanvasElement>(null);
   const heatmapSystemRef = useRef<WindHeatmap | null>(null);
   const particleSystemRef = useRef<WindParticlesCanvas | null>(null);
-  const precipitationSystemRef = useRef<PrecipitationHeatmapCanvas | null>(null);
+  const precipitationSystemRef = useRef<PrecipitationHeatmapCanvas | null>(
+    null,
+  );
   const containerRef = useRef<HTMLDivElement>(null);
 
   const theme = useContext(ThemeContext);
@@ -99,7 +103,13 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
 
   // Initialize heatmap and particle systems when wind data loads
   useEffect(() => {
-    if (!windData || !heatmapCanvasRef.current || !particlesCanvasRef.current || !mapRef.current) return;
+    if (
+      !windData ||
+      !heatmapCanvasRef.current ||
+      !particlesCanvasRef.current ||
+      !mapRef.current
+    )
+      return;
 
     const map = mapRef.current.getMap();
     const heatmapCanvas = heatmapCanvasRef.current;
@@ -130,7 +140,7 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
         minLat: mapBounds.getSouth(),
         maxLat: mapBounds.getNorth(),
         minLon: mapBounds.getWest(),
-        maxLon: mapBounds.getEast()
+        maxLon: mapBounds.getEast(),
       };
     };
 
@@ -142,7 +152,7 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
       heatmapCanvas,
       windData.points,
       initialBounds,
-      0.5 // opacity
+      0.5, // opacity
     );
 
     // Create particle system with global bounds (particles work globally)
@@ -150,12 +160,12 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
       minLat: -90,
       maxLat: 90,
       minLon: -180,
-      maxLon: 180
+      maxLon: 180,
     };
     particleSystemRef.current = new WindParticlesCanvas(
       particlesCanvas,
       windData.points,
-      globalBounds
+      globalBounds,
     );
 
     // Create projection helper
@@ -167,7 +177,7 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
       unproject: (xy: [number, number]) => {
         const lngLat = map.unproject(xy);
         return [lngLat.lng, lngLat.lat];
-      }
+      },
     });
 
     // Set initial projection
@@ -229,29 +239,35 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
       updateCanvasSize();
 
       if (heatmapSystemRef.current) {
-        heatmapSystemRef.current.resize(heatmapCanvas.width, heatmapCanvas.height);
+        heatmapSystemRef.current.resize(
+          heatmapCanvas.width,
+          heatmapCanvas.height,
+        );
         if (showHeatmap) {
           heatmapSystemRef.current.redraw();
         }
       }
 
       if (particleSystemRef.current) {
-        particleSystemRef.current.resize(particlesCanvas.width, particlesCanvas.height);
+        particleSystemRef.current.resize(
+          particlesCanvas.width,
+          particlesCanvas.height,
+        );
       }
     };
 
-    map.on('movestart', handleMoveStart);
-    map.on('move', handleMove);
-    map.on('zoom', handleMove);
-    map.on('resize', handleResize);
+    map.on("movestart", handleMoveStart);
+    map.on("move", handleMove);
+    map.on("zoom", handleMove);
+    map.on("resize", handleResize);
 
     return () => {
       if (moveTimeout) clearTimeout(moveTimeout);
 
-      map.off('movestart', handleMoveStart);
-      map.off('move', handleMove);
-      map.off('zoom', handleMove);
-      map.off('resize', handleResize);
+      map.off("movestart", handleMoveStart);
+      map.off("move", handleMove);
+      map.off("zoom", handleMove);
+      map.off("resize", handleResize);
 
       if (particleSystemRef.current) {
         particleSystemRef.current.stop();
@@ -272,7 +288,8 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
 
   // Initialize precipitation system when data loads
   useEffect(() => {
-    if (!precipData || !precipitationCanvasRef.current || !mapRef.current) return;
+    if (!precipData || !precipitationCanvasRef.current || !mapRef.current)
+      return;
 
     const map = mapRef.current.getMap();
     const precipCanvas = precipitationCanvasRef.current;
@@ -297,7 +314,7 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
         minLat: mapBounds.getSouth(),
         maxLat: mapBounds.getNorth(),
         minLon: mapBounds.getWest(),
-        maxLon: mapBounds.getEast()
+        maxLon: mapBounds.getEast(),
       };
     };
 
@@ -309,7 +326,7 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
       precipCanvas,
       precipData.points,
       initialBounds,
-      0.7 // opacity
+      0.7, // opacity
     );
 
     // Create projection helper
@@ -321,7 +338,7 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
       unproject: (xy: [number, number]) => {
         const lngLat = map.unproject(xy);
         return [lngLat.lng, lngLat.lat];
-      }
+      },
     });
 
     // Set initial projection
@@ -373,25 +390,28 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
       updateCanvasSize();
 
       if (precipitationSystemRef.current) {
-        precipitationSystemRef.current.resize(precipCanvas.width, precipCanvas.height);
+        precipitationSystemRef.current.resize(
+          precipCanvas.width,
+          precipCanvas.height,
+        );
         if (showPrecipitation) {
           precipitationSystemRef.current.redraw();
         }
       }
     };
 
-    map.on('movestart', handleMoveStart);
-    map.on('move', handleMove);
-    map.on('zoom', handleMove);
-    map.on('resize', handleResize);
+    map.on("movestart", handleMoveStart);
+    map.on("move", handleMove);
+    map.on("zoom", handleMove);
+    map.on("resize", handleResize);
 
     return () => {
       if (moveTimeout) clearTimeout(moveTimeout);
 
-      map.off('movestart', handleMoveStart);
-      map.off('move', handleMove);
-      map.off('zoom', handleMove);
-      map.off('resize', handleResize);
+      map.off("movestart", handleMoveStart);
+      map.off("move", handleMove);
+      map.off("zoom", handleMove);
+      map.off("resize", handleResize);
     };
   }, [precipData, showPrecipitation]);
 
@@ -425,22 +445,26 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
   return (
     <div className="wind-heatmap-container">
       <div className="wind-heatmap-header">
-        <h2>{displayMode === 'wind' ? 'Global Wind Map' : 'Global Precipitation Map'}</h2>
+        <h2>
+          {displayMode === "wind"
+            ? "Carte Mondiale des Vents"
+            : "Carte Mondiale des Précipitations"}
+        </h2>
         <div className="wind-heatmap-controls">
           <button onClick={loadWindData} disabled={loading}>
-            {loading ? "Loading..." : "Refresh Data"}
+            {loading ? "Chargement..." : "Actualiser"}
           </button>
 
           <div className="button-group">
             <button
-              className={displayMode === 'wind' ? "active" : ""}
-              onClick={() => setDisplayMode('wind')}
+              className={displayMode === "wind" ? "active" : ""}
+              onClick={() => setDisplayMode("wind")}
             >
-              Wind
+              Vents
             </button>
             <button
-              className={displayMode === 'precipitation' ? "active" : ""}
-              onClick={() => setDisplayMode('precipitation')}
+              className={displayMode === "precipitation" ? "active" : ""}
+              onClick={() => setDisplayMode("precipitation")}
               disabled={!precipData}
               title={!precipData ? "Precipitation data not available" : ""}
             >
@@ -456,40 +480,126 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
         </div>
       )}
 
-      {displayMode === 'wind' && windData && (
+      {displayMode === "wind" && windData && (
         <div className="wind-heatmap-info">
           <p>
             Source: {windData.source} | Updated:{" "}
-            {new Date(windData.timestamp).toLocaleString()} | Points: {windData.points.length}
+            {new Date(windData.timestamp).toLocaleString()} | Points:{" "}
+            {windData.points.length}
           </p>
           <div className="wind-legend">
             <span className="legend-title">Wind Speed (m/s):</span>
-            <div className="legend-item"><span className="legend-color" style={{background: 'rgb(50, 136, 189)'}}></span> 0-2 (Calme)</div>
-            <div className="legend-item"><span className="legend-color" style={{background: 'rgb(102, 194, 165)'}}></span> 2-5 (Léger)</div>
-            <div className="legend-item"><span className="legend-color" style={{background: 'rgb(171, 221, 164)'}}></span> 5-8 (Modéré)</div>
-            <div className="legend-item"><span className="legend-color" style={{background: 'rgb(254, 224, 139)'}}></span> 8-14 (Fort)</div>
-            <div className="legend-item"><span className="legend-color" style={{background: 'rgb(244, 109, 67)'}}></span> 14-20 (Très fort)</div>
-            <div className="legend-item"><span className="legend-color" style={{background: 'rgb(215, 48, 39)'}}></span> 20+ (Violent)</div>
+            <div className="legend-item">
+              <span
+                className="legend-color"
+                style={{ background: "rgb(50, 136, 189)" }}
+              ></span>{" "}
+              0-2 (Calme)
+            </div>
+            <div className="legend-item">
+              <span
+                className="legend-color"
+                style={{ background: "rgb(102, 194, 165)" }}
+              ></span>{" "}
+              2-5 (Léger)
+            </div>
+            <div className="legend-item">
+              <span
+                className="legend-color"
+                style={{ background: "rgb(171, 221, 164)" }}
+              ></span>{" "}
+              5-8 (Modéré)
+            </div>
+            <div className="legend-item">
+              <span
+                className="legend-color"
+                style={{ background: "rgb(254, 224, 139)" }}
+              ></span>{" "}
+              8-14 (Fort)
+            </div>
+            <div className="legend-item">
+              <span
+                className="legend-color"
+                style={{ background: "rgb(244, 109, 67)" }}
+              ></span>{" "}
+              14-20 (Très fort)
+            </div>
+            <div className="legend-item">
+              <span
+                className="legend-color"
+                style={{ background: "rgb(215, 48, 39)" }}
+              ></span>{" "}
+              20+ (Violent)
+            </div>
           </div>
         </div>
       )}
 
-      {displayMode === 'precipitation' && precipData && (
+      {displayMode === "precipitation" && precipData && (
         <div className="wind-heatmap-info">
           <p>
             Source: {precipData.source} | Updated:{" "}
-            {new Date(precipData.timestamp).toLocaleString()} | Points: {precipData.points.length}
+            {new Date(precipData.timestamp).toLocaleString()} | Points:{" "}
+            {precipData.points.length}
           </p>
           <div className="precipitation-legend">
             <span className="legend-title">Precipitation (mm/h):</span>
-            <div className="legend-item"><span className="legend-color" style={{background: 'rgba(173, 216, 230, 0.5)'}}></span> 0.1-0.5 (Très léger)</div>
-            <div className="legend-item"><span className="legend-color" style={{background: 'rgba(135, 206, 250, 0.7)'}}></span> 0.5-1 (Léger)</div>
-            <div className="legend-item"><span className="legend-color" style={{background: 'rgba(70, 130, 180, 0.7)'}}></span> 1-2.5 (Modéré)</div>
-            <div className="legend-item"><span className="legend-color" style={{background: 'rgba(30, 144, 255, 0.7)'}}></span> 2.5-5 (Moyen-fort)</div>
-            <div className="legend-item"><span className="legend-color" style={{background: 'rgba(75, 0, 130, 0.8)'}}></span> 5-10 (Fort)</div>
-            <div className="legend-item"><span className="legend-color" style={{background: 'rgba(138, 43, 226, 0.85)'}}></span> 10-20 (Très fort)</div>
-            <div className="legend-item"><span className="legend-color" style={{background: 'rgba(199, 21, 133, 0.9)'}}></span> 20-40 (Intense)</div>
-            <div className="legend-item"><span className="legend-color" style={{background: 'rgba(220, 20, 60, 0.95)'}}></span> 40+ (Extrême)</div>
+            <div className="legend-item">
+              <span
+                className="legend-color"
+                style={{ background: "rgba(173, 216, 230, 0.5)" }}
+              ></span>{" "}
+              0.1-0.5 (Très léger)
+            </div>
+            <div className="legend-item">
+              <span
+                className="legend-color"
+                style={{ background: "rgba(135, 206, 250, 0.7)" }}
+              ></span>{" "}
+              0.5-1 (Léger)
+            </div>
+            <div className="legend-item">
+              <span
+                className="legend-color"
+                style={{ background: "rgba(70, 130, 180, 0.7)" }}
+              ></span>{" "}
+              1-2.5 (Modéré)
+            </div>
+            <div className="legend-item">
+              <span
+                className="legend-color"
+                style={{ background: "rgba(30, 144, 255, 0.7)" }}
+              ></span>{" "}
+              2.5-5 (Moyen-fort)
+            </div>
+            <div className="legend-item">
+              <span
+                className="legend-color"
+                style={{ background: "rgba(75, 0, 130, 0.8)" }}
+              ></span>{" "}
+              5-10 (Fort)
+            </div>
+            <div className="legend-item">
+              <span
+                className="legend-color"
+                style={{ background: "rgba(138, 43, 226, 0.85)" }}
+              ></span>{" "}
+              10-20 (Très fort)
+            </div>
+            <div className="legend-item">
+              <span
+                className="legend-color"
+                style={{ background: "rgba(199, 21, 133, 0.9)" }}
+              ></span>{" "}
+              20-40 (Intense)
+            </div>
+            <div className="legend-item">
+              <span
+                className="legend-color"
+                style={{ background: "rgba(220, 20, 60, 0.95)" }}
+              ></span>{" "}
+              40+ (Extrême)
+            </div>
           </div>
         </div>
       )}
@@ -516,7 +626,7 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
             top: 0,
             left: 0,
             pointerEvents: "none",
-            zIndex: 1
+            zIndex: 1,
           }}
         />
 
@@ -528,7 +638,7 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
             top: 0,
             left: 0,
             pointerEvents: "none",
-            zIndex: 2
+            zIndex: 2,
           }}
         />
 
@@ -540,14 +650,14 @@ export default function WindHeatmapCanvas({ location }: WindHeatmapCanvasProps) 
             top: 0,
             left: 0,
             pointerEvents: "none",
-            zIndex: 3
+            zIndex: 3,
           }}
         />
       </div>
 
       <style>{`
         .wind-heatmap-container {
-          margin: 2rem 0;
+          margin: 0.2rem 0;
         }
 
         .wind-heatmap-header {

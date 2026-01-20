@@ -232,8 +232,8 @@ function makeForecastForCity(
   const currentTemp = nowEntry
     ? Math.round(nowEntry.temp_c)
     : Math.round(
-      (todayForecast.day.maxtemp_c + todayForecast.day.mintemp_c) / 2,
-    );
+        (todayForecast.day.maxtemp_c + todayForecast.day.mintemp_c) / 2,
+      );
   const currentCondition = nowEntry
     ? nowEntry.condition.text
     : todayForecast.day.condition.text;
@@ -361,9 +361,9 @@ export default function WeatherGrid() {
                     h.time ??
                     (h.time_epoch
                       ? new Date(h.time_epoch * 1000)
-                        .toISOString()
-                        .replace("T", " ")
-                        .slice(0, 16)
+                          .toISOString()
+                          .replace("T", " ")
+                          .slice(0, 16)
                       : `${dateStr} ${String(h.hour ?? "00").padStart(2, "0")}:00`);
                   const temp_c =
                     typeof h.temp_c !== "undefined"
@@ -517,9 +517,9 @@ export default function WeatherGrid() {
             const currentTemp = nowEntry
               ? Math.round(nowEntry.temp_c)
               : Math.round(
-                (todayForecast.day.maxtemp_c + todayForecast.day.mintemp_c) /
-                2,
-              );
+                  (todayForecast.day.maxtemp_c + todayForecast.day.mintemp_c) /
+                    2,
+                );
             copy[idx].current = {
               ...copy[idx].current,
               temp_c: currentTemp,
@@ -575,10 +575,16 @@ export default function WeatherGrid() {
   };
 
   return (
-    <section>
+    <section style={{ paddingBottom: "1rem" }}>
       {/* Wind Heatmap for selected city */}
 
-      <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "0.5rem",
+          alignItems: "flex-start",
+        }}
+      >
         <div
           className="location-list"
           role="tablist"
@@ -895,10 +901,10 @@ const CityCard = React.forwardRef<
                   style={
                     isCurrentHour
                       ? {
-                        backgroundColor: "var(--accent)",
-                        color: "#ffffff",
-                        border: "2px solid var(--selection-border)",
-                      }
+                          backgroundColor: "var(--accent)",
+                          color: "#ffffff",
+                          border: "2px solid var(--selection-border)",
+                        }
                       : undefined
                   }
                 >
@@ -961,7 +967,7 @@ const CityCard = React.forwardRef<
           )}
 
           {selectedDay?.day?.api_mintemp_c !== undefined ||
-            selectedDay?.day?.api_maxtemp_c !== undefined ? (
+          selectedDay?.day?.api_maxtemp_c !== undefined ? (
             <div className="small muted" style={{ marginTop: 6 }}>
               {t.apiValues}{" "}
               {units === "knots-celsius"

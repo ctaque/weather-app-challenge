@@ -130,20 +130,25 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         id: "wind-halo",
         data: trails,
         dataComparator: (newData, oldData) => newData === oldData,
-        _pathType: 'open',
+        _pathType: "open",
 
         getPath: (d: any) => d.path, // Simplified - no oscillation for performance
         getColor: (d: any) => {
           const [r, g, b] = d.baseColor;
           // Pulsing opacity based on segment phase
-          const avgPhase = d.pathPhases?.reduce((a: number, b: number) => a + b, 0) / (d.pathPhases?.length || 1);
-          const pulseFactor = 0.7 + Math.sin(frameCount * 0.05 + avgPhase) * 0.3;
+          const avgPhase =
+            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
+            (d.pathPhases?.length || 1);
+          const pulseFactor =
+            0.7 + Math.sin(frameCount * 0.05 + avgPhase) * 0.3;
           const fadeAlpha = Math.pow(d.segmentPosition, 2) * 40 * pulseFactor;
           return [r, g, b, fadeAlpha];
         },
         getWidth: (d: any) => {
           // Varying width based on phase - 4× PLUS LARGE
-          const avgPhase = d.pathPhases?.reduce((a: number, b: number) => a + b, 0) / (d.pathPhases?.length || 1);
+          const avgPhase =
+            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
+            (d.pathPhases?.length || 1);
           const widthVar = 1 + Math.sin(frameCount * 0.08 + avgPhase) * 0.2;
           return (20 + d.segmentPosition * 30) * widthVar * 4;
         },
@@ -164,8 +169,8 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         updateTriggers: {
           getPath: dataVersion,
           getColor: dataVersion,
-          getWidth: dataVersion
-        }
+          getWidth: dataVersion,
+        },
       });
 
       // WebGL Layer 2: Medium glow with independent oscillation
@@ -173,18 +178,24 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         id: "wind-glow",
         data: trails,
         dataComparator: (newData, oldData) => newData === oldData,
-        _pathType: 'open',
+        _pathType: "open",
 
         getPath: (d: any) => d.path,
         getColor: (d: any) => {
           const [r, g, b] = d.baseColor;
-          const avgPhase = d.pathPhases?.reduce((a: number, b: number) => a + b, 0) / (d.pathPhases?.length || 1);
-          const pulseFactor = 0.8 + Math.sin(frameCount * 0.07 + avgPhase) * 0.2;
-          const fadeAlpha = Math.pow(d.segmentPosition, 1.5) * 100 * pulseFactor;
+          const avgPhase =
+            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
+            (d.pathPhases?.length || 1);
+          const pulseFactor =
+            0.8 + Math.sin(frameCount * 0.07 + avgPhase) * 0.2;
+          const fadeAlpha =
+            Math.pow(d.segmentPosition, 1.5) * 100 * pulseFactor;
           return [r, g, b, fadeAlpha];
         },
         getWidth: (d: any) => {
-          const avgPhase = d.pathPhases?.reduce((a: number, b: number) => a + b, 0) / (d.pathPhases?.length || 1);
+          const avgPhase =
+            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
+            (d.pathPhases?.length || 1);
           const widthVar = 1 + Math.sin(frameCount * 0.09 + avgPhase) * 0.15;
           return (3 + d.segmentPosition * 9) * widthVar * 4;
         },
@@ -201,8 +212,8 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         updateTriggers: {
           getPath: dataVersion,
           getColor: dataVersion,
-          getWidth: dataVersion
-        }
+          getWidth: dataVersion,
+        },
       });
 
       // WebGL Layer 3: Main trails with independent wave motion
@@ -210,13 +221,16 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         id: "wind-trails",
         data: trails,
         dataComparator: (newData, oldData) => newData === oldData,
-        _pathType: 'open',
+        _pathType: "open",
 
         getPath: (d: any) => d.path,
         getColor: (d: any) => {
           const fadeCurve = Math.pow(d.segmentPosition, 1.2);
-          const avgPhase = d.pathPhases?.reduce((a: number, b: number) => a + b, 0) / (d.pathPhases?.length || 1);
-          const pulseFactor = 0.85 + Math.sin(frameCount * 0.06 + avgPhase) * 0.15;
+          const avgPhase =
+            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
+            (d.pathPhases?.length || 1);
+          const pulseFactor =
+            0.85 + Math.sin(frameCount * 0.06 + avgPhase) * 0.15;
           const opacity = Math.floor(fadeCurve * 240 * pulseFactor + 15);
           const [r, g, b] = d.baseColor;
           return [r, g, b, opacity];
@@ -224,7 +238,9 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         getWidth: (d: any) => {
           const speedFactor = Math.min(d.speed / 20, 1);
           const baseTaper = 1.5 + d.segmentPosition * 4;
-          const avgPhase = d.pathPhases?.reduce((a: number, b: number) => a + b, 0) / (d.pathPhases?.length || 1);
+          const avgPhase =
+            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
+            (d.pathPhases?.length || 1);
           const widthVar = 1 + Math.sin(frameCount * 0.1 + avgPhase) * 0.1;
           return (baseTaper + speedFactor * 3) * widthVar * 4;
         },
@@ -241,8 +257,8 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         updateTriggers: {
           getPath: dataVersion,
           getColor: dataVersion,
-          getWidth: dataVersion
-        }
+          getWidth: dataVersion,
+        },
       });
 
       // WebGL Layer 4: Bright core with micro-oscillations
@@ -250,12 +266,14 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         id: "wind-core",
         data: trails,
         dataComparator: (newData, oldData) => newData === oldData,
-        _pathType: 'open',
+        _pathType: "open",
 
         getPath: (d: any) => d.path,
         getColor: (d: any) => {
           const fadeCurve = Math.pow(d.segmentPosition, 0.8);
-          const avgPhase = d.pathPhases?.reduce((a: number, b: number) => a + b, 0) / (d.pathPhases?.length || 1);
+          const avgPhase =
+            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
+            (d.pathPhases?.length || 1);
           const shimmer = 1 + Math.sin(frameCount * 0.12 + avgPhase) * 0.1;
           const opacity = Math.floor(fadeCurve * 255 * shimmer);
           const [r, g, b] = d.baseColor;
@@ -270,7 +288,9 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         getWidth: (d: any) => {
           const speedFactor = Math.min(d.speed / 20, 1);
           const taper = 0.5 + d.segmentPosition * 2;
-          const avgPhase = d.pathPhases?.reduce((a: number, b: number) => a + b, 0) / (d.pathPhases?.length || 1);
+          const avgPhase =
+            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
+            (d.pathPhases?.length || 1);
           const widthVar = 1 + Math.sin(frameCount * 0.13 + avgPhase) * 0.08;
           return (taper + speedFactor * 1.5) * widthVar * 4;
         },
@@ -287,8 +307,8 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         updateTriggers: {
           getPath: dataVersion,
           getColor: dataVersion,
-          getWidth: dataVersion
-        }
+          getWidth: dataVersion,
+        },
       });
 
       // WebGL Layer 5: Particle heads with GPU-accelerated pulsing
@@ -325,8 +345,8 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         updateTriggers: {
           getPosition: dataVersion,
           getFillColor: dataVersion,
-          getRadius: dataVersion
-        }
+          getRadius: dataVersion,
+        },
       });
 
       // WebGL Layer 6: Wind direction arrows
@@ -362,8 +382,8 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         updateTriggers: {
           getPosition: dataVersion,
           getFillColor: dataVersion,
-          getRadius: dataVersion
-        }
+          getRadius: dataVersion,
+        },
       });
 
       // Simple triangle arrows using PathLayer
@@ -373,22 +393,28 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         const speed = d.speed;
 
         // Arrow size based on speed
-        const size = 0.05 + (Math.min(speed / 20, 1) * 0.1);
+        const size = 0.05 + Math.min(speed / 20, 1) * 0.1;
 
         // Create arrow triangle pointing in wind direction
-        const angleRad = angle * Math.PI / 180;
+        const angleRad = (angle * Math.PI) / 180;
         const cos = Math.cos(angleRad);
         const sin = Math.sin(angleRad);
 
         // Arrow points (triangle)
         const tip: [number, number] = [x + cos * size, y + sin * size];
-        const left: [number, number] = [x - cos * size * 0.3 - sin * size * 0.4, y - sin * size * 0.3 + cos * size * 0.4];
-        const right: [number, number] = [x - cos * size * 0.3 + sin * size * 0.4, y - sin * size * 0.3 - cos * size * 0.4];
+        const left: [number, number] = [
+          x - cos * size * 0.3 - sin * size * 0.4,
+          y - sin * size * 0.3 + cos * size * 0.4,
+        ];
+        const right: [number, number] = [
+          x - cos * size * 0.3 + sin * size * 0.4,
+          y - sin * size * 0.3 - cos * size * 0.4,
+        ];
 
         return {
           path: [tip, left, right, tip], // Close the triangle
           color: d.color,
-          speed: d.speed
+          speed: d.speed,
         };
       });
 
@@ -413,12 +439,19 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
 
         updateTriggers: {
           getPath: dataVersion,
-          getColor: dataVersion
-        }
+          getColor: dataVersion,
+        },
       });
 
       // Update layers (render order: halo -> glow -> trails -> core -> arrows -> heads)
-      setLayers([haloLayer, glowLayer, trailLayer, coreLayer, arrowPathLayer, headLayer]);
+      setLayers([
+        haloLayer,
+        glowLayer,
+        trailLayer,
+        coreLayer,
+        arrowPathLayer,
+        headLayer,
+      ]);
 
       animationFrameRef.current = requestAnimationFrame(animate);
     };
@@ -504,7 +537,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
 
       <style>{`
         .wind-heatmap-container {
-          margin: 2rem 0;
+          margin: .2rem 0;
         }
 
         .wind-heatmap-header {

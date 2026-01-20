@@ -87,7 +87,7 @@ export default function WindHeatmapWebGL({ location }: WindHeatmapProps) {
       minLat: 41,
       maxLat: 52,
       minLon: -5,
-      maxLon: 10
+      maxLon: 10,
     };
 
     const particleCount = 8000;
@@ -96,8 +96,10 @@ export default function WindHeatmapWebGL({ location }: WindHeatmapProps) {
 
     // Create particles with pre-computed trails
     for (let i = 0; i < particleCount; i++) {
-      const startX = bounds.minLon + Math.random() * (bounds.maxLon - bounds.minLon);
-      const startY = bounds.minLat + Math.random() * (bounds.maxLat - bounds.minLat);
+      const startX =
+        bounds.minLon + Math.random() * (bounds.maxLon - bounds.minLon);
+      const startY =
+        bounds.minLat + Math.random() * (bounds.maxLat - bounds.minLat);
 
       // Simulate trail path based on wind field
       const path: [number, number, number][] = [[startX, startY, 0]];
@@ -114,11 +116,16 @@ export default function WindHeatmapWebGL({ location }: WindHeatmapProps) {
         const speedMultiplier = 0.001;
         const turbulence = Math.sin(t * 0.05 + i) * 0.00005;
 
-        x += (wind.u * speedMultiplier + turbulence);
-        y += (wind.v * speedMultiplier - turbulence * 0.5);
+        x += wind.u * speedMultiplier + turbulence;
+        y += wind.v * speedMultiplier - turbulence * 0.5;
 
         // Check bounds
-        if (x < bounds.minLon || x > bounds.maxLon || y < bounds.minLat || y > bounds.maxLat) {
+        if (
+          x < bounds.minLon ||
+          x > bounds.maxLon ||
+          y < bounds.minLat ||
+          y > bounds.maxLat
+        ) {
           break;
         }
 
@@ -136,9 +143,9 @@ export default function WindHeatmapWebGL({ location }: WindHeatmapProps) {
 
       particles.push({
         path,
-        timestamps: path.map(p => p[2]),
+        timestamps: path.map((p) => p[2]),
         color,
-        speed: avgSpeed
+        speed: avgSpeed,
       });
     }
 
@@ -146,13 +153,18 @@ export default function WindHeatmapWebGL({ location }: WindHeatmapProps) {
     startAnimation();
   }
 
-  function interpolateWind(lon: number, lat: number, windData: WindDataPoint[], bounds: any) {
+  function interpolateWind(
+    lon: number,
+    lat: number,
+    windData: WindDataPoint[],
+    bounds: any,
+  ) {
     let closestPoint: WindDataPoint | null = null;
     let minDistance = Infinity;
 
     for (const point of windData) {
       const distance = Math.sqrt(
-        Math.pow(point.lat - lat, 2) + Math.pow(point.lon - lon, 2)
+        Math.pow(point.lat - lat, 2) + Math.pow(point.lon - lon, 2),
       );
       if (distance < minDistance) {
         minDistance = distance;
@@ -184,7 +196,7 @@ export default function WindHeatmapWebGL({ location }: WindHeatmapProps) {
 
       // Create TripsLayer with current time
       const tripsLayer = new TripsLayer({
-        id: 'wind-trips',
+        id: "wind-trips",
         data: particlesRef.current,
         getPath: (d: any) => d.path,
         getTimestamps: (d: any) => d.timestamps,
@@ -194,7 +206,7 @@ export default function WindHeatmapWebGL({ location }: WindHeatmapProps) {
         rounded: true,
         trailLength: 800, // How much of trail to show
         currentTime: time,
-        shadowEnabled: false
+        shadowEnabled: false,
       });
 
       setLayers([tripsLayer]);
@@ -241,7 +253,8 @@ export default function WindHeatmapWebGL({ location }: WindHeatmapProps) {
         <div className="wind-heatmap-info">
           <p>
             Source: {windData.source} | Updated:{" "}
-            {new Date(windData.timestamp).toLocaleString()} | Points: {windData.points.length}
+            {new Date(windData.timestamp).toLocaleString()} | Points:{" "}
+            {windData.points.length}
           </p>
         </div>
       )}
@@ -264,7 +277,7 @@ export default function WindHeatmapWebGL({ location }: WindHeatmapProps) {
 
       <style>{`
         .wind-heatmap-container {
-          margin: 2rem 0;
+          margin: 1rem 0;
         }
 
         .wind-heatmap-header {
