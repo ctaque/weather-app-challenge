@@ -76,7 +76,7 @@ async function getClient() {
 
 /**
  * Store wind data in Redis (with automatic chunking for large datasets)
- * @param {Object} data - Wind data to store
+ * @param {Object|Array} data - Wind data to store
  * @param {string} key - Redis key (default: 'wind:data')
  */
 async function setWindData(data, key = 'wind:data') {
@@ -88,26 +88,58 @@ async function setWindData(data, key = 'wind:data') {
     // Upstash Redis free tier limit: 10 MB per request
     const MAX_SIZE = 8 * 1024 * 1024; // 8 MB to be safe
 
-    if (dataSize > MAX_SIZE && Array.isArray(data)) {
-      // Split large arrays into chunks
-      console.log(`Redis: Data too large (${dataSize} bytes), splitting into chunks...`);
+    if (dataSize > MAX_SIZE) {
+      // Check if data is an array or object with large array property
+      if (Array.isArray(data)) {
+        // Split large array into chunks
+        console.log(`Redis: Array too large (${dataSize} bytes), splitting into chunks...`);
 
-      const chunkSize = Math.ceil(data.length / Math.ceil(dataSize / MAX_SIZE));
-      const chunks = [];
+        const chunkSize = Math.ceil(data.length / Math.ceil(dataSize / MAX_SIZE));
+        const chunks = [];
 
-      for (let i = 0; i < data.length; i += chunkSize) {
-        chunks.push(data.slice(i, i + chunkSize));
+        for (let i = 0; i < data.length; i += chunkSize) {
+          chunks.push(data.slice(i, i + chunkSize));
+        }
+
+        // Store chunk count
+        await redis.setEx(`${key}:chunks`, REDIS_TTL, chunks.length.toString());
+
+        // Store each chunk
+        for (let i = 0; i < chunks.length; i++) {
+          await redis.setEx(`${key}:chunk:${i}`, REDIS_TTL, JSON.stringify(chunks[i]));
+        }
+
+        console.log(`Redis: Stored ${data.length} items in ${chunks.length} chunks at key '${key}' with TTL ${REDIS_TTL}s`);
+      } else if (typeof data === 'object' && data !== null && data.points && Array.isArray(data.points)) {
+        // Object with large 'points' array - split points into chunks
+        console.log(`Redis: Object with large points array (${dataSize} bytes), splitting points into chunks...`);
+
+        const points = data.points;
+        const otherData = { ...data };
+        delete otherData.points;
+
+        const chunkSize = Math.ceil(points.length / Math.ceil(dataSize / MAX_SIZE));
+        const chunks = [];
+
+        for (let i = 0; i < points.length; i += chunkSize) {
+          chunks.push(points.slice(i, i + chunkSize));
+        }
+
+        // Store metadata (without points)
+        await redis.setEx(`${key}:meta`, REDIS_TTL, JSON.stringify(otherData));
+
+        // Store chunk count
+        await redis.setEx(`${key}:chunks`, REDIS_TTL, chunks.length.toString());
+
+        // Store each chunk
+        for (let i = 0; i < chunks.length; i++) {
+          await redis.setEx(`${key}:chunk:${i}`, REDIS_TTL, JSON.stringify(chunks[i]));
+        }
+
+        console.log(`Redis: Stored ${points.length} points in ${chunks.length} chunks at key '${key}' with TTL ${REDIS_TTL}s`);
+      } else {
+        throw new Error(`Data too large (${dataSize} bytes) and cannot be chunked automatically`);
       }
-
-      // Store chunk count
-      await redis.setEx(`${key}:chunks`, REDIS_TTL, chunks.length.toString());
-
-      // Store each chunk
-      for (let i = 0; i < chunks.length; i++) {
-        await redis.setEx(`${key}:chunk:${i}`, REDIS_TTL, JSON.stringify(chunks[i]));
-      }
-
-      console.log(`Redis: Stored wind data in ${chunks.length} chunks at key '${key}' with TTL ${REDIS_TTL}s`);
     } else {
       // Store normally if small enough
       await redis.setEx(key, REDIS_TTL, dataString);
@@ -122,7 +154,7 @@ async function setWindData(data, key = 'wind:data') {
 /**
  * Get wind data from Redis (with automatic chunk reassembly)
  * @param {string} key - Redis key (default: 'wind:data')
- * @returns {Object|null} - Parsed wind data or null if not found
+ * @returns {Object|Array|null} - Parsed wind data or null if not found
  */
 async function getWindData(key = 'wind:data') {
   try {
@@ -132,6 +164,9 @@ async function getWindData(key = 'wind:data') {
     const chunkCount = await redis.get(`${key}:chunks`);
 
     if (chunkCount) {
+      // Check if there's metadata (for objects with chunked points array)
+      const metaData = await redis.get(`${key}:meta`);
+
       // Retrieve all chunks
       const numChunks = parseInt(chunkCount, 10);
       console.log(`Redis: Retrieving ${numChunks} chunks from key '${key}'...`);
@@ -145,9 +180,19 @@ async function getWindData(key = 'wind:data') {
       }
 
       // Merge chunks
-      const data = chunks.flat();
-      console.log(`Redis: Retrieved and merged ${numChunks} chunks (${data.length} items) from key '${key}'`);
-      return data;
+      const points = chunks.flat();
+
+      if (metaData) {
+        // Reconstruct object with points
+        const metadata = JSON.parse(metaData);
+        metadata.points = points;
+        console.log(`Redis: Retrieved and merged ${numChunks} chunks (${points.length} points) from key '${key}'`);
+        return metadata;
+      } else {
+        // Return merged array
+        console.log(`Redis: Retrieved and merged ${numChunks} chunks (${points.length} items) from key '${key}'`);
+        return points;
+      }
     } else {
       // Retrieve normal (non-chunked) data
       const data = await redis.get(key);
