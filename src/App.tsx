@@ -1,6 +1,7 @@
 import React, { useEffect, useState, createContext } from "react";
 import WeatherDisplay from "./components/Weather";
 import WeatherGrid from "./components/WeatherGrid";
+import WindHeatmap from "./components/WindHeatmap";
 import { getTranslations, type Language, type Translations } from "./i18n";
 
 type WeatherData = any;
@@ -297,6 +298,9 @@ export default function App() {
 
           {/* Composant avec données en dur pour les 5 villes */}
           <WeatherGrid />
+
+          {/* Global Wind Heatmap with GRIB data */}
+          <WindHeatmap />
         </div>
       </ThemeContext.Provider>
       </UnitContext.Provider>
