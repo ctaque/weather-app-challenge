@@ -1,5 +1,14 @@
 const fetch = require('node-fetch');
-const { createCanvas } = require('canvas');
+
+// Make canvas optional (not needed on Heroku, requires system dependencies)
+let createCanvas;
+try {
+  const canvas = require('canvas');
+  createCanvas = canvas.createCanvas;
+} catch (err) {
+  console.warn('Canvas module not available (system dependencies missing). PNG generation disabled.');
+  createCanvas = null;
+}
 
 /**
  * Get available GFS forecast runs in order of preference
@@ -453,6 +462,24 @@ function parseOpenDAPASCII(asciiData) {
 function convertToPNG(windData) {
   const { width, height, uData, vData, uMin, uMax, vMin, vMax } = windData;
 
+  const metadata = {
+    source: 'NOAA GFS 0.5° via OpenDAP',
+    date: new Date().toISOString(),
+    width,
+    height,
+    uMin,
+    uMax,
+    vMin,
+    vMax
+  };
+
+  // If canvas is not available, return empty PNG buffer
+  // (Frontend uses canvas-based rendering now, so this is optional)
+  if (!createCanvas) {
+    console.log('Canvas not available, skipping PNG generation');
+    return { pngBuffer: Buffer.alloc(0), metadata };
+  }
+
   console.log(`Creating ${width}x${height} PNG...`);
 
   const canvas = createCanvas(width, height);
@@ -473,17 +500,6 @@ function convertToPNG(windData) {
 
   ctx.putImageData(imageData, 0, 0);
   const pngBuffer = canvas.toBuffer('image/png');
-
-  const metadata = {
-    source: 'NOAA GFS 0.5° via OpenDAP',
-    date: new Date().toISOString(),
-    width,
-    height,
-    uMin,
-    uMax,
-    vMin,
-    vMax
-  };
 
   console.log('PNG created:', pngBuffer.length, 'bytes');
 
