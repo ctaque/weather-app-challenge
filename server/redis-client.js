@@ -75,15 +75,44 @@ async function getClient() {
 }
 
 /**
- * Store wind data in Redis
+ * Store wind data in Redis (with automatic chunking for large datasets)
  * @param {Object} data - Wind data to store
  * @param {string} key - Redis key (default: 'wind:data')
  */
 async function setWindData(data, key = 'wind:data') {
   try {
     const redis = await getClient();
-    await redis.setEx(key, REDIS_TTL, JSON.stringify(data));
-    console.log(`Redis: Stored wind data at key '${key}' with TTL ${REDIS_TTL}s`);
+    const dataString = JSON.stringify(data);
+    const dataSize = Buffer.byteLength(dataString, 'utf8');
+
+    // Upstash Redis free tier limit: 10 MB per request
+    const MAX_SIZE = 8 * 1024 * 1024; // 8 MB to be safe
+
+    if (dataSize > MAX_SIZE && Array.isArray(data)) {
+      // Split large arrays into chunks
+      console.log(`Redis: Data too large (${dataSize} bytes), splitting into chunks...`);
+
+      const chunkSize = Math.ceil(data.length / Math.ceil(dataSize / MAX_SIZE));
+      const chunks = [];
+
+      for (let i = 0; i < data.length; i += chunkSize) {
+        chunks.push(data.slice(i, i + chunkSize));
+      }
+
+      // Store chunk count
+      await redis.setEx(`${key}:chunks`, REDIS_TTL, chunks.length.toString());
+
+      // Store each chunk
+      for (let i = 0; i < chunks.length; i++) {
+        await redis.setEx(`${key}:chunk:${i}`, REDIS_TTL, JSON.stringify(chunks[i]));
+      }
+
+      console.log(`Redis: Stored wind data in ${chunks.length} chunks at key '${key}' with TTL ${REDIS_TTL}s`);
+    } else {
+      // Store normally if small enough
+      await redis.setEx(key, REDIS_TTL, dataString);
+      console.log(`Redis: Stored wind data at key '${key}' with TTL ${REDIS_TTL}s`);
+    }
   } catch (error) {
     console.error('Redis: Error storing wind data:', error);
     throw error;
@@ -91,20 +120,44 @@ async function setWindData(data, key = 'wind:data') {
 }
 
 /**
- * Get wind data from Redis
+ * Get wind data from Redis (with automatic chunk reassembly)
  * @param {string} key - Redis key (default: 'wind:data')
  * @returns {Object|null} - Parsed wind data or null if not found
  */
 async function getWindData(key = 'wind:data') {
   try {
     const redis = await getClient();
-    const data = await redis.get(key);
-    if (!data) {
-      console.log(`Redis: No data found at key '${key}'`);
-      return null;
+
+    // Check if data is chunked
+    const chunkCount = await redis.get(`${key}:chunks`);
+
+    if (chunkCount) {
+      // Retrieve all chunks
+      const numChunks = parseInt(chunkCount, 10);
+      console.log(`Redis: Retrieving ${numChunks} chunks from key '${key}'...`);
+
+      const chunks = [];
+      for (let i = 0; i < numChunks; i++) {
+        const chunkData = await redis.get(`${key}:chunk:${i}`);
+        if (chunkData) {
+          chunks.push(JSON.parse(chunkData));
+        }
+      }
+
+      // Merge chunks
+      const data = chunks.flat();
+      console.log(`Redis: Retrieved and merged ${numChunks} chunks (${data.length} items) from key '${key}'`);
+      return data;
+    } else {
+      // Retrieve normal (non-chunked) data
+      const data = await redis.get(key);
+      if (!data) {
+        console.log(`Redis: No data found at key '${key}'`);
+        return null;
+      }
+      console.log(`Redis: Retrieved wind data from key '${key}'`);
+      return JSON.parse(data);
     }
-    console.log(`Redis: Retrieved wind data from key '${key}'`);
-    return JSON.parse(data);
   } catch (error) {
     console.error('Redis: Error retrieving wind data:', error);
     throw error;
