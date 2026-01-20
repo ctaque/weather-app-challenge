@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const { getWindData } = require('./opendap-downloader');
+const { getWindData, getPrecipitationData } = require('./opendap-downloader');
 const { setWindData, setBinaryData, isRedisConnected } = require('./redis-client');
 
 // Keys for different data types in Redis
@@ -7,7 +7,8 @@ const REDIS_KEYS = {
   WIND_POINTS: 'wind:points',
   WIND_PNG: 'wind:png',
   WIND_METADATA: 'wind:metadata',
-  LAST_UPDATE: 'wind:last_update'
+  LAST_UPDATE: 'wind:last_update',
+  PRECIPITATION_POINTS: 'precipitation:points'
 };
 
 let isSchedulerRunning = false;
@@ -54,6 +55,31 @@ async function fetchAndStoreGribData() {
 
     // Store metadata
     await setWindData(metadata, REDIS_KEYS.WIND_METADATA);
+
+    // Download and store precipitation data
+    console.log('Downloading precipitation data from NOAA GFS via OpenDAP...');
+    try {
+      const { precipPoints, metadata: precipMetadata } = await getPrecipitationData();
+      console.log(`Successfully fetched ${precipPoints.length} precipitation data points`);
+
+      const precipData = {
+        timestamp: new Date().toISOString(),
+        source: precipMetadata.source,
+        resolution: 0.5,
+        points: precipPoints,
+        unit: precipMetadata.unit,
+        bounds: {
+          lat: [-90, 90],
+          lon: [-180, 180]
+        }
+      };
+
+      await setWindData(precipData, REDIS_KEYS.PRECIPITATION_POINTS);
+      console.log('Precipitation data successfully stored in Redis');
+    } catch (precipError) {
+      console.error('Failed to fetch/store precipitation data:', precipError.message);
+      // Don't fail the whole process if precipitation fails
+    }
 
     // Store last update timestamp
     await setWindData({

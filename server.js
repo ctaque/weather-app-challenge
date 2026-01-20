@@ -119,6 +119,29 @@ app.get("/api/wind-global", async (req, res) => {
   }
 });
 
+// Global precipitation data endpoint - fetches real data from NOAA GFS (stored in Redis)
+app.get("/api/precipitation-global", async (req, res) => {
+  try {
+    // Get precipitation data from Redis
+    const precipData = await getWindDataFromRedis(REDIS_KEYS.PRECIPITATION_POINTS);
+
+    if (!precipData) {
+      return res.status(503).json({
+        error:
+          "Precipitation data not yet available. Please wait for the next scheduled fetch.",
+        schedulerStatus: getSchedulerStatus(),
+      });
+    }
+
+    res.json(precipData);
+  } catch (err) {
+    console.error("Error fetching precipitation data from Redis:", err);
+    res.status(500).json({
+      error: err.message || "Failed to fetch precipitation data",
+    });
+  }
+});
+
 // Windgl metadata endpoint
 app.get("/api/windgl/metadata.json", async (req, res) => {
   try {

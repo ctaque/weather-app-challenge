@@ -560,9 +560,371 @@ async function getWindData() {
   }
 }
 
+/**
+ * Download precipitation data from NOAA OpenDAP service with automatic fallback
+ */
+async function downloadPrecipitationDataOpenDAP(options = {}) {
+  const {
+    forecastOffset = 3,
+    latMin = -90,
+    latMax = 90,
+    lonMin = -180,
+    lonMax = 180
+  } = options;
+
+  const availableRuns = getAvailableForecastRuns();
+  console.log(`\nAvailable forecast runs to try for precipitation (in order):`);
+  availableRuns.forEach((run, i) => {
+    console.log(`  ${i + 1}. ${run.date} ${run.hour}Z (${run.hoursWaited.toFixed(1)}h ago)`);
+  });
+
+  let lastError = null;
+  for (const run of availableRuns) {
+    try {
+      console.log(`\nAttempting to fetch precipitation data for ${run.date} ${run.hour}Z f${String(forecastOffset).padStart(3, '0')} via OpenDAP...`);
+      const precipData = await downloadPrecipitationDataForRun(run.date, run.hour, forecastOffset, latMin, latMax, lonMin, lonMax);
+      console.log(`✓ Successfully fetched precipitation from ${run.date} ${run.hour}Z`);
+      return precipData;
+    } catch (error) {
+      console.log(`✗ Failed to fetch precipitation ${run.date} ${run.hour}Z: ${error.message}`);
+      lastError = error;
+    }
+  }
+
+  throw new Error(`All forecast runs failed for precipitation. Last error: ${lastError?.message || 'Unknown error'}`);
+}
+
+/**
+ * Download precipitation data for a specific forecast run
+ */
+async function downloadPrecipitationDataForRun(date, hour, forecastOffset, latMin, latMax, lonMin, lonMax) {
+  const baseUrl = `https://nomads.ncep.noaa.gov/dods/gfs_0p50/gfs${date}/gfs_0p50_${hour}z`;
+
+  const latStartIndex = Math.floor((latMin + 90) / 0.5);
+  const latEndIndex = Math.floor((latMax + 90) / 0.5);
+  const needsWrap = lonMin < 0;
+
+  console.log(`Grid indices: time=${forecastOffset}, lat=${latStartIndex}:${latEndIndex}`);
+  console.log(`Zone: ${lonMin}° to ${lonMax}° (Global coverage)`);
+
+  let allLatValues = [];
+  let allLonValues = [];
+  let allPrateValues = [];
+
+  if (needsWrap) {
+    console.log('Handling longitude wraparound with two requests...');
+
+    // Western part
+    const westLonStart = Math.floor((360 + lonMin) / 0.5);
+    const westLonEnd = 719;
+    console.log(`  West: lon indices ${westLonStart}:${westLonEnd} (${lonMin}° to -0.5°)`);
+
+    const westConstraint = `.ascii?pratesfc[${forecastOffset}:1:${forecastOffset}][${latStartIndex}:1:${latEndIndex}][${westLonStart}:1:${westLonEnd}],lat[${latStartIndex}:1:${latEndIndex}],lon[${westLonStart}:${westLonEnd}]`;
+    const westUrl = baseUrl + westConstraint;
+
+    console.log('Fetching west precipitation:', westUrl.substring(0, 150) + '...');
+    const westResponse = await fetch(westUrl, { timeout: 30000 });
+
+    if (!westResponse.ok) {
+      throw new Error(`West precipitation request failed: ${westResponse.status}`);
+    }
+
+    const westAscii = await westResponse.text();
+
+    if (westAscii.trim().startsWith('<') || westAscii.includes('<!DOCTYPE')) {
+      const errorMatch = westAscii.match(/<b>([^<]+is not an available dataset[^<]*)<\/b>/);
+      const errorMsg = errorMatch ? errorMatch[1] : 'Unknown error';
+      throw new Error(`OpenDAP error (west precipitation): ${errorMsg}`);
+    }
+
+    const westData = parseOpenDAPPrecipitationASCII(westAscii);
+    const westLons = westData.lonValues.map(lon => lon - 360);
+
+    // Eastern part
+    const eastLonStart = 0;
+    const eastLonEnd = Math.floor(lonMax / 0.5);
+    console.log(`  East: lon indices ${eastLonStart}:${eastLonEnd} (0° to ${lonMax}°)`);
+
+    const eastConstraint = `.ascii?pratesfc[${forecastOffset}:1:${forecastOffset}][${latStartIndex}:1:${latEndIndex}][${eastLonStart}:1:${eastLonEnd}],lat[${latStartIndex}:1:${latEndIndex}],lon[${eastLonStart}:${eastLonEnd}]`;
+    const eastUrl = baseUrl + eastConstraint;
+
+    console.log('Fetching east precipitation:', eastUrl.substring(0, 150) + '...');
+    const eastResponse = await fetch(eastUrl, { timeout: 30000 });
+
+    if (!eastResponse.ok) {
+      throw new Error(`East precipitation request failed: ${eastResponse.status}`);
+    }
+
+    const eastAscii = await eastResponse.text();
+
+    if (eastAscii.trim().startsWith('<') || eastAscii.includes('<!DOCTYPE')) {
+      const errorMatch = eastAscii.match(/<b>([^<]+is not an available dataset[^<]*)<\/b>/);
+      const errorMsg = errorMatch ? errorMatch[1] : 'Unknown error';
+      throw new Error(`OpenDAP error (east precipitation): ${errorMsg}`);
+    }
+
+    const eastData = parseOpenDAPPrecipitationASCII(eastAscii);
+
+    // Combine west and east data
+    allLatValues = westData.latValues;
+    allLonValues = [...westLons, ...eastData.lonValues];
+
+    // Precipitation data: interleave by rows
+    const numLats = allLatValues.length;
+    const westLonCount = westLons.length;
+    const eastLonCount = eastData.lonValues.length;
+
+    for (let latIdx = 0; latIdx < numLats; latIdx++) {
+      const westRowStart = latIdx * westLonCount;
+      const eastRowStart = latIdx * eastLonCount;
+
+      for (let i = 0; i < westLonCount; i++) {
+        allPrateValues.push(westData.prateData[westRowStart + i]);
+      }
+
+      for (let i = 0; i < eastLonCount; i++) {
+        allPrateValues.push(eastData.prateData[eastRowStart + i]);
+      }
+    }
+
+    console.log(`Combined precipitation: ${allLatValues.length} lats, ${allLonValues.length} lons, ${allPrateValues.length} total points`);
+
+  } else {
+    // Single request: no wraparound
+    const lonStart = Math.floor(lonMin / 0.5);
+    const lonEnd = Math.floor(lonMax / 0.5);
+
+    console.log(`Single request: lon indices ${lonStart}:${lonEnd}`);
+
+    const constraint = `.ascii?pratesfc[${forecastOffset}:1:${forecastOffset}][${latStartIndex}:1:${latEndIndex}][${lonStart}:1:${lonEnd}],lat[${latStartIndex}:1:${latEndIndex}],lon[${lonStart}:${lonEnd}]`;
+    const dataUrl = baseUrl + constraint;
+
+    console.log('Fetching precipitation:', dataUrl.substring(0, 150) + '...');
+
+    const dataResponse = await fetch(dataUrl, { timeout: 30000 });
+
+    if (!dataResponse.ok) {
+      throw new Error(`Precipitation data request failed: ${dataResponse.status}`);
+    }
+
+    const asciiData = await dataResponse.text();
+    console.log(`Downloaded ${asciiData.length} bytes of precipitation ASCII data`);
+
+    if (asciiData.trim().startsWith('<') || asciiData.includes('<!DOCTYPE') || asciiData.includes('<html')) {
+      console.error('OpenDAP returned HTML error page instead of precipitation data');
+      const errorMatch = asciiData.match(/<b>([^<]+is not an available dataset[^<]*)<\/b>/);
+      const errorMsg = errorMatch ? errorMatch[1] : 'Unknown error';
+      throw new Error(`OpenDAP error: ${errorMsg}. The requested dataset may not be available yet.`);
+    }
+
+    const parsedData = parseOpenDAPPrecipitationASCII(asciiData);
+    allLatValues = parsedData.latValues;
+    allLonValues = parsedData.lonValues;
+    allPrateValues = parsedData.prateData;
+  }
+
+  const width = allLonValues.length;
+  const height = allLatValues.length;
+
+  if (width === 0 || height === 0 || allPrateValues.length === 0) {
+    throw new Error(`Invalid precipitation data: width=${width}, height=${height}, prateValues=${allPrateValues.length}`);
+  }
+
+  // Calculate min/max
+  let prateMin = Infinity, prateMax = -Infinity;
+  for (let i = 0; i < allPrateValues.length; i++) {
+    if (allPrateValues[i] < prateMin) prateMin = allPrateValues[i];
+    if (allPrateValues[i] > prateMax) prateMax = allPrateValues[i];
+  }
+
+  // Create lat/lon arrays
+  const totalPoints = width * height;
+  const allLats = new Array(totalPoints);
+  const allLons = new Array(totalPoints);
+
+  let idx = 0;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      allLats[idx] = allLatValues[y];
+      allLons[idx] = allLonValues[x];
+      idx++;
+    }
+  }
+
+  return {
+    width,
+    height,
+    prateData: allPrateValues,
+    prateMin,
+    prateMax,
+    lats: allLats,
+    lons: allLons,
+    latValues: allLatValues,
+    lonValues: allLonValues
+  };
+}
+
+/**
+ * Parse OpenDAP ASCII response for precipitation (pratesfc)
+ */
+function parseOpenDAPPrecipitationASCII(asciiData) {
+  const lines = asciiData.split('\n');
+
+  let latValues = [];
+  let lonValues = [];
+  let prateValues = [];
+
+  let currentVariable = null;
+  let inDataSection = false;
+
+  let parsedVars = {
+    lat: false,
+    lon: false,
+    prate: false,
+    time: false
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Detect variable declarations
+    if (trimmed.startsWith('lat,') || trimmed.startsWith('lat[')) {
+      if (!parsedVars.lat) {
+        currentVariable = 'lat';
+        inDataSection = true;
+        parsedVars.lat = true;
+      } else {
+        currentVariable = null;
+        inDataSection = false;
+      }
+      continue;
+    }
+
+    if (trimmed.startsWith('lon,') || trimmed.startsWith('lon[')) {
+      if (!parsedVars.lon) {
+        currentVariable = 'lon';
+        inDataSection = true;
+        parsedVars.lon = true;
+      } else {
+        currentVariable = null;
+        inDataSection = false;
+      }
+      continue;
+    }
+
+    if (trimmed.startsWith('pratesfc,')) {
+      if (!parsedVars.prate) {
+        currentVariable = 'prate';
+        inDataSection = false; // For 3D arrays, wait for [index] lines
+        parsedVars.prate = true;
+      } else {
+        currentVariable = null;
+        inDataSection = false;
+      }
+      continue;
+    }
+
+    // Skip time variable
+    if (trimmed.startsWith('time,') || trimmed.startsWith('time[')) {
+      currentVariable = null;
+      inDataSection = false;
+      continue;
+    }
+
+    // Skip empty lines
+    if (!trimmed) continue;
+
+    // For precipitation data: lines start with [index][index]
+    if (trimmed.match(/^\[[\d,]+\]/)) {
+      inDataSection = true;
+      const nums = trimmed.replace(/^\[[\d,]+\],?\s*/, '').split(/[,\s]+/).filter(s => s && !isNaN(parseFloat(s))).map(parseFloat);
+
+      if (currentVariable === 'prate') {
+        prateValues.push(...nums);
+      }
+      continue;
+    }
+
+    // Data line with only numbers (for lat/lon and continuation lines)
+    if (inDataSection && trimmed && !trimmed.match(/^[a-z]/i)) {
+      const nums = trimmed.split(/[,\s]+/).filter(s => s && !isNaN(parseFloat(s))).map(parseFloat);
+
+      if (currentVariable === 'lat') {
+        latValues.push(...nums);
+      } else if (currentVariable === 'lon') {
+        lonValues.push(...nums);
+      } else if (currentVariable === 'prate') {
+        prateValues.push(...nums);
+      }
+    }
+  }
+
+  console.log(`Parsed precipitation: ${latValues.length} lats, ${lonValues.length} lons, ${prateValues.length} prate values`);
+
+  if (latValues.length === 0 || lonValues.length === 0 || prateValues.length === 0) {
+    throw new Error(`Invalid parsed precipitation data: lats=${latValues.length}, lons=${lonValues.length}, prateValues=${prateValues.length}`);
+  }
+
+  return {
+    latValues,
+    lonValues,
+    prateData: prateValues
+  };
+}
+
+/**
+ * Get precipitation data via OpenDAP
+ */
+async function getPrecipitationData() {
+  try {
+    const precipData = await downloadPrecipitationDataOpenDAP({
+      forecastOffset: 3,
+      latMin: -90,
+      latMax: 90,
+      lonMin: -180,
+      lonMax: 180
+    });
+
+    // Convert kg/m²/s to mm/h (1 kg/m²/s = 3600 mm/h)
+    const pointCount = precipData.lats.length;
+    const precipPoints = new Array(pointCount);
+
+    for (let i = 0; i < pointCount; i++) {
+      const rateKgPerM2s = precipData.prateData[i];
+      const rateMmPerHour = rateKgPerM2s * 3600; // Convert to mm/h
+
+      precipPoints[i] = {
+        lat: parseFloat(precipData.lats[i].toFixed(2)),
+        lon: parseFloat(precipData.lons[i].toFixed(2)),
+        rate: parseFloat(rateMmPerHour.toFixed(2)) // mm/h
+      };
+    }
+
+    return {
+      precipPoints,
+      metadata: {
+        source: 'NOAA GFS 0.5° via OpenDAP',
+        date: new Date().toISOString(),
+        width: precipData.width,
+        height: precipData.height,
+        prateMin: precipData.prateMin * 3600, // Convert to mm/h
+        prateMax: precipData.prateMax * 3600, // Convert to mm/h
+        unit: 'mm/h'
+      }
+    };
+
+  } catch (error) {
+    console.error('Error getting precipitation data:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   getWindData,
   downloadWindDataOpenDAP,
   downloadWindDataForRun,
-  convertToPNG
+  convertToPNG,
+  getPrecipitationData,
+  downloadPrecipitationDataOpenDAP,
+  downloadPrecipitationDataForRun
 };
