@@ -1,2 +1,4 @@
 ignoredBuiltDependencies:
+  - '@vaadin/vaadin-usage-statistics'
+  - canvas
   - esbuild

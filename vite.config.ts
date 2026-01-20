@@ -17,12 +17,7 @@ export default defineConfig(async () => {
       },
     },
     optimizeDeps: {
-      include: ['react-map-gl', 'mapbox-gl'],
-    },
-    resolve: {
-      alias: {
-        'react-map-gl': 'react-map-gl/dist/esm/index.js',
-      },
+      include: ["maplibre-gl"],
     },
   };
 });

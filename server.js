@@ -4,6 +4,18 @@ const path = require("path");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const Anthropic = require("@anthropic-ai/sdk").default;
+const {
+  initRedis,
+  getWindData: getWindDataFromRedis,
+  getBinaryData,
+  closeRedis,
+} = require("./server/redis-client");
+const {
+  startScheduler,
+  getSchedulerStatus,
+  triggerManualFetch,
+  REDIS_KEYS,
+} = require("./server/wind-data-scheduler");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,15 +46,15 @@ app.use(express.json());
 const aiSummaryLimiter = isDevelopment
   ? (req, res, next) => next() // No limit in development
   : rateLimit({
-      windowMs: 5 * 60 * 1000, // 5 minutes
-      max: 5, // Limit each IP to 5 requests per windowMs
-      message: {
-        error:
-          "Trop de requêtes depuis cette adresse IP, veuillez réessayer dans 5 minutes.",
-      },
-      standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-      legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-    });
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    max: 5, // Limit each IP to 5 requests per windowMs
+    message: {
+      error:
+        "Trop de requêtes depuis cette adresse IP, veuillez réessayer dans 5 minutes.",
+    },
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  });
 
 // Proxy endpoint — keeps the API key secret
 app.get("/api/weather", async (req, res) => {
@@ -84,83 +96,70 @@ app.get("/api/weather", async (req, res) => {
   }
 });
 
-// Global wind data endpoint - generates realistic wind patterns based on GRIB data patterns
-// In production, this would fetch real GRIB files from NOAA GFS
-// https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl
+// Global wind data endpoint - fetches real GRIB data from NOAA GFS (stored in Redis)
 app.get("/api/wind-global", async (req, res) => {
   try {
-    const windDataPoints = [];
-    const resolution = 3; // degrees - balance between detail and performance
+    // Get wind data from Redis
+    const windData = await getWindDataFromRedis(REDIS_KEYS.WIND_POINTS);
 
-    // Generate realistic wind data based on meteorological patterns
-    // This simulates what you would get from GRIB files
-    for (let lat = -90; lat <= 90; lat += resolution) {
-      for (let lon = -180; lon < 180; lon += resolution) {
-        // Generate realistic wind patterns:
-        // - Trade winds at tropics (easterlies)
-        // - Westerlies at mid-latitudes
-        // - Polar easterlies at poles
-        // - Jet streams at ~30-60 degrees
-
-        let baseSpeed = 0;
-        let direction = 0;
-
-        // Latitude-based wind patterns
-        const absLat = Math.abs(lat);
-
-        if (absLat < 30) {
-          // Trade winds (easterlies) in tropics
-          baseSpeed = 10 + Math.random() * 15;
-          direction = lat > 0 ? 90 : 270; // NE in NH, SE in SH
-        } else if (absLat >= 30 && absLat < 60) {
-          // Prevailing westerlies in mid-latitudes
-          baseSpeed = 15 + Math.random() * 25;
-          direction = lat > 0 ? 270 : 90; // SW in NH, NW in SH
-
-          // Add jet stream around 40 degrees
-          if (absLat >= 35 && absLat <= 45) {
-            baseSpeed += 30 + Math.random() * 50;
-          }
-        } else {
-          // Polar easterlies
-          baseSpeed = 8 + Math.random() * 12;
-          direction = lat > 0 ? 90 : 270;
-        }
-
-        // Add some variation based on longitude (simulate weather systems)
-        const weatherSystemVariation = Math.sin(lon * Math.PI / 180) * 10;
-        baseSpeed += Math.abs(weatherSystemVariation);
-        direction += Math.sin((lon + lat) * Math.PI / 90) * 30;
-
-        // Add random variation
-        direction += (Math.random() - 0.5) * 20;
-        direction = (direction + 360) % 360;
-
-        // Calculate gusts (typically 1.3-1.5x base speed)
-        const gusts = baseSpeed * (1.3 + Math.random() * 0.2);
-
-        windDataPoints.push({
-          lat: parseFloat(lat.toFixed(2)),
-          lon: parseFloat(lon.toFixed(2)),
-          speed: parseFloat(baseSpeed.toFixed(1)),
-          direction: parseFloat(direction.toFixed(0)),
-          gusts: parseFloat(gusts.toFixed(1)),
-        });
-      }
+    if (!windData) {
+      return res.status(503).json({
+        error:
+          "Wind data not yet available. Please wait for the next scheduled fetch.",
+        schedulerStatus: getSchedulerStatus(),
+      });
     }
 
-    res.json({
-      timestamp: new Date().toISOString(),
-      source: 'Simulated NOAA GFS data (GRIB-based patterns)',
-      resolution: resolution,
-      points: windDataPoints,
-      note: 'Production version would fetch real GRIB files from NOAA NOMADS',
-    });
+    res.json(windData);
   } catch (err) {
-    console.error('Error generating wind data:', err);
+    console.error("Error fetching wind data from Redis:", err);
     res.status(500).json({
-      error: err.message || 'Failed to generate wind data',
+      error: err.message || "Failed to fetch wind data",
     });
+  }
+});
+
+// Windgl metadata endpoint
+app.get("/api/windgl/metadata.json", async (req, res) => {
+  try {
+    const metadata = await getWindDataFromRedis(REDIS_KEYS.WIND_METADATA);
+
+    if (!metadata) {
+      return res.status(404).json({
+        error: "No wind data available. Please wait for data to load.",
+        schedulerStatus: getSchedulerStatus(),
+      });
+    }
+
+    // Add tiles URL to metadata - use relative URL for Vite proxy compatibility
+    const tileUrl = "/api/windgl/wind.png";
+    const response = {
+      ...metadata,
+      tiles: [tileUrl],
+    };
+
+    res.json(response);
+  } catch (err) {
+    console.error("Error fetching windgl metadata:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Windgl PNG tile endpoint
+app.get("/api/windgl/wind.png", async (req, res) => {
+  try {
+    const pngBuffer = await getBinaryData(REDIS_KEYS.WIND_PNG);
+
+    if (!pngBuffer) {
+      return res.status(404).send("No wind data available.");
+    }
+
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(pngBuffer);
+  } catch (err) {
+    console.error("Error fetching windgl PNG:", err);
+    res.status(500).send("Error fetching wind data");
   }
 });
 
@@ -245,6 +244,27 @@ Génère un résumé météo concis et informatif en ${language} (2-3 phrases ma
   }
 });
 
+// Scheduler status endpoint
+app.get("/api/wind-status", (req, res) => {
+  res.json(getSchedulerStatus());
+});
+
+// Manual trigger endpoint (for debugging)
+app.post("/api/wind-refresh", async (req, res) => {
+  try {
+    const success = await triggerManualFetch();
+    res.json({
+      success,
+      status: getSchedulerStatus(),
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+      status: getSchedulerStatus(),
+    });
+  }
+});
+
 // Serve static built site in production
 const distPath = path.join(__dirname, "dist");
 app.use(express.static(distPath));
@@ -252,6 +272,37 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(distPath, "index.html"));
 });
 
-app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+// Initialize Redis and start scheduler
+async function initializeServer() {
+  try {
+    console.log("Initializing Redis...");
+    await initRedis();
+    console.log("Redis initialized successfully");
+
+    console.log("Starting wind data scheduler...");
+    startScheduler();
+
+    app.listen(PORT, () => {
+      console.log(`Server listening on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to initialize server:", error);
+    process.exit(1);
+  }
+}
+
+// Graceful shutdown
+process.on("SIGINT", async () => {
+  console.log("\nShutting down gracefully...");
+  await closeRedis();
+  process.exit(0);
 });
+
+process.on("SIGTERM", async () => {
+  console.log("\nShutting down gracefully...");
+  await closeRedis();
+  process.exit(0);
+});
+
+// Start the server
+initializeServer();
