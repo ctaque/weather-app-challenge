@@ -7,7 +7,7 @@ import RainChanceChart from "./RainChanceChart";
 import WindSpeedChart from "./WindSpeedChart";
 import WindDirectionChart from "./WindDirectionChart";
 import WeatherSummary from "./WeatherSummary";
-import WindHeatmap from "./WindHeatmap";
+import WindHeatmapCanvas from "./WindHeatmapCanvas";
 import { ThemeContext, LanguageContext, UnitContext } from "../App";
 
 type Condition = { text: string; emoji?: string; icon?: string };
@@ -664,7 +664,7 @@ export default function WeatherGrid() {
           </div>
         )}
       </div>
-      <WindHeatmap location={currentLocation} />
+      <WindHeatmapCanvas location={currentLocation} />
     </section>
   );
 }
@@ -1010,27 +1010,6 @@ const CityCard = React.forwardRef<
             day={selectedDay.day}
             hour={selectedDay.hour}
           />
-
-          <div
-            style={{ marginTop: "1.5rem", width: "100%", aspectRatio: "3 / 1" }}
-          >
-            <iframe
-              title={`${t.map} ${data.location.name}`}
-              src={`https://maps.google.com/maps?q=${data.location.lat},${data.location.lon}&z=12&output=embed`}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              style={{
-                width: "100%",
-                height: "100%",
-                border: "0",
-                borderRadius: "8px",
-                filter:
-                  theme === "dark"
-                    ? "invert(90%) hue-rotate(180deg) saturate(0) brightness(0.7) contrast(0.9)"
-                    : "saturate(0) brightness(1.1)",
-              }}
-            />
-          </div>
         </div>
       )}
     </article>
