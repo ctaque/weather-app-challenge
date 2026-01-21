@@ -95,6 +95,8 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   );
   const [isPlaying, setIsPlaying] = useState(true);
   const [cacheSize, setCacheSize] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapRef>(null);
   const heatmapCanvasRef = useRef<HTMLCanvasElement>(null);
   const particlesCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -280,6 +282,21 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
     setIsPlaying((prev) => !prev);
   }, []);
 
+  // Toggle fullscreen
+  const toggleFullscreen = useCallback(async () => {
+    if (!containerRef.current) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error("Error toggling fullscreen:", err);
+    }
+  }, []);
+
   // Refresh all indices
   const refreshAllIndices = useCallback(() => {
     loadAvailableIndices();
@@ -354,6 +371,18 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
     loadAvailableIndices();
     loadAvailablePrecipIndices();
   }, [loadAvailableIndices, loadAvailablePrecipIndices]);
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   // Load initial precipitation data when precipitation index is available (to enable the button)
   useEffect(() => {
@@ -859,7 +888,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   }, [currentIndices]);
 
   return (
-    <div className="wind-heatmap-container">
+    <div className="wind-heatmap-container" ref={containerRef}>
       <div className="wind-heatmap-header">
         <h2>
           {displayMode === "wind" ? t.globalWindMap : t.globalPrecipitationMap}
@@ -896,6 +925,10 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
               </button>
             </>
           )}
+
+          <button onClick={toggleFullscreen} title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}>
+            {isFullscreen ? "⮌" : "⛶"}
+          </button>
         </div>
       </div>
 
@@ -1078,6 +1111,20 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
       <style>{`
         .wind-heatmap-container {
           margin: .2rem 0;
+        }
+
+        .wind-heatmap-container:fullscreen {
+          background: var(--background);
+          padding: 1rem;
+          overflow-y: auto;
+        }
+
+        .wind-heatmap-container:fullscreen .wind-map-wrapper {
+          height: calc(100vh - 300px) !important;
+        }
+
+        .wind-heatmap-container:fullscreen .maplibregl-map {
+          height: 100% !important;
         }
 
         .wind-heatmap-header {
