@@ -27,8 +27,10 @@ interface MapProjection {
 }
 
 const MAX_AGE = 1200; // milliseconds
-const PARTICLES_COUNT = 3000;
-const ALPHA_DECAY = 0.96; // How quickly trails fade (higher = longer trails)
+const PARTICLES_DENSITY = 16; // Particles per degree² (visible area) - reduced to 1/5
+const MAX_PARTICLES = 6000; // Maximum total particles to prevent performance issues - reduced to 1/5
+const MIN_PARTICLES = 200; // Minimum particles even at world zoom - reduced to 1/5
+const ALPHA_DECAY = 0.98; // How quickly trails fade (higher = longer trails) - 2x longer trails
 const TRAVEL_SPEED = 0.00008; // Speed multiplier for particle movement
 const FPS = 60;
 
@@ -47,6 +49,13 @@ export class WindParticlesCanvas {
   private lastTime = 0;
   private mapProjection?: MapProjection;
   private gridResolution = 0.5;
+  private currentParticleCount = MAX_PARTICLES;
+  private visibleBounds?: {
+    minLat: number;
+    maxLat: number;
+    minLon: number;
+    maxLon: number;
+  };
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -67,12 +76,79 @@ export class WindParticlesCanvas {
   }
 
   /**
+   * Update visible bounds and recalculate optimal particle count
+   */
+  updateVisibleBounds(bounds: {
+    minLat: number;
+    maxLat: number;
+    minLon: number;
+    maxLon: number;
+  }) {
+    this.visibleBounds = bounds;
+    this.updateParticleCount();
+  }
+
+  /**
+   * Calculate optimal particle count based on visible area
+   */
+  private calculateOptimalParticleCount(): number {
+    if (!this.visibleBounds) {
+      return MAX_PARTICLES;
+    }
+
+    // Calculate visible area in degrees²
+    const latRange = this.visibleBounds.maxLat - this.visibleBounds.minLat;
+    const lonRange = this.visibleBounds.maxLon - this.visibleBounds.minLon;
+    const visibleArea = latRange * lonRange;
+
+    // Calculate particles needed for constant density
+    const optimalCount = Math.round(visibleArea * PARTICLES_DENSITY);
+
+    // Clamp between min and max
+    return Math.max(MIN_PARTICLES, Math.min(MAX_PARTICLES, optimalCount));
+  }
+
+  /**
+   * Update particle count based on visible area
+   */
+  private updateParticleCount() {
+    const newCount = this.calculateOptimalParticleCount();
+
+    if (newCount === this.currentParticleCount) {
+      return; // No change needed
+    }
+
+    this.currentParticleCount = newCount;
+
+    // Add or remove particles as needed
+    if (this.particles.length < newCount) {
+      // Add particles
+      const toAdd = newCount - this.particles.length;
+      for (let i = 0; i < toAdd; i++) {
+        const particle = this.createParticle();
+        if (particle) {
+          this.particles.push(particle);
+        }
+      }
+    } else if (this.particles.length > newCount) {
+      // Remove excess particles (keep the most recent ones)
+      this.particles = this.particles.slice(0, newCount);
+    }
+
+    console.log(`Adjusted particle count to ${this.currentParticleCount} (visible area: ${this.visibleBounds ? (this.visibleBounds.maxLat - this.visibleBounds.minLat) * (this.visibleBounds.maxLon - this.visibleBounds.minLon) : 'unknown'}°²)`);
+  }
+
+  /**
    * Initialize particles at random visible positions
    */
   private initializeParticles() {
     this.particles = [];
 
-    for (let i = 0; i < PARTICLES_COUNT; i++) {
+    // Use dynamic particle count
+    const particleCount = this.calculateOptimalParticleCount();
+    this.currentParticleCount = particleCount;
+
+    for (let i = 0; i < particleCount; i++) {
       const particle = this.createParticle();
       if (particle) {
         this.particles.push(particle);
@@ -293,8 +369,18 @@ export class WindParticlesCanvas {
   /**
    * Update projection (called when map moves/zooms)
    */
-  updateProjection(projection: MapProjection) {
+  updateProjection(projection: MapProjection, visibleBounds?: {
+    minLat: number;
+    maxLat: number;
+    minLon: number;
+    maxLon: number;
+  }) {
     this.mapProjection = projection;
+
+    // Update visible bounds if provided
+    if (visibleBounds) {
+      this.updateVisibleBounds(visibleBounds);
+    }
 
     // Reproject all particles to new screen positions
     this.particles.forEach(p => {

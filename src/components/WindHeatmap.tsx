@@ -542,10 +542,13 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
       },
     });
 
-    // Set initial projection
+    // Set initial projection and bounds
     const projection = getProjection();
     heatmapSystemRef.current.setProjection(projection);
     particleSystemRef.current.setProjection(projection);
+
+    // Set initial visible bounds for particle density calculation
+    particleSystemRef.current.updateVisibleBounds(initialBounds);
 
     // Draw heatmap if enabled
     if (showHeatmap) {
@@ -580,7 +583,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
       }
 
       if (particleSystemRef.current) {
-        particleSystemRef.current.updateProjection(proj);
+        particleSystemRef.current.updateProjection(proj, visibleBounds);
       }
 
       // Clear existing timeout
