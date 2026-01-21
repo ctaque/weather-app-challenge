@@ -57,7 +57,9 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   const [showParticles, setShowParticles] = useState(true);
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [availableIndices, setAvailableIndices] = useState<WindIndex[]>([]);
+  const [availablePrecipIndices, setAvailablePrecipIndices] = useState<WindIndex[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [selectedPrecipIndex, setSelectedPrecipIndex] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [cacheSize, setCacheSize] = useState(0);
   const mapRef = useRef<MapRef>(null);
@@ -73,7 +75,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   const theme = useContext(ThemeContext);
   const { t } = useContext(LanguageContext);
 
-  // Load available indices on mount
+  // Load available wind indices on mount
   const loadAvailableIndices = useCallback(async () => {
     try {
       const response = await fetch("/api/wind-indices");
@@ -90,6 +92,26 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
     } catch (err: any) {
       console.error("Failed to load wind indices:", err);
       setError(err.message || "Failed to load wind indices");
+    }
+  }, []);
+
+  // Load available precipitation indices
+  const loadAvailablePrecipIndices = useCallback(async () => {
+    try {
+      const response = await fetch("/api/precipitation-indices");
+      if (!response.ok) throw new Error("Failed to fetch precipitation indices");
+      const data = await response.json();
+
+      setAvailablePrecipIndices(data.indices);
+
+      // Select the latest index by default
+      if (data.indices.length > 0) {
+        const latestIndex = data.indices[data.indices.length - 1].index;
+        setSelectedPrecipIndex(latestIndex);
+      }
+    } catch (err: any) {
+      console.error("Failed to load precipitation indices:", err);
+      setError(err.message || "Failed to load precipitation indices");
     }
   }, []);
 
@@ -191,16 +213,30 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   const handleSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setIsPlaying(false); // Pause when user manually changes slider
     const position = parseInt(e.target.value, 10);
-    const newIndex = availableIndices[position]?.index;
-    if (newIndex !== undefined) {
-      setSelectedIndex(newIndex);
+
+    if (displayMode === "wind") {
+      const newIndex = availableIndices[position]?.index;
+      if (newIndex !== undefined) {
+        setSelectedIndex(newIndex);
+      }
+    } else {
+      const newIndex = availablePrecipIndices[position]?.index;
+      if (newIndex !== undefined) {
+        setSelectedPrecipIndex(newIndex);
+      }
     }
-  }, [availableIndices]);
+  }, [availableIndices, availablePrecipIndices, displayMode]);
 
   // Memoize play/pause toggle
   const togglePlayPause = useCallback(() => {
     setIsPlaying((prev) => !prev);
   }, []);
+
+  // Refresh all indices
+  const refreshAllIndices = useCallback(() => {
+    loadAvailableIndices();
+    loadAvailablePrecipIndices();
+  }, [loadAvailableIndices, loadAvailablePrecipIndices]);
 
   // Preload adjacent data for smoother navigation
   const preloadAdjacentData = useCallback(async (currentIndex: number) => {
@@ -263,7 +299,15 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   // Load available indices on mount
   useEffect(() => {
     loadAvailableIndices();
-  }, [loadAvailableIndices]);
+    loadAvailablePrecipIndices();
+  }, [loadAvailableIndices, loadAvailablePrecipIndices]);
+
+  // Load initial precipitation data when precipitation index is available (to enable the button)
+  useEffect(() => {
+    if (selectedPrecipIndex !== null && !precipData) {
+      loadPrecipData(selectedPrecipIndex);
+    }
+  }, [selectedPrecipIndex, precipData, loadPrecipData]);
 
   // Load wind data when selectedIndex changes
   useEffect(() => {
@@ -274,16 +318,18 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
     }
   }, [selectedIndex, displayMode, loadWindData, preloadAdjacentData]);
 
-  // Load precipitation data when selectedIndex changes and in precipitation mode
+  // Load precipitation data when selectedPrecipIndex changes and in precipitation mode
   useEffect(() => {
-    if (selectedIndex !== null && displayMode === "precipitation") {
-      loadPrecipData(selectedIndex);
+    if (selectedPrecipIndex !== null && displayMode === "precipitation") {
+      loadPrecipData(selectedPrecipIndex);
     }
-  }, [selectedIndex, displayMode, loadPrecipData]);
+  }, [selectedPrecipIndex, displayMode, loadPrecipData]);
 
   // Auto-play animation
   useEffect(() => {
-    if (!isPlaying || availableIndices.length === 0) {
+    const indices = displayMode === "wind" ? availableIndices : availablePrecipIndices;
+
+    if (!isPlaying || indices.length === 0) {
       if (playIntervalRef.current) {
         clearInterval(playIntervalRef.current);
         playIntervalRef.current = null;
@@ -293,20 +339,37 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
 
     // Advance to next index every 2 seconds
     playIntervalRef.current = setInterval(() => {
-      setSelectedIndex((prevIndex) => {
-        if (prevIndex === null) return availableIndices[0]?.index ?? null;
+      if (displayMode === "wind") {
+        setSelectedIndex((prevIndex) => {
+          if (prevIndex === null) return indices[0]?.index ?? null;
 
-        const currentIndexPosition = availableIndices.findIndex(
-          (item) => item.index === prevIndex
-        );
+          const currentIndexPosition = indices.findIndex(
+            (item) => item.index === prevIndex
+          );
 
-        // Loop back to start when reaching the end
-        if (currentIndexPosition >= availableIndices.length - 1) {
-          return availableIndices[0].index;
-        }
+          // Loop back to start when reaching the end
+          if (currentIndexPosition >= indices.length - 1) {
+            return indices[0].index;
+          }
 
-        return availableIndices[currentIndexPosition + 1].index;
-      });
+          return indices[currentIndexPosition + 1].index;
+        });
+      } else {
+        setSelectedPrecipIndex((prevIndex) => {
+          if (prevIndex === null) return indices[0]?.index ?? null;
+
+          const currentIndexPosition = indices.findIndex(
+            (item) => item.index === prevIndex
+          );
+
+          // Loop back to start when reaching the end
+          if (currentIndexPosition >= indices.length - 1) {
+            return indices[0].index;
+          }
+
+          return indices[currentIndexPosition + 1].index;
+        });
+      }
     }, 2000);
 
     return () => {
@@ -315,7 +378,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         playIntervalRef.current = null;
       }
     };
-  }, [isPlaying, availableIndices]);
+  }, [isPlaying, availableIndices, availablePrecipIndices, displayMode]);
 
   // Initialize heatmap and particle systems when wind data loads
   useEffect(() => {
@@ -634,11 +697,15 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
       heatmapSystemRef.current.clear();
     }
   }, [showHeatmap]);
+
   // Get current index info for display (memoized)
-  const currentIndexInfo = useMemo(
-    () => availableIndices.find((item) => item.index === selectedIndex),
-    [availableIndices, selectedIndex]
-  );
+  const currentIndexInfo = useMemo(() => {
+    if (displayMode === "wind") {
+      return availableIndices.find((item) => item.index === selectedIndex);
+    } else {
+      return availablePrecipIndices.find((item) => item.index === selectedPrecipIndex);
+    }
+  }, [availableIndices, availablePrecipIndices, selectedIndex, selectedPrecipIndex, displayMode]);
 
   // Memoize map style to avoid unnecessary re-renders
   const mapStyle = useMemo(
@@ -650,10 +717,18 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   );
 
   // Memoize slider value calculation
-  const sliderValue = useMemo(
-    () => availableIndices.findIndex((item) => item.index === selectedIndex),
-    [availableIndices, selectedIndex]
-  );
+  const sliderValue = useMemo(() => {
+    if (displayMode === "wind") {
+      return availableIndices.findIndex((item) => item.index === selectedIndex);
+    } else {
+      return availablePrecipIndices.findIndex((item) => item.index === selectedPrecipIndex);
+    }
+  }, [availableIndices, availablePrecipIndices, selectedIndex, selectedPrecipIndex, displayMode]);
+
+  // Get current indices list based on display mode
+  const currentIndices = useMemo(() => {
+    return displayMode === "wind" ? availableIndices : availablePrecipIndices;
+  }, [displayMode, availableIndices, availablePrecipIndices]);
 
   return (
     <div className="wind-heatmap-container">
@@ -662,7 +737,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
           {displayMode === "wind" ? t.globalWindMap : t.globalPrecipitationMap}
         </h2>
         <div className="wind-heatmap-controls">
-          <button onClick={loadAvailableIndices} disabled={loading}>
+          <button onClick={refreshAllIndices} disabled={loading}>
             {loading ? t.loading : t.refreshData}
           </button>
 
@@ -814,7 +889,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
       </div>
 
       {/* Timeline slider - Below the map */}
-      {availableIndices.length > 0 && (
+      {currentIndices.length > 0 && (
         <div className="wind-timeline-container">
           <div className="timeline-main-row">
             <button
@@ -846,13 +921,13 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
                 <input
                   type="range"
                   min="0"
-                  max={availableIndices.length - 1}
+                  max={currentIndices.length - 1}
                   value={sliderValue}
                   onChange={handleSliderChange}
                   className="timeline-slider"
                 />
                 <div className="timeline-ticks">
-                  {availableIndices.map((item) => (
+                  {currentIndices.map((item) => (
                     <div key={item.index} className="timeline-tick" />
                   ))}
                 </div>
@@ -860,15 +935,15 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
 
               <div className="timeline-labels">
                 <span>
-                  {new Date(availableIndices[0].timestamp).toLocaleTimeString([], {
+                  {new Date(currentIndices[0].timestamp).toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
                 </span>
                 <span>
-                  {availableIndices.length > 1 &&
+                  {currentIndices.length > 1 &&
                     new Date(
-                      availableIndices[availableIndices.length - 1].timestamp
+                      currentIndices[currentIndices.length - 1].timestamp
                     ).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -902,55 +977,78 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
           align-items: center;
         }
 
-        .button-group {
+        .wind-heatmap-controls > button {
           display: inline-flex;
-          border-radius: 10px;
-          overflow: hidden;
-          box-shadow: 0 2px 6px var(--card-shadow);
-        }
-
-        .button-group button {
-          border-radius: 0;
-          border-right: none;
-          box-shadow: none;
-          margin: 0;
-          min-width: 120px;
+          align-items: center;
+          justify-content: center;
           padding: 8px 12px;
+          border-radius: 10px;
           border: 1px solid rgba(0, 0, 0, 0.06);
           background: var(--card);
           color: var(--text);
+          font-family: inherit;
+          font-weight: 600;
           cursor: pointer;
-          transition: background 160ms ease;
+          box-shadow: 0 2px 6px var(--card-shadow);
+          transition:
+            transform 120ms ease,
+            box-shadow 120ms ease,
+            background 160ms ease;
         }
 
-        .button-group button:first-child {
-          border-top-left-radius: 10px;
-          border-bottom-left-radius: 10px;
+        .wind-heatmap-controls > button:hover:not(:disabled) {
+          background: var(--card-hover);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 8px var(--card-shadow);
         }
 
-        .button-group button:last-child {
-          border-top-right-radius: 10px;
-          border-bottom-right-radius: 10px;
-          border-right: 1px solid rgba(0, 0, 0, 0.06);
+        .wind-heatmap-controls > button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .button-group {
+          display: inline-flex;
+          gap: 0.5rem;
+        }
+
+        .button-group button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px 12px;
+          border-radius: 10px;
+          border: 1px solid rgba(0, 0, 0, 0.06);
+          background: var(--card);
+          color: var(--text);
+          font-family: inherit;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 0 2px 6px var(--card-shadow);
+          transition:
+            transform 120ms ease,
+            box-shadow 120ms ease,
+            background 160ms ease;
         }
 
         .button-group button.active {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          border-color: rgba(255, 255, 255, 0.2);
-        }
-
-        .button-group button.active:hover:not(:disabled) {
-          background: linear-gradient(135deg, #5568d3 0%, #653a8e 100%);
+          background: linear-gradient(180deg, var(--accent), var(--accent-600));
+          color: #fff;
+          transform: translateY(-3px);
+          border: 2px solid var(--selection-border);
         }
 
         .button-group button:not(.active):hover:not(:disabled) {
           background: var(--card-hover);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 8px var(--card-shadow);
         }
 
         .button-group button:disabled {
           opacity: 0.6;
           cursor: not-allowed;
+          transform: none;
         }
 
         .wind-heatmap-info {
