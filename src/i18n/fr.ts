@@ -142,6 +142,12 @@ export const fr = {
   moderateStrong: "Moyen-fort",
   intense: "Intense",
   extreme: "Extrême",
+
+  // Timeline
+  timeline: {
+    "24hAgo": "il y a 24h",
+    "now": "maintenant",
+  },
 };
 
 export type Translations = typeof fr;

@@ -18,6 +18,7 @@ const {
   startScheduler,
   getSchedulerStatus,
   triggerManualFetch,
+  triggerLatestFetch,
   REDIS_KEYS,
 } = require("./server/wind-data-scheduler");
 
@@ -410,10 +411,26 @@ app.get("/api/wind-status", (req, res) => {
   res.json(getSchedulerStatus());
 });
 
-// Manual trigger endpoint (for debugging)
+// Manual trigger endpoint for 24h historical fetch (for debugging)
 app.post("/api/wind-refresh", async (req, res) => {
   try {
     const success = await triggerManualFetch();
+    res.json({
+      success,
+      status: getSchedulerStatus(),
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+      status: getSchedulerStatus(),
+    });
+  }
+});
+
+// Manual trigger endpoint for latest forecast (for debugging)
+app.post("/api/wind-refresh-latest", async (req, res) => {
+  try {
+    const success = await triggerLatestFetch();
     res.json({
       success,
       status: getSchedulerStatus(),

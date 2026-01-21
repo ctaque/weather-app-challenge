@@ -71,19 +71,84 @@ function getAvailableForecastRuns() {
 }
 
 /**
+ * Get a specific historical GFS run based on how many hours back
+ * @param {number} runAge - Hours back from now (e.g., 6, 12, 18)
+ * @returns {Array} Array with the target run and nearby fallback runs
+ */
+function getHistoricalForecastRun(runAge) {
+  const now = new Date();
+  const targetTime = new Date(now.getTime() - runAge * 60 * 60 * 1000);
+
+  // Round down to nearest 6-hour interval (GFS runs at 00Z, 06Z, 12Z, 18Z)
+  const utcHours = targetTime.getUTCHours();
+  let forecastHour;
+  if (utcHours >= 18) forecastHour = 18;
+  else if (utcHours >= 12) forecastHour = 12;
+  else if (utcHours >= 6) forecastHour = 6;
+  else forecastHour = 0;
+
+  const targetRun = new Date(targetTime);
+  targetRun.setUTCHours(forecastHour, 0, 0, 0);
+
+  const year = targetRun.getUTCFullYear();
+  const month = String(targetRun.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(targetRun.getUTCDate()).padStart(2, '0');
+  const hour = String(forecastHour).padStart(2, '0');
+
+  const hoursWaited = (now - targetRun) / (60 * 60 * 1000);
+
+  const runs = [{
+    date: `${year}${month}${day}`,
+    hour: hour,
+    fullDate: targetRun,
+    hoursWaited: hoursWaited
+  }];
+
+  // Add nearby runs as fallbacks (±6h)
+  for (let offset of [-6, 6]) {
+    const fallbackTime = new Date(targetRun.getTime() + offset * 60 * 60 * 1000);
+    const fallbackHour = fallbackTime.getUTCHours();
+
+    const fbYear = fallbackTime.getUTCFullYear();
+    const fbMonth = String(fallbackTime.getUTCMonth() + 1).padStart(2, '0');
+    const fbDay = String(fallbackTime.getUTCDate()).padStart(2, '0');
+    const fbHourStr = String(fallbackHour).padStart(2, '0');
+    const fbHoursWaited = (now - fallbackTime) / (60 * 60 * 1000);
+
+    runs.push({
+      date: `${fbYear}${fbMonth}${fbDay}`,
+      hour: fbHourStr,
+      fullDate: fallbackTime,
+      hoursWaited: fbHoursWaited
+    });
+  }
+
+  return runs;
+}
+
+/**
  * Download wind data from NOAA OpenDAP service with automatic fallback
  */
 async function downloadWindDataOpenDAP(options = {}) {
   const {
     forecastOffset = 3,
+    runAge = 0,
     latMin = 35, // Toute l'Europe : du sud de l'Espagne
     latMax = 71, // au nord de la Scandinavie
     lonMin = -10, // De l'ouest du Portugal
     lonMax = 45 // À l'est de la Russie européenne
   } = options;
 
-  const availableRuns = getAvailableForecastRuns();
-  console.log(`\nAvailable forecast runs to try (in order):`);
+  // If runAge is specified, calculate the specific historical run to fetch
+  let availableRuns;
+  if (runAge > 0) {
+    availableRuns = getHistoricalForecastRun(runAge);
+    console.log(`\nTargeting historical run from ${runAge}h ago:`);
+  } else {
+    availableRuns = getAvailableForecastRuns();
+    console.log(`\nAvailable forecast runs to try (in order):`);
+  }
+
   availableRuns.forEach((run, i) => {
     console.log(`  ${i + 1}. ${run.date} ${run.hour}Z (${run.hoursWaited.toFixed(1)}h ago)`);
   });
@@ -519,11 +584,14 @@ function convertToPNG(windData) {
 
 /**
  * Get wind data via OpenDAP
+ * @param {number} forecastOffset - Forecast offset in hours (0, 3, 6, 9, etc.)
+ * @param {number} runAge - How many hours back to look for the run (0 = current, 6 = 6h ago, etc.)
  */
-async function getWindData() {
+async function getWindData(forecastOffset = 3, runAge = 0) {
   try {
     const windData = await downloadWindDataOpenDAP({
-      forecastOffset: 3,
+      forecastOffset: forecastOffset,
+      runAge: runAge,
       latMin: -90,  // Globe entier : du pôle Sud
       latMax: 90,   // au pôle Nord
       lonMin: -180, // Tout le globe : méridien international Ouest
@@ -566,14 +634,23 @@ async function getWindData() {
 async function downloadPrecipitationDataOpenDAP(options = {}) {
   const {
     forecastOffset = 3,
+    runAge = 0,
     latMin = -90,
     latMax = 90,
     lonMin = -180,
     lonMax = 180
   } = options;
 
-  const availableRuns = getAvailableForecastRuns();
-  console.log(`\nAvailable forecast runs to try for precipitation (in order):`);
+  // If runAge is specified, calculate the specific historical run to fetch
+  let availableRuns;
+  if (runAge > 0) {
+    availableRuns = getHistoricalForecastRun(runAge);
+    console.log(`\nTargeting historical precipitation run from ${runAge}h ago:`);
+  } else {
+    availableRuns = getAvailableForecastRuns();
+    console.log(`\nAvailable forecast runs to try for precipitation (in order):`);
+  }
+
   availableRuns.forEach((run, i) => {
     console.log(`  ${i + 1}. ${run.date} ${run.hour}Z (${run.hoursWaited.toFixed(1)}h ago)`);
   });
@@ -874,11 +951,14 @@ function parseOpenDAPPrecipitationASCII(asciiData) {
 
 /**
  * Get precipitation data via OpenDAP
+ * @param {number} forecastOffset - Forecast offset in hours (0, 3, 6, 9, etc.)
+ * @param {number} runAge - How many hours back to look for the run (0 = current, 6 = 6h ago, etc.)
  */
-async function getPrecipitationData() {
+async function getPrecipitationData(forecastOffset = 3, runAge = 0) {
   try {
     const precipData = await downloadPrecipitationDataOpenDAP({
-      forecastOffset: 3,
+      forecastOffset: forecastOffset,
+      runAge: runAge,
       latMin: -90,
       latMax: 90,
       lonMin: -180,

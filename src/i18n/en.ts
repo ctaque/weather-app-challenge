@@ -144,4 +144,10 @@ export const en: Translations = {
   moderateStrong: "Moderate-strong",
   intense: "Intense",
   extreme: "Extreme",
+
+  // Timeline
+  timeline: {
+    "24hAgo": "24h ago",
+    "now": "now",
+  },
 };

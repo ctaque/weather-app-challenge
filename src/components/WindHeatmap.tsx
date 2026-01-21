@@ -1,4 +1,11 @@
-import React, { useEffect, useRef, useState, useContext, useMemo, useCallback } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useContext,
+  useMemo,
+  useCallback,
+} from "react";
 import { Map as MapGL, NavigationControl } from "react-map-gl/maplibre";
 import type { MapRef } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -42,10 +49,32 @@ interface WindIndex {
   index: number;
   timestamp: string;
   dataPoints: number;
+  dataTime?: string;
+  hoursBack?: number;
+  forecastOffset?: number;
+  runAge?: number;
 }
 
 interface WindHeatmapProps {
   location?: Location;
+}
+
+/**
+ * Round time up to the next full hour
+ * Example: 9h38 -> 10h00, 9h25 -> 10h00
+ */
+function roundToNextHour(date: Date): Date {
+  const rounded = new Date(date);
+  // If there are any minutes or seconds, round up to next hour
+  if (
+    rounded.getMinutes() > 0 ||
+    rounded.getSeconds() > 0 ||
+    rounded.getMilliseconds() > 0
+  ) {
+    rounded.setHours(rounded.getHours() + 1);
+  }
+  rounded.setMinutes(0, 0, 0);
+  return rounded;
 }
 
 export default function WindHeatmap({ location }: WindHeatmapProps) {
@@ -57,9 +86,13 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   const [showParticles, setShowParticles] = useState(true);
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [availableIndices, setAvailableIndices] = useState<WindIndex[]>([]);
-  const [availablePrecipIndices, setAvailablePrecipIndices] = useState<WindIndex[]>([]);
+  const [availablePrecipIndices, setAvailablePrecipIndices] = useState<
+    WindIndex[]
+  >([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [selectedPrecipIndex, setSelectedPrecipIndex] = useState<number | null>(null);
+  const [selectedPrecipIndex, setSelectedPrecipIndex] = useState<number | null>(
+    null,
+  );
   const [isPlaying, setIsPlaying] = useState(true);
   const [cacheSize, setCacheSize] = useState(0);
   const mapRef = useRef<MapRef>(null);
@@ -68,7 +101,9 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   const precipitationCanvasRef = useRef<HTMLCanvasElement>(null);
   const heatmapSystemRef = useRef<WindHeatmapRenderer | null>(null);
   const particleSystemRef = useRef<WindParticlesCanvas | null>(null);
-  const precipitationSystemRef = useRef<PrecipitationHeatmapCanvas | null>(null);
+  const precipitationSystemRef = useRef<PrecipitationHeatmapCanvas | null>(
+    null,
+  );
   const playIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const dataCache = useRef<Map<number, WindData>>(new Map());
   const precipCache = useRef<Map<number, PrecipitationData>>(new Map());
@@ -82,11 +117,12 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
       if (!response.ok) throw new Error("Failed to fetch wind indices");
       const data = await response.json();
 
-      setAvailableIndices(data.indices);
+      const reversedIndices = [...data.indices].reverse();
+      setAvailableIndices(reversedIndices);
 
-      // Select the latest index by default
-      if (data.indices.length > 0) {
-        const latestIndex = data.indices[data.indices.length - 1].index;
+      // Select the latest index by default (now first in reversed array)
+      if (reversedIndices.length > 0) {
+        const latestIndex = reversedIndices[0].index;
         setSelectedIndex(latestIndex);
       }
     } catch (err: any) {
@@ -99,14 +135,16 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   const loadAvailablePrecipIndices = useCallback(async () => {
     try {
       const response = await fetch("/api/precipitation-indices");
-      if (!response.ok) throw new Error("Failed to fetch precipitation indices");
+      if (!response.ok)
+        throw new Error("Failed to fetch precipitation indices");
       const data = await response.json();
 
-      setAvailablePrecipIndices(data.indices);
+      const reversedIndices = [...data.indices].reverse();
+      setAvailablePrecipIndices(reversedIndices);
 
-      // Select the latest index by default
-      if (data.indices.length > 0) {
-        const latestIndex = data.indices[data.indices.length - 1].index;
+      // Select the latest index by default (now first in reversed array)
+      if (reversedIndices.length > 0) {
+        const latestIndex = reversedIndices[0].index;
         setSelectedPrecipIndex(latestIndex);
       }
     } catch (err: any) {
@@ -128,9 +166,8 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
     setError(null);
 
     try {
-      const url = index !== undefined
-        ? `/api/wind-global/${index}`
-        : "/api/wind-global";
+      const url =
+        index !== undefined ? `/api/wind-global/${index}` : "/api/wind-global";
 
       console.log(`📡 Fetching data from: ${url}`);
       const response = await fetch(url);
@@ -149,7 +186,9 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         }
 
         setCacheSize(dataCache.current.size);
-        console.log(`💾 Cached data for index ${index} (cache size: ${dataCache.current.size})`);
+        console.log(
+          `💾 Cached data for index ${index} (cache size: ${dataCache.current.size})`,
+        );
       }
 
       setWindData(data);
@@ -176,9 +215,10 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
     setError(null);
 
     try {
-      const url = index !== undefined
-        ? `/api/precipitation-global/${index}`
-        : "/api/precipitation-global";
+      const url =
+        index !== undefined
+          ? `/api/precipitation-global/${index}`
+          : "/api/precipitation-global";
 
       console.log(`📡 Fetching precipitation data from: ${url}`);
       const response = await fetch(url);
@@ -193,11 +233,15 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         if (precipCache.current.size > 15) {
           const firstKey = precipCache.current.keys().next().value;
           precipCache.current.delete(firstKey);
-          console.log(`🗑️ Removed oldest precipitation cache entry (index ${firstKey})`);
+          console.log(
+            `🗑️ Removed oldest precipitation cache entry (index ${firstKey})`,
+          );
         }
 
         setCacheSize(precipCache.current.size);
-        console.log(`💾 Cached precipitation data for index ${index} (cache size: ${precipCache.current.size})`);
+        console.log(
+          `💾 Cached precipitation data for index ${index} (cache size: ${precipCache.current.size})`,
+        );
       }
 
       setPrecipData(data);
@@ -210,22 +254,26 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   }, []);
 
   // Memoize slider change handler
-  const handleSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setIsPlaying(false); // Pause when user manually changes slider
-    const position = parseInt(e.target.value, 10);
+  const handleSliderChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setIsPlaying(false); // Pause when user manually changes slider
+      const position = parseInt(e.target.value, 10);
+      console.log(availableIndices[position]);
 
-    if (displayMode === "wind") {
-      const newIndex = availableIndices[position]?.index;
-      if (newIndex !== undefined) {
-        setSelectedIndex(newIndex);
+      if (displayMode === "wind") {
+        const newIndex = availableIndices[position]?.index;
+        if (newIndex !== undefined) {
+          setSelectedIndex(newIndex);
+        }
+      } else {
+        const newIndex = availablePrecipIndices[position]?.index;
+        if (newIndex !== undefined) {
+          setSelectedPrecipIndex(newIndex);
+        }
       }
-    } else {
-      const newIndex = availablePrecipIndices[position]?.index;
-      if (newIndex !== undefined) {
-        setSelectedPrecipIndex(newIndex);
-      }
-    }
-  }, [availableIndices, availablePrecipIndices, displayMode]);
+    },
+    [availableIndices, availablePrecipIndices, displayMode],
+  );
 
   // Memoize play/pause toggle
   const togglePlayPause = useCallback(() => {
@@ -239,46 +287,51 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   }, [loadAvailableIndices, loadAvailablePrecipIndices]);
 
   // Preload adjacent data for smoother navigation
-  const preloadAdjacentData = useCallback(async (currentIndex: number) => {
-    const currentPos = availableIndices.findIndex((item) => item.index === currentIndex);
-    if (currentPos === -1) return;
+  const preloadAdjacentData = useCallback(
+    async (currentIndex: number) => {
+      const currentPos = availableIndices.findIndex(
+        (item) => item.index === currentIndex,
+      );
+      if (currentPos === -1) return;
 
-    // Preload next index
-    if (currentPos < availableIndices.length - 1) {
-      const nextIndex = availableIndices[currentPos + 1].index;
-      if (!dataCache.current.has(nextIndex)) {
-        try {
-          const response = await fetch(`/api/wind-global/${nextIndex}`);
-          if (response.ok) {
-            const data: WindData = await response.json();
-            dataCache.current.set(nextIndex, data);
-            setCacheSize(dataCache.current.size);
-            console.log(`🔮 Preloaded data for index ${nextIndex}`);
+      // Preload next index
+      if (currentPos < availableIndices.length - 1) {
+        const nextIndex = availableIndices[currentPos + 1].index;
+        if (!dataCache.current.has(nextIndex)) {
+          try {
+            const response = await fetch(`/api/wind-global/${nextIndex}`);
+            if (response.ok) {
+              const data: WindData = await response.json();
+              dataCache.current.set(nextIndex, data);
+              setCacheSize(dataCache.current.size);
+              console.log(`🔮 Preloaded data for index ${nextIndex}`);
+            }
+          } catch (err) {
+            console.warn(`Failed to preload index ${nextIndex}:`, err);
           }
-        } catch (err) {
-          console.warn(`Failed to preload index ${nextIndex}:`, err);
         }
       }
-    }
 
-    // Preload previous index
-    if (currentPos > 0) {
-      const prevIndex = availableIndices[currentPos - 1].index;
-      if (!dataCache.current.has(prevIndex)) {
-        try {
-          const response = await fetch(`/api/wind-global/${prevIndex}`);
-          if (response.ok) {
-            const data: WindData = await response.json();
-            dataCache.current.set(prevIndex, data);
-            setCacheSize(dataCache.current.size);
-            console.log(`🔮 Preloaded data for index ${prevIndex}`);
+      // Preload previous index
+      if (currentPos > 0) {
+        const prevIndex = availableIndices[currentPos - 1].index;
+        if (!dataCache.current.has(prevIndex)) {
+          try {
+            const response = await fetch(`/api/wind-global/${prevIndex}`);
+            if (response.ok) {
+              const data: WindData = await response.json();
+              dataCache.current.set(prevIndex, data);
+              setCacheSize(dataCache.current.size);
+              console.log(`🔮 Preloaded data for index ${prevIndex}`);
+            }
+          } catch (err) {
+            console.warn(`Failed to preload index ${prevIndex}:`, err);
           }
-        } catch (err) {
-          console.warn(`Failed to preload index ${prevIndex}:`, err);
         }
       }
-    }
-  }, [availableIndices]);
+    },
+    [availableIndices],
+  );
 
   // Computed values based on display mode
   const showParticlesLayer = displayMode === "wind" && showParticles;
@@ -327,7 +380,8 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
 
   // Auto-play animation
   useEffect(() => {
-    const indices = displayMode === "wind" ? availableIndices : availablePrecipIndices;
+    const indices =
+      displayMode === "wind" ? availableIndices : availablePrecipIndices;
 
     if (!isPlaying || indices.length === 0) {
       if (playIntervalRef.current) {
@@ -344,7 +398,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
           if (prevIndex === null) return indices[0]?.index ?? null;
 
           const currentIndexPosition = indices.findIndex(
-            (item) => item.index === prevIndex
+            (item) => item.index === prevIndex,
           );
 
           // Loop back to start when reaching the end
@@ -359,7 +413,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
           if (prevIndex === null) return indices[0]?.index ?? null;
 
           const currentIndexPosition = indices.findIndex(
-            (item) => item.index === prevIndex
+            (item) => item.index === prevIndex,
           );
 
           // Loop back to start when reaching the end
@@ -556,11 +610,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
 
   // Initialize precipitation system when precipitation data loads
   useEffect(() => {
-    if (
-      !precipData ||
-      !precipitationCanvasRef.current ||
-      !mapRef.current
-    )
+    if (!precipData || !precipitationCanvasRef.current || !mapRef.current)
       return;
 
     const map = mapRef.current.getMap();
@@ -698,14 +748,66 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
     }
   }, [showHeatmap]);
 
+  // Control particle and wind systems based on display mode
+  useEffect(() => {
+    if (displayMode === "wind") {
+      // Start wind systems if they exist and should be shown
+      if (particleSystemRef.current && showParticles) {
+        particleSystemRef.current.start();
+      }
+      if (heatmapSystemRef.current && showHeatmap) {
+        heatmapSystemRef.current.draw();
+      }
+    } else {
+      // Stop wind systems when in precipitation mode
+      if (particleSystemRef.current) {
+        particleSystemRef.current.stop();
+      }
+      if (heatmapSystemRef.current) {
+        heatmapSystemRef.current.clear();
+      }
+    }
+  }, [displayMode, showParticles, showHeatmap]);
+
+  // Control precipitation system visibility based on display mode
+  useEffect(() => {
+    if (!precipitationSystemRef.current) return;
+
+    if (displayMode === "precipitation" && showPrecipitation) {
+      precipitationSystemRef.current.draw();
+    } else {
+      precipitationSystemRef.current.clear();
+    }
+  }, [displayMode, showPrecipitation]);
+
   // Get current index info for display (memoized)
   const currentIndexInfo = useMemo(() => {
     if (displayMode === "wind") {
       return availableIndices.find((item) => item.index === selectedIndex);
     } else {
-      return availablePrecipIndices.find((item) => item.index === selectedPrecipIndex);
+      return availablePrecipIndices.find(
+        (item) => item.index === selectedPrecipIndex,
+      );
     }
-  }, [availableIndices, availablePrecipIndices, selectedIndex, selectedPrecipIndex, displayMode]);
+  }, [
+    availableIndices,
+    availablePrecipIndices,
+    selectedIndex,
+    selectedPrecipIndex,
+    displayMode,
+  ]);
+
+  // Calculate hours back from now for the currently selected index
+  const hoursBackFromNow = useMemo(() => {
+    if (!currentIndexInfo || !currentIndexInfo?.dataTime) return 0;
+
+    const dataTime = new Date(currentIndexInfo.dataTime).getTime();
+    const now = Date.now();
+    const hoursBack = Math.round((now - dataTime) / (1000 * 60 * 60));
+
+    console.log(hoursBack);
+    return hoursBack;
+  }, [currentIndexInfo]);
 
   // Memoize map style to avoid unnecessary re-renders
   const mapStyle = useMemo(
@@ -713,7 +815,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
       theme === "dark"
         ? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
         : "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-    [theme]
+    [theme],
   );
 
   // Memoize slider value calculation
@@ -721,14 +823,40 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
     if (displayMode === "wind") {
       return availableIndices.findIndex((item) => item.index === selectedIndex);
     } else {
-      return availablePrecipIndices.findIndex((item) => item.index === selectedPrecipIndex);
+      return availablePrecipIndices.findIndex(
+        (item) => item.index === selectedPrecipIndex,
+      );
     }
-  }, [availableIndices, availablePrecipIndices, selectedIndex, selectedPrecipIndex, displayMode]);
+  }, [
+    availableIndices,
+    availablePrecipIndices,
+    selectedIndex,
+    selectedPrecipIndex,
+    displayMode,
+  ]);
 
   // Get current indices list based on display mode
   const currentIndices = useMemo(() => {
     return displayMode === "wind" ? availableIndices : availablePrecipIndices;
   }, [displayMode, availableIndices, availablePrecipIndices]);
+
+  // Calculate negative offset in hours based on dataTime field
+  const sliderValues = useMemo(() => {
+    if (currentIndices.length === 0) return [];
+
+    // The last index (most recent) is the reference point (0 hours back)
+    const latestIndex = currentIndices[currentIndices.length - 1];
+    const latestTime = new Date(
+      latestIndex.dataTime || latestIndex.timestamp,
+    ).getTime();
+
+    // Calculate hours back for each index
+    return currentIndices.map((item) => {
+      const itemTime = new Date(item.dataTime || item.timestamp).getTime();
+      const hoursBack = Math.round((latestTime - itemTime) / (1000 * 60 * 60));
+      return hoursBack;
+    });
+  }, [currentIndices]);
 
   return (
     <div className="wind-heatmap-container">
@@ -768,10 +896,6 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
               </button>
             </>
           )}
-
-          <span style={{ fontSize: "0.85em", opacity: 0.6, marginLeft: "auto" }}>
-            📦 Cache: {displayMode === "wind" ? `Vent ${dataCache.current.size}` : `Précip ${precipCache.current.size}`}/15
-          </span>
         </div>
       </div>
 
@@ -791,7 +915,9 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
                 {windData.resolution}° | Points: {windData.points.length}
               </p>
               {windData.note && (
-                <p style={{ fontSize: "0.9em", opacity: 0.8 }}>{windData.note}</p>
+                <p style={{ fontSize: "0.9em", opacity: 0.8 }}>
+                  {windData.note}
+                </p>
               )}
             </>
           )}
@@ -799,42 +925,12 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
             <p>
               Source: {precipData.source} | Updated:{" "}
               {new Date(precipData.timestamp).toLocaleString()} | Resolution:{" "}
-              {precipData.resolution}° | Points: {precipData.points.length} | Unit: {precipData.unit}
+              {precipData.resolution}° | Points: {precipData.points.length} |
+              Unit: {precipData.unit}
             </p>
           )}
         </div>
       )}
-
-      <div className="wind-heatmap-legend">
-        <div className="legend-title">
-          {displayMode === "wind" ? "Wind Speed (m/s)" : "Precipitation (mm/h)"}
-        </div>
-        <div className="legend-gradient" style={{
-          background: displayMode === "wind"
-            ? "linear-gradient(to right, rgb(50, 136, 189), rgb(102, 194, 165), rgb(254, 224, 139), rgb(244, 109, 67), rgb(213, 62, 79))"
-            : "linear-gradient(to right, rgb(240, 249, 255), rgb(186, 225, 255), rgb(97, 174, 238), rgb(33, 102, 172), rgb(0, 60, 130))"
-        }}>
-          <div className="legend-labels">
-            {displayMode === "wind" ? (
-              <>
-                <span>0</span>
-                <span>5</span>
-                <span>10</span>
-                <span>15</span>
-                <span>20+</span>
-              </>
-            ) : (
-              <>
-                <span>0</span>
-                <span>2.5</span>
-                <span>5</span>
-                <span>10</span>
-                <span>20+</span>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
 
       <div className="wind-map-wrapper">
         <MapGL
@@ -859,6 +955,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
             left: 0,
             pointerEvents: "none",
             zIndex: 1,
+            display: displayMode === "wind" ? "block" : "none",
           }}
         />
 
@@ -871,6 +968,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
             left: 0,
             pointerEvents: "none",
             zIndex: 2,
+            display: displayMode === "wind" ? "block" : "none",
           }}
         />
 
@@ -883,11 +981,45 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
             left: 0,
             pointerEvents: "none",
             zIndex: 3,
-            display: showPrecipitation ? "block" : "none",
+            display: displayMode === "precipitation" ? "block" : "none",
           }}
         />
       </div>
 
+      <div className="wind-heatmap-legend">
+        <div className="legend-title">
+          {displayMode === "wind" ? "Wind Speed (m/s)" : "Precipitation (mm/h)"}
+        </div>
+        <div
+          className="legend-gradient"
+          style={{
+            background:
+              displayMode === "wind"
+                ? "linear-gradient(to right, rgb(50, 136, 189), rgb(102, 194, 165), rgb(254, 224, 139), rgb(244, 109, 67), rgb(213, 62, 79))"
+                : "linear-gradient(to right, rgb(240, 249, 255), rgb(186, 225, 255), rgb(97, 174, 238), rgb(33, 102, 172), rgb(0, 60, 130))",
+          }}
+        >
+          <div className="legend-labels">
+            {displayMode === "wind" ? (
+              <>
+                <span>0</span>
+                <span>5</span>
+                <span>10</span>
+                <span>15</span>
+                <span>20+</span>
+              </>
+            ) : (
+              <>
+                <span>0</span>
+                <span>2.5</span>
+                <span>5</span>
+                <span>10</span>
+                <span>20+</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
       {/* Timeline slider - Below the map */}
       {currentIndices.length > 0 && (
         <div className="wind-timeline-container">
@@ -905,13 +1037,14 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
                 {currentIndexInfo && (
                   <>
                     <span className="timeline-timestamp">
-                      {new Date(currentIndexInfo.timestamp).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {hoursBackFromNow === 0
+                        ? "Maintenant"
+                        : `-${hoursBackFromNow}h`}
                     </span>
                     <span className="timeline-date">
-                      {new Date(currentIndexInfo.timestamp).toLocaleDateString()}
+                      {new Date(
+                        currentIndexInfo.dataTime || currentIndexInfo.timestamp,
+                      ).toLocaleDateString()}
                     </span>
                   </>
                 )}
@@ -934,21 +1067,8 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
               </div>
 
               <div className="timeline-labels">
-                <span>
-                  {new Date(currentIndices[0].timestamp).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-                <span>
-                  {currentIndices.length > 1 &&
-                    new Date(
-                      currentIndices[currentIndices.length - 1].timestamp
-                    ).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                </span>
+                <span>&nbsp;</span>
+                <span>{t["timeline"]["now"]}</span>
               </div>
             </div>
           </div>
@@ -1199,10 +1319,50 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
           border-radius: 1px;
         }
 
+        .timeline-cursor-value {
+          position: absolute;
+          bottom: -28px;
+          transform: translateX(-50%);
+          background: var(--accent);
+          color: white;
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          white-space: nowrap;
+          pointer-events: none;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+          z-index: 10;
+        }
+
         .timeline-labels {
           display: flex;
           justify-content: space-between;
           margin-top: 0.5rem;
+          font-size: 0.85rem;
+          opacity: 0.7;
+        }
+
+        .timeline-current-value {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          margin-top: 1rem;
+          padding: 0.5rem;
+          background: var(--card);
+          border-radius: 8px;
+          border: 2px solid var(--accent);
+          box-shadow: 0 2px 6px var(--card-shadow);
+        }
+
+        .timeline-current-time {
+          font-size: 1.2rem;
+          font-weight: 700;
+          color: var(--accent);
+          margin-bottom: 0.25rem;
+        }
+
+        .timeline-current-date {
           font-size: 0.85rem;
           opacity: 0.7;
         }
