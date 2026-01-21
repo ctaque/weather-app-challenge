@@ -2,10 +2,7 @@ const { createClient, commandOptions } = require("redis");
 
 // Redis client configuration
 // Support both REDIS_URL and UPSTASH_REDIS_URL (Heroku addon)
-const REDIS_URL =
-  process.env.REDIS_URL ||
-  process.env.UPSTASH_REDIS_URL ||
-  "redis://localhost:6379";
+const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 const REDIS_TTL = 60 * 60; // 1 hour in seconds
 
 let client = null;
