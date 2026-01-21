@@ -304,6 +304,9 @@ export default function App() {
 
             {/* Composant avec données en dur pour les 5 villes */}
             <WeatherGrid />
+
+            {/* Wind Heatmap avec timeline animée */}
+            <WindHeatmap location={data?.location} />
           </div>
         </ThemeContext.Provider>
       </UnitContext.Provider>

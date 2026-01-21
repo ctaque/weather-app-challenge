@@ -8,6 +8,10 @@ const {
   initRedis,
   getWindData: getWindDataFromRedis,
   getBinaryData,
+  getWindDataByIndex,
+  getBinaryDataByIndex,
+  getAvailableIndices,
+  getLatestIndex,
   closeRedis,
 } = require("./server/redis-client");
 const {
@@ -142,6 +146,45 @@ app.get("/api/precipitation-global", async (req, res) => {
   }
 });
 
+// Get list of available precipitation data indices
+app.get("/api/precipitation-indices", async (req, res) => {
+  try {
+    const indices = await getAvailableIndices(REDIS_KEYS.PRECIPITATION_POINTS);
+
+    res.json({
+      count: indices.length,
+      indices: indices
+    });
+  } catch (err) {
+    console.error("Error fetching precipitation indices:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get precipitation data by index
+app.get("/api/precipitation-global/:index", async (req, res) => {
+  try {
+    const index = parseInt(req.params.index, 10);
+
+    if (isNaN(index)) {
+      return res.status(400).json({ error: "Invalid index parameter" });
+    }
+
+    const precipData = await getWindDataByIndex(REDIS_KEYS.PRECIPITATION_POINTS, index);
+
+    if (!precipData) {
+      return res.status(404).json({
+        error: `No precipitation data available at index ${index}`
+      });
+    }
+
+    res.json(precipData);
+  } catch (err) {
+    console.error(`Error fetching precipitation data at index ${req.params.index}:`, err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Windgl metadata endpoint
 app.get("/api/windgl/metadata.json", async (req, res) => {
   try {
@@ -182,6 +225,101 @@ app.get("/api/windgl/wind.png", async (req, res) => {
     res.send(pngBuffer);
   } catch (err) {
     console.error("Error fetching windgl PNG:", err);
+    res.status(500).send("Error fetching wind data");
+  }
+});
+
+// Get list of available wind data indices
+app.get("/api/wind-indices", async (req, res) => {
+  try {
+    const indices = await getAvailableIndices(REDIS_KEYS.WIND_POINTS);
+
+    res.json({
+      count: indices.length,
+      indices: indices
+    });
+  } catch (err) {
+    console.error("Error fetching wind indices:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get wind data by index
+app.get("/api/wind-global/:index", async (req, res) => {
+  try {
+    const index = parseInt(req.params.index, 10);
+
+    if (isNaN(index)) {
+      return res.status(400).json({ error: "Invalid index parameter" });
+    }
+
+    const windData = await getWindDataByIndex(REDIS_KEYS.WIND_POINTS, index);
+
+    if (!windData) {
+      return res.status(404).json({
+        error: `No wind data available at index ${index}`
+      });
+    }
+
+    res.json(windData);
+  } catch (err) {
+    console.error(`Error fetching wind data at index ${req.params.index}:`, err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get windgl metadata by index
+app.get("/api/windgl/metadata.json/:index", async (req, res) => {
+  try {
+    const index = parseInt(req.params.index, 10);
+
+    if (isNaN(index)) {
+      return res.status(400).json({ error: "Invalid index parameter" });
+    }
+
+    const metadata = await getWindDataByIndex(REDIS_KEYS.WIND_METADATA, index);
+
+    if (!metadata) {
+      return res.status(404).json({
+        error: `No wind metadata available at index ${index}`
+      });
+    }
+
+    // Add tiles URL to metadata - use indexed URL
+    const tileUrl = `/api/windgl/wind.png/${index}`;
+    const response = {
+      ...metadata,
+      tiles: [tileUrl],
+      index: index
+    };
+
+    res.json(response);
+  } catch (err) {
+    console.error(`Error fetching windgl metadata at index ${req.params.index}:`, err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get windgl PNG tile by index
+app.get("/api/windgl/wind.png/:index", async (req, res) => {
+  try {
+    const index = parseInt(req.params.index, 10);
+
+    if (isNaN(index)) {
+      return res.status(400).send("Invalid index parameter");
+    }
+
+    const pngBuffer = await getBinaryDataByIndex(REDIS_KEYS.WIND_PNG, index);
+
+    if (!pngBuffer) {
+      return res.status(404).send(`No wind data available at index ${index}`);
+    }
+
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(pngBuffer);
+  } catch (err) {
+    console.error(`Error fetching windgl PNG at index ${req.params.index}:`, err);
     res.status(500).send("Error fetching wind data");
   }
 });

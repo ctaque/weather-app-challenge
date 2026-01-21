@@ -7,7 +7,6 @@ import RainChanceChart from "./RainChanceChart";
 import WindSpeedChart from "./WindSpeedChart";
 import WindDirectionChart from "./WindDirectionChart";
 import WeatherSummary from "./WeatherSummary";
-import WindHeatmapCanvas from "./WindHeatmapCanvas";
 import { ThemeContext, LanguageContext, UnitContext } from "../App";
 
 type Condition = { text: string; emoji?: string; icon?: string };
@@ -670,7 +669,6 @@ export default function WeatherGrid() {
           </div>
         )}
       </div>
-      <WindHeatmapCanvas location={currentLocation} />
     </section>
   );
 }

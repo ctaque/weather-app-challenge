@@ -273,6 +273,182 @@ async function closeRedis() {
   }
 }
 
+/**
+ * Store wind data with index for historical tracking
+ * Maintains the last N versions of wind data
+ * @param {Object|Array} data - Wind data to store
+ * @param {string} baseKey - Base Redis key (e.g., 'wind:points')
+ * @param {number} maxHistory - Maximum number of historical entries to keep (default: 10)
+ */
+async function setWindDataWithIndex(data, baseKey, maxHistory = 10) {
+  try {
+    const redis = await getClient();
+
+    // Get current index, or start at 0
+    const currentIndexStr = await redis.get(`${baseKey}:current_index`);
+    let currentIndex = currentIndexStr ? parseInt(currentIndexStr, 10) : 0;
+
+    // Get existing indices list
+    const indicesStr = await redis.get(`${baseKey}:indices`);
+    let indices = indicesStr ? JSON.parse(indicesStr) : [];
+
+    // Store the new data with current index
+    const indexedKey = `${baseKey}:${currentIndex}`;
+    await setWindData(data, indexedKey);
+
+    // Add timestamp info to indices list
+    const indexEntry = {
+      index: currentIndex,
+      timestamp: new Date().toISOString(),
+      dataPoints: Array.isArray(data) ? data.length : (data.points ? data.points.length : 0)
+    };
+
+    // Add new index to the list
+    indices.push(indexEntry);
+
+    // Keep only the last maxHistory entries
+    if (indices.length > maxHistory) {
+      const oldIndices = indices.slice(0, indices.length - maxHistory);
+
+      // Delete old data
+      for (const oldIndex of oldIndices) {
+        const oldKey = `${baseKey}:${oldIndex.index}`;
+
+        // Delete chunked data if exists
+        const chunkCount = await redis.get(`${oldKey}:chunks`);
+        if (chunkCount) {
+          const numChunks = parseInt(chunkCount, 10);
+          for (let i = 0; i < numChunks; i++) {
+            await redis.del(`${oldKey}:chunk:${i}`);
+          }
+          await redis.del(`${oldKey}:chunks`);
+          await redis.del(`${oldKey}:meta`);
+        } else {
+          await redis.del(oldKey);
+        }
+
+        console.log(`Redis: Deleted old data at index ${oldIndex.index}`);
+      }
+
+      // Keep only recent indices
+      indices = indices.slice(indices.length - maxHistory);
+    }
+
+    // Store updated indices list
+    await redis.setEx(`${baseKey}:indices`, REDIS_TTL, JSON.stringify(indices));
+
+    // Update current index for next time
+    const nextIndex = currentIndex + 1;
+    await redis.setEx(`${baseKey}:current_index`, REDIS_TTL, nextIndex.toString());
+
+    // Also store as latest (backward compatibility)
+    await setWindData(data, baseKey);
+
+    console.log(`Redis: Stored data at index ${currentIndex}, total history: ${indices.length}`);
+    return currentIndex;
+
+  } catch (error) {
+    console.error('Redis: Error storing indexed wind data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get wind data by index
+ * @param {string} baseKey - Base Redis key
+ * @param {number} index - Index to retrieve
+ * @returns {Object|Array|null}
+ */
+async function getWindDataByIndex(baseKey, index) {
+  try {
+    const indexedKey = `${baseKey}:${index}`;
+    return await getWindData(indexedKey);
+  } catch (error) {
+    console.error(`Redis: Error retrieving wind data at index ${index}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get binary data by index
+ * @param {string} baseKey - Base Redis key
+ * @param {number} index - Index to retrieve
+ * @returns {Buffer|null}
+ */
+async function getBinaryDataByIndex(baseKey, index) {
+  try {
+    const indexedKey = `${baseKey}:${index}`;
+    return await getBinaryData(indexedKey);
+  } catch (error) {
+    console.error(`Redis: Error retrieving binary data at index ${index}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get list of available indices with timestamps
+ * @param {string} baseKey - Base Redis key
+ * @returns {Array}
+ */
+async function getAvailableIndices(baseKey) {
+  try {
+    const redis = await getClient();
+    const indicesStr = await redis.get(`${baseKey}:indices`);
+
+    if (!indicesStr) {
+      return [];
+    }
+
+    return JSON.parse(indicesStr);
+  } catch (error) {
+    console.error('Redis: Error retrieving available indices:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get the latest index number
+ * @param {string} baseKey - Base Redis key
+ * @returns {number|null}
+ */
+async function getLatestIndex(baseKey) {
+  try {
+    const indices = await getAvailableIndices(baseKey);
+
+    if (indices.length === 0) {
+      return null;
+    }
+
+    // Return the last index in the array (most recent)
+    return indices[indices.length - 1].index;
+  } catch (error) {
+    console.error('Redis: Error retrieving latest index:', error);
+    throw error;
+  }
+}
+
+/**
+ * Store binary data with index for historical tracking
+ * @param {Buffer} buffer - Binary data to store
+ * @param {string} baseKey - Base Redis key
+ * @param {number} index - Index to use (should match the wind data index)
+ */
+async function setBinaryDataWithIndex(buffer, baseKey, index) {
+  try {
+    const indexedKey = `${baseKey}:${index}`;
+    await setBinaryData(buffer, indexedKey);
+
+    // Also store as latest (backward compatibility)
+    await setBinaryData(buffer, baseKey);
+
+    console.log(`Redis: Stored binary data at index ${index}`);
+    return index;
+  } catch (error) {
+    console.error('Redis: Error storing indexed binary data:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   initRedis,
   getClient,
@@ -280,6 +456,12 @@ module.exports = {
   getWindData,
   setBinaryData,
   getBinaryData,
+  setWindDataWithIndex,
+  setBinaryDataWithIndex,
+  getWindDataByIndex,
+  getBinaryDataByIndex,
+  getAvailableIndices,
+  getLatestIndex,
   isRedisConnected,
   closeRedis
 };

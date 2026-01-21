@@ -1,19 +1,13 @@
-import React, { useEffect, useRef, useState, useContext, useMemo } from "react";
-import Map, { NavigationControl, useControl } from "react-map-gl/maplibre";
+import React, { useEffect, useRef, useState, useContext, useMemo, useCallback } from "react";
+import { Map as MapGL, NavigationControl } from "react-map-gl/maplibre";
 import type { MapRef } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { ThemeContext } from "../App";
-import { PathLayer, ScatterplotLayer } from "@deck.gl/layers";
-import { MapboxOverlay } from "@deck.gl/mapbox";
-import type { MapboxOverlayProps } from "@deck.gl/mapbox";
-import { WindParticleSystem, type WindDataPoint } from "../utils/windParticles";
-
-// Wrapper component for DeckGL overlay that works with react-map-gl
-function DeckGLOverlay(props: MapboxOverlayProps) {
-  const overlay = useControl<MapboxOverlay>(() => new MapboxOverlay(props));
-  overlay.setProps(props);
-  return null;
-}
+import { ThemeContext, LanguageContext } from "../App";
+import type { WindDataPoint } from "../utils/windParticlesCanvas";
+import { WindParticlesCanvas } from "../utils/windParticlesCanvas";
+import { WindHeatmapCanvas as WindHeatmapRenderer } from "../utils/windHeatmapCanvas";
+import type { PrecipitationDataPoint } from "../utils/precipitationHeatmapCanvas";
+import { PrecipitationHeatmapCanvas } from "../utils/precipitationHeatmapCanvas";
 
 interface WindData {
   timestamp: string;
@@ -22,6 +16,16 @@ interface WindData {
   points: WindDataPoint[];
   note?: string;
 }
+
+interface PrecipitationData {
+  timestamp: string;
+  source: string;
+  resolution: number;
+  points: PrecipitationDataPoint[];
+  unit: string;
+}
+
+type DisplayMode = "wind" | "precipitation";
 
 interface Location {
   name?: string;
@@ -34,20 +38,216 @@ interface Location {
   localtime?: string;
 }
 
+interface WindIndex {
+  index: number;
+  timestamp: string;
+  dataPoints: number;
+}
+
 interface WindHeatmapProps {
   location?: Location;
 }
 
 export default function WindHeatmap({ location }: WindHeatmapProps) {
   const [windData, setWindData] = useState<WindData | null>(null);
+  const [precipData, setPrecipData] = useState<PrecipitationData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("wind");
   const [showParticles, setShowParticles] = useState(true);
-  const [layers, setLayers] = useState<any[]>([]);
+  const [showHeatmap, setShowHeatmap] = useState(true);
+  const [availableIndices, setAvailableIndices] = useState<WindIndex[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [cacheSize, setCacheSize] = useState(0);
   const mapRef = useRef<MapRef>(null);
-  const particleSystemRef = useRef<WindParticleSystem | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
+  const heatmapCanvasRef = useRef<HTMLCanvasElement>(null);
+  const particlesCanvasRef = useRef<HTMLCanvasElement>(null);
+  const precipitationCanvasRef = useRef<HTMLCanvasElement>(null);
+  const heatmapSystemRef = useRef<WindHeatmapRenderer | null>(null);
+  const particleSystemRef = useRef<WindParticlesCanvas | null>(null);
+  const precipitationSystemRef = useRef<PrecipitationHeatmapCanvas | null>(null);
+  const playIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const dataCache = useRef<Map<number, WindData>>(new Map());
+  const precipCache = useRef<Map<number, PrecipitationData>>(new Map());
   const theme = useContext(ThemeContext);
+  const { t } = useContext(LanguageContext);
+
+  // Load available indices on mount
+  const loadAvailableIndices = useCallback(async () => {
+    try {
+      const response = await fetch("/api/wind-indices");
+      if (!response.ok) throw new Error("Failed to fetch wind indices");
+      const data = await response.json();
+
+      setAvailableIndices(data.indices);
+
+      // Select the latest index by default
+      if (data.indices.length > 0) {
+        const latestIndex = data.indices[data.indices.length - 1].index;
+        setSelectedIndex(latestIndex);
+      }
+    } catch (err: any) {
+      console.error("Failed to load wind indices:", err);
+      setError(err.message || "Failed to load wind indices");
+    }
+  }, []);
+
+  const loadWindData = useCallback(async (index?: number) => {
+    // Check cache first if we have an index
+    if (index !== undefined && dataCache.current.has(index)) {
+      const cachedData = dataCache.current.get(index)!;
+      setWindData(cachedData);
+      console.log(`✨ Using cached data for index ${index}`);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const url = index !== undefined
+        ? `/api/wind-global/${index}`
+        : "/api/wind-global";
+
+      console.log(`📡 Fetching data from: ${url}`);
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch wind data");
+      const data: WindData = await response.json();
+
+      // Store in cache if we have an index
+      if (index !== undefined) {
+        dataCache.current.set(index, data);
+
+        // Limit cache size to prevent memory issues (keep last 15 entries)
+        if (dataCache.current.size > 15) {
+          const firstKey = dataCache.current.keys().next().value;
+          dataCache.current.delete(firstKey);
+          console.log(`🗑️ Removed oldest cache entry (index ${firstKey})`);
+        }
+
+        setCacheSize(dataCache.current.size);
+        console.log(`💾 Cached data for index ${index} (cache size: ${dataCache.current.size})`);
+      }
+
+      setWindData(data);
+
+      // Particle system will be initialized automatically by useEffect when windData changes
+    } catch (err: any) {
+      console.error("Failed to load wind data:", err);
+      setError(err.message || "Failed to load wind data");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadPrecipData = useCallback(async (index?: number) => {
+    // Check cache first if we have an index
+    if (index !== undefined && precipCache.current.has(index)) {
+      const cachedData = precipCache.current.get(index)!;
+      setPrecipData(cachedData);
+      console.log(`✨ Using cached precipitation data for index ${index}`);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const url = index !== undefined
+        ? `/api/precipitation-global/${index}`
+        : "/api/precipitation-global";
+
+      console.log(`📡 Fetching precipitation data from: ${url}`);
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch precipitation data");
+      const data: PrecipitationData = await response.json();
+
+      // Store in cache if we have an index
+      if (index !== undefined) {
+        precipCache.current.set(index, data);
+
+        // Limit cache size to prevent memory issues (keep last 15 entries)
+        if (precipCache.current.size > 15) {
+          const firstKey = precipCache.current.keys().next().value;
+          precipCache.current.delete(firstKey);
+          console.log(`🗑️ Removed oldest precipitation cache entry (index ${firstKey})`);
+        }
+
+        setCacheSize(precipCache.current.size);
+        console.log(`💾 Cached precipitation data for index ${index} (cache size: ${precipCache.current.size})`);
+      }
+
+      setPrecipData(data);
+    } catch (err: any) {
+      console.error("Failed to load precipitation data:", err);
+      setError(err.message || "Failed to load precipitation data");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Memoize slider change handler
+  const handleSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsPlaying(false); // Pause when user manually changes slider
+    const position = parseInt(e.target.value, 10);
+    const newIndex = availableIndices[position]?.index;
+    if (newIndex !== undefined) {
+      setSelectedIndex(newIndex);
+    }
+  }, [availableIndices]);
+
+  // Memoize play/pause toggle
+  const togglePlayPause = useCallback(() => {
+    setIsPlaying((prev) => !prev);
+  }, []);
+
+  // Preload adjacent data for smoother navigation
+  const preloadAdjacentData = useCallback(async (currentIndex: number) => {
+    const currentPos = availableIndices.findIndex((item) => item.index === currentIndex);
+    if (currentPos === -1) return;
+
+    // Preload next index
+    if (currentPos < availableIndices.length - 1) {
+      const nextIndex = availableIndices[currentPos + 1].index;
+      if (!dataCache.current.has(nextIndex)) {
+        try {
+          const response = await fetch(`/api/wind-global/${nextIndex}`);
+          if (response.ok) {
+            const data: WindData = await response.json();
+            dataCache.current.set(nextIndex, data);
+            setCacheSize(dataCache.current.size);
+            console.log(`🔮 Preloaded data for index ${nextIndex}`);
+          }
+        } catch (err) {
+          console.warn(`Failed to preload index ${nextIndex}:`, err);
+        }
+      }
+    }
+
+    // Preload previous index
+    if (currentPos > 0) {
+      const prevIndex = availableIndices[currentPos - 1].index;
+      if (!dataCache.current.has(prevIndex)) {
+        try {
+          const response = await fetch(`/api/wind-global/${prevIndex}`);
+          if (response.ok) {
+            const data: WindData = await response.json();
+            dataCache.current.set(prevIndex, data);
+            setCacheSize(dataCache.current.size);
+            console.log(`🔮 Preloaded data for index ${prevIndex}`);
+          }
+        } catch (err) {
+          console.warn(`Failed to preload index ${prevIndex}:`, err);
+        }
+      }
+    }
+  }, [availableIndices]);
+
+  // Computed values based on display mode
+  const showParticlesLayer = displayMode === "wind" && showParticles;
+  const showHeatmapLayer = displayMode === "wind" && showHeatmap;
+  const showPrecipitation = displayMode === "precipitation";
 
   // Center map on location when it changes
   useEffect(() => {
@@ -60,430 +260,443 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
     }
   }, [location]);
 
-  // Load wind data
+  // Load available indices on mount
   useEffect(() => {
-    loadWindData();
-  }, []);
+    loadAvailableIndices();
+  }, [loadAvailableIndices]);
 
-  async function loadWindData() {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/wind-global");
-      if (!response.ok) throw new Error("Failed to fetch wind data");
-      const data: WindData = await response.json();
-      setWindData(data);
-
-      // Initialize particle system - TOUTE L'EUROPE
-      if (data.points && data.points.length > 0) {
-        particleSystemRef.current = new WindParticleSystem(data.points, 3000, {
-          minLat: 35, // Sud de l'Espagne/Grèce
-          maxLat: 71, // Nord de la Scandinavie
-          minLon: -10, // Ouest du Portugal/Irlande
-          maxLon: 45, // Est de la Russie européenne
-        });
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to load wind data");
-    } finally {
-      setLoading(false);
+  // Load wind data when selectedIndex changes
+  useEffect(() => {
+    if (selectedIndex !== null && displayMode === "wind") {
+      loadWindData(selectedIndex);
+      // Preload adjacent data in the background
+      preloadAdjacentData(selectedIndex);
     }
-  }
+  }, [selectedIndex, displayMode, loadWindData, preloadAdjacentData]);
 
-  // WebGL-optimized animation loop
+  // Load precipitation data when selectedIndex changes and in precipitation mode
   useEffect(() => {
-    if (!windData || !particleSystemRef.current) return;
+    if (selectedIndex !== null && displayMode === "precipitation") {
+      loadPrecipData(selectedIndex);
+    }
+  }, [selectedIndex, displayMode, loadPrecipData]);
 
-    let frameCount = 0;
-    let lastUpdateTime = performance.now();
-
-    // GPU-optimized animation loop
-    const animate = (currentTime: number) => {
-      if (!particleSystemRef.current || !showParticles) {
-        setLayers([]);
-        animationFrameRef.current = requestAnimationFrame(animate);
-        return;
+  // Auto-play animation
+  useEffect(() => {
+    if (!isPlaying || availableIndices.length === 0) {
+      if (playIntervalRef.current) {
+        clearInterval(playIntervalRef.current);
+        playIntervalRef.current = null;
       }
+      return;
+    }
 
-      // Calculate delta time for smooth animation
-      const deltaTime = (currentTime - lastUpdateTime) / 1000;
-      lastUpdateTime = currentTime;
+    // Advance to next index every 2 seconds
+    playIntervalRef.current = setInterval(() => {
+      setSelectedIndex((prevIndex) => {
+        if (prevIndex === null) return availableIndices[0]?.index ?? null;
 
-      // Update particle physics
-      particleSystemRef.current.update(deltaTime);
-      frameCount++;
+        const currentIndexPosition = availableIndices.findIndex(
+          (item) => item.index === prevIndex
+        );
 
-      // Get trail, head, and arrow data (pre-computed in GPU-friendly format)
-      const trails = particleSystemRef.current.getTrails();
-      const heads = particleSystemRef.current.getHeads();
-      const arrows = particleSystemRef.current.getArrows();
+        // Loop back to start when reaching the end
+        if (currentIndexPosition >= availableIndices.length - 1) {
+          return availableIndices[0].index;
+        }
 
-      // Pre-calculate pulse for all heads (once per frame)
-      const pulse = Math.sin(frameCount * 0.05) * 0.2 + 0.8;
-
-      // WebGL optimization: only update every N frames for better performance
-      const dataVersion = Math.floor(frameCount / 2); // Update every 2 frames
-
-      // WebGL Layer 1: Halo with GPU-computed fade and desynchronized rendering
-      const haloLayer = new PathLayer({
-        id: "wind-halo",
-        data: trails,
-        dataComparator: (newData, oldData) => newData === oldData,
-        _pathType: "open",
-
-        getPath: (d: any) => d.path, // Simplified - no oscillation for performance
-        getColor: (d: any) => {
-          const [r, g, b] = d.baseColor;
-          // Pulsing opacity based on segment phase
-          const avgPhase =
-            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
-            (d.pathPhases?.length || 1);
-          const pulseFactor =
-            0.7 + Math.sin(frameCount * 0.05 + avgPhase) * 0.3;
-          const fadeAlpha = Math.pow(d.segmentPosition, 2) * 40 * pulseFactor;
-          return [r, g, b, fadeAlpha];
-        },
-        getWidth: (d: any) => {
-          // Varying width based on phase - 4× PLUS LARGE
-          const avgPhase =
-            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
-            (d.pathPhases?.length || 1);
-          const widthVar = 1 + Math.sin(frameCount * 0.08 + avgPhase) * 0.2;
-          return (20 + d.segmentPosition * 30) * widthVar * 4;
-        },
-
-        widthMinPixels: 60,
-        widthMaxPixels: 200,
-        widthScale: 1,
-        opacity: 0.4,
-        capRounded: true,
-        jointRounded: true,
-        billboard: false,
-
-        // WebGL optimizations
-        fp64: false, // Use 32-bit for performance
-        autoHighlight: false,
-        highlightColor: [0, 0, 0, 0],
-
-        updateTriggers: {
-          getPath: dataVersion,
-          getColor: dataVersion,
-          getWidth: dataVersion,
-        },
+        return availableIndices[currentIndexPosition + 1].index;
       });
-
-      // WebGL Layer 2: Medium glow with independent oscillation
-      const glowLayer = new PathLayer({
-        id: "wind-glow",
-        data: trails,
-        dataComparator: (newData, oldData) => newData === oldData,
-        _pathType: "open",
-
-        getPath: (d: any) => d.path,
-        getColor: (d: any) => {
-          const [r, g, b] = d.baseColor;
-          const avgPhase =
-            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
-            (d.pathPhases?.length || 1);
-          const pulseFactor =
-            0.8 + Math.sin(frameCount * 0.07 + avgPhase) * 0.2;
-          const fadeAlpha =
-            Math.pow(d.segmentPosition, 1.5) * 100 * pulseFactor;
-          return [r, g, b, fadeAlpha];
-        },
-        getWidth: (d: any) => {
-          const avgPhase =
-            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
-            (d.pathPhases?.length || 1);
-          const widthVar = 1 + Math.sin(frameCount * 0.09 + avgPhase) * 0.15;
-          return (3 + d.segmentPosition * 9) * widthVar * 4;
-        },
-
-        widthMinPixels: 12,
-        widthMaxPixels: 60,
-        opacity: 0.6,
-        capRounded: true,
-        jointRounded: true,
-        billboard: false,
-        fp64: false,
-        autoHighlight: false,
-
-        updateTriggers: {
-          getPath: dataVersion,
-          getColor: dataVersion,
-          getWidth: dataVersion,
-        },
-      });
-
-      // WebGL Layer 3: Main trails with independent wave motion
-      const trailLayer = new PathLayer({
-        id: "wind-trails",
-        data: trails,
-        dataComparator: (newData, oldData) => newData === oldData,
-        _pathType: "open",
-
-        getPath: (d: any) => d.path,
-        getColor: (d: any) => {
-          const fadeCurve = Math.pow(d.segmentPosition, 1.2);
-          const avgPhase =
-            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
-            (d.pathPhases?.length || 1);
-          const pulseFactor =
-            0.85 + Math.sin(frameCount * 0.06 + avgPhase) * 0.15;
-          const opacity = Math.floor(fadeCurve * 240 * pulseFactor + 15);
-          const [r, g, b] = d.baseColor;
-          return [r, g, b, opacity];
-        },
-        getWidth: (d: any) => {
-          const speedFactor = Math.min(d.speed / 20, 1);
-          const baseTaper = 1.5 + d.segmentPosition * 4;
-          const avgPhase =
-            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
-            (d.pathPhases?.length || 1);
-          const widthVar = 1 + Math.sin(frameCount * 0.1 + avgPhase) * 0.1;
-          return (baseTaper + speedFactor * 3) * widthVar * 4;
-        },
-
-        widthMinPixels: 8,
-        widthMaxPixels: 48,
-        opacity: 0.95,
-        capRounded: true,
-        jointRounded: true,
-        billboard: false,
-        fp64: false,
-        autoHighlight: false,
-
-        updateTriggers: {
-          getPath: dataVersion,
-          getColor: dataVersion,
-          getWidth: dataVersion,
-        },
-      });
-
-      // WebGL Layer 4: Bright core with micro-oscillations
-      const coreLayer = new PathLayer({
-        id: "wind-core",
-        data: trails,
-        dataComparator: (newData, oldData) => newData === oldData,
-        _pathType: "open",
-
-        getPath: (d: any) => d.path,
-        getColor: (d: any) => {
-          const fadeCurve = Math.pow(d.segmentPosition, 0.8);
-          const avgPhase =
-            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
-            (d.pathPhases?.length || 1);
-          const shimmer = 1 + Math.sin(frameCount * 0.12 + avgPhase) * 0.1;
-          const opacity = Math.floor(fadeCurve * 255 * shimmer);
-          const [r, g, b] = d.baseColor;
-          const brighten = (1.3 + d.segmentPosition * 0.3) * shimmer;
-          return [
-            Math.min(255, r * brighten),
-            Math.min(255, g * brighten),
-            Math.min(255, b * brighten),
-            opacity,
-          ];
-        },
-        getWidth: (d: any) => {
-          const speedFactor = Math.min(d.speed / 20, 1);
-          const taper = 0.5 + d.segmentPosition * 2;
-          const avgPhase =
-            d.pathPhases?.reduce((a: number, b: number) => a + b, 0) /
-            (d.pathPhases?.length || 1);
-          const widthVar = 1 + Math.sin(frameCount * 0.13 + avgPhase) * 0.08;
-          return (taper + speedFactor * 1.5) * widthVar * 4;
-        },
-
-        widthMinPixels: 2,
-        widthMaxPixels: 20,
-        opacity: 1,
-        capRounded: true,
-        jointRounded: true,
-        billboard: false,
-        fp64: false,
-        autoHighlight: false,
-
-        updateTriggers: {
-          getPath: dataVersion,
-          getColor: dataVersion,
-          getWidth: dataVersion,
-        },
-      });
-
-      // WebGL Layer 5: Particle heads with GPU-accelerated pulsing
-      const headLayer = new ScatterplotLayer({
-        id: "wind-heads",
-        data: heads,
-        dataComparator: (newData, oldData) => newData === oldData,
-
-        getPosition: (d: any) => d.position,
-        getFillColor: (d: any) => {
-          const [r, g, b, a] = d.color;
-          return [
-            Math.min(255, r * 1.3 * pulse),
-            Math.min(255, g * 1.3 * pulse),
-            Math.min(255, b * 1.3 * pulse),
-            a,
-          ];
-        },
-        getRadius: (d: any) => 2 + (d.speed / 20) * 2,
-
-        radiusMinPixels: 2,
-        radiusMaxPixels: 8,
-        opacity: 1,
-        stroked: true,
-        filled: true,
-        getLineColor: [255, 255, 255, 200],
-        lineWidthMinPixels: 1,
-
-        // WebGL optimizations
-        fp64: false,
-        autoHighlight: false,
-        highlightColor: [0, 0, 0, 0],
-
-        updateTriggers: {
-          getPosition: dataVersion,
-          getFillColor: dataVersion,
-          getRadius: dataVersion,
-        },
-      });
-
-      // WebGL Layer 6: Wind direction arrows
-      const arrowLayer = new ScatterplotLayer({
-        id: "wind-arrows",
-        data: arrows,
-        dataComparator: (newData, oldData) => newData === oldData,
-
-        getPosition: (d: any) => d.position,
-        getFillColor: (d: any) => {
-          const [r, g, b] = d.color;
-          return [r, g, b, 220]; // Semi-transparent
-        },
-        getLineColor: [255, 255, 255, 255],
-
-        // Arrow shape using custom size
-        radiusMinPixels: 6,
-        radiusMaxPixels: 12,
-        getRadius: (d: any) => {
-          // Size based on speed
-          return 4 + Math.min(d.speed / 20, 1) * 4;
-        },
-
-        stroked: true,
-        filled: true,
-        lineWidthMinPixels: 2,
-        opacity: 0.9,
-
-        // WebGL optimizations
-        fp64: false,
-        autoHighlight: false,
-
-        updateTriggers: {
-          getPosition: dataVersion,
-          getFillColor: dataVersion,
-          getRadius: dataVersion,
-        },
-      });
-
-      // Simple triangle arrows using PathLayer
-      const arrowShapes = arrows.map((d: any) => {
-        const [x, y] = d.position;
-        const angle = d.angle;
-        const speed = d.speed;
-
-        // Arrow size based on speed
-        const size = 0.05 + Math.min(speed / 20, 1) * 0.1;
-
-        // Create arrow triangle pointing in wind direction
-        const angleRad = (angle * Math.PI) / 180;
-        const cos = Math.cos(angleRad);
-        const sin = Math.sin(angleRad);
-
-        // Arrow points (triangle)
-        const tip: [number, number] = [x + cos * size, y + sin * size];
-        const left: [number, number] = [
-          x - cos * size * 0.3 - sin * size * 0.4,
-          y - sin * size * 0.3 + cos * size * 0.4,
-        ];
-        const right: [number, number] = [
-          x - cos * size * 0.3 + sin * size * 0.4,
-          y - sin * size * 0.3 - cos * size * 0.4,
-        ];
-
-        return {
-          path: [tip, left, right, tip], // Close the triangle
-          color: d.color,
-          speed: d.speed,
-        };
-      });
-
-      const arrowPathLayer = new PathLayer({
-        id: "wind-arrow-shapes",
-        data: arrowShapes,
-        dataComparator: (newData, oldData) => newData === oldData,
-
-        getPath: (d: any) => d.path,
-        getColor: (d: any) => {
-          const [r, g, b] = d.color;
-          return [r, g, b, 230];
-        },
-
-        widthMinPixels: 3,
-        widthMaxPixels: 5,
-        filled: true,
-        opacity: 0.95,
-
-        fp64: false,
-        autoHighlight: false,
-
-        updateTriggers: {
-          getPath: dataVersion,
-          getColor: dataVersion,
-        },
-      });
-
-      // Update layers (render order: halo -> glow -> trails -> core -> arrows -> heads)
-      setLayers([
-        haloLayer,
-        glowLayer,
-        trailLayer,
-        coreLayer,
-        arrowPathLayer,
-        headLayer,
-      ]);
-
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    // Start animation
-    animationFrameRef.current = requestAnimationFrame(animate);
+    }, 2000);
 
     return () => {
-      // Cleanup
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+      if (playIntervalRef.current) {
+        clearInterval(playIntervalRef.current);
+        playIntervalRef.current = null;
       }
     };
-  }, [windData, showParticles]);
+  }, [isPlaying, availableIndices]);
 
-  // Use free MapLibre styles (no token required)
-  const mapStyle =
-    theme === "dark"
-      ? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
-      : "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+  // Initialize heatmap and particle systems when wind data loads
+  useEffect(() => {
+    if (
+      !windData ||
+      !heatmapCanvasRef.current ||
+      !particlesCanvasRef.current ||
+      !mapRef.current
+    )
+      return;
+
+    const map = mapRef.current.getMap();
+    const heatmapCanvas = heatmapCanvasRef.current;
+    const particlesCanvas = particlesCanvasRef.current;
+
+    // Set canvas sizes to match map
+    const updateCanvasSize = () => {
+      const container = map.getContainer();
+      const { width, height } = container.getBoundingClientRect();
+
+      heatmapCanvas.width = width;
+      heatmapCanvas.height = height;
+      heatmapCanvas.style.width = `${width}px`;
+      heatmapCanvas.style.height = `${height}px`;
+
+      particlesCanvas.width = width;
+      particlesCanvas.height = height;
+      particlesCanvas.style.width = `${width}px`;
+      particlesCanvas.style.height = `${height}px`;
+    };
+
+    updateCanvasSize();
+
+    // Helper to get current visible bounds
+    const getVisibleBounds = () => {
+      const mapBounds = map.getBounds();
+      return {
+        minLat: mapBounds.getSouth(),
+        maxLat: mapBounds.getNorth(),
+        minLon: mapBounds.getWest(),
+        maxLon: mapBounds.getEast(),
+      };
+    };
+
+    // Get initial visible bounds
+    const initialBounds = getVisibleBounds();
+
+    // Create heatmap system
+    heatmapSystemRef.current = new WindHeatmapRenderer(
+      heatmapCanvas,
+      windData.points,
+      initialBounds,
+      0.5, // opacity
+    );
+
+    // Create particle system with global bounds
+    const globalBounds = {
+      minLat: -90,
+      maxLat: 90,
+      minLon: -180,
+      maxLon: 180,
+    };
+    particleSystemRef.current = new WindParticlesCanvas(
+      particlesCanvas,
+      windData.points,
+      globalBounds,
+    );
+
+    // Create projection helper
+    const getProjection = () => ({
+      project: (lngLat: [number, number]) => {
+        const point = map.project(lngLat);
+        return [point.x, point.y];
+      },
+      unproject: (xy: [number, number]) => {
+        const lngLat = map.unproject(xy);
+        return [lngLat.lng, lngLat.lat];
+      },
+    });
+
+    // Set initial projection
+    const projection = getProjection();
+    heatmapSystemRef.current.setProjection(projection);
+    particleSystemRef.current.setProjection(projection);
+
+    // Draw heatmap if enabled
+    if (showHeatmap) {
+      heatmapSystemRef.current.draw();
+    }
+
+    // Start particles if enabled
+    if (showParticles) {
+      particleSystemRef.current.start();
+    }
+
+    // Throttle and debounce for performance
+    let moveTimeout: NodeJS.Timeout | null = null;
+
+    // Update on map move/zoom
+    const handleMoveStart = () => {
+      if (heatmapSystemRef.current) {
+        heatmapSystemRef.current.setMoving(true);
+      }
+    };
+
+    const handleMove = () => {
+      const proj = getProjection();
+      const visibleBounds = getVisibleBounds();
+
+      if (heatmapSystemRef.current) {
+        heatmapSystemRef.current.setProjection(proj);
+        heatmapSystemRef.current.updateBounds(visibleBounds);
+        if (showHeatmap) {
+          heatmapSystemRef.current.redraw();
+        }
+      }
+
+      if (particleSystemRef.current) {
+        particleSystemRef.current.updateProjection(proj);
+      }
+
+      // Clear existing timeout
+      if (moveTimeout) clearTimeout(moveTimeout);
+
+      // Set moving to false after movement stops
+      moveTimeout = setTimeout(() => {
+        if (heatmapSystemRef.current) {
+          heatmapSystemRef.current.setMoving(false);
+          if (showHeatmap) {
+            heatmapSystemRef.current.redraw(); // Final high-quality redraw
+          }
+        }
+      }, 150);
+    };
+
+    const handleResize = () => {
+      updateCanvasSize();
+
+      if (heatmapSystemRef.current) {
+        heatmapSystemRef.current.resize(
+          heatmapCanvas.width,
+          heatmapCanvas.height,
+        );
+        if (showHeatmap) {
+          heatmapSystemRef.current.redraw();
+        }
+      }
+
+      if (particleSystemRef.current) {
+        particleSystemRef.current.resize(
+          particlesCanvas.width,
+          particlesCanvas.height,
+        );
+      }
+    };
+
+    map.on("movestart", handleMoveStart);
+    map.on("move", handleMove);
+    map.on("zoom", handleMove);
+    map.on("resize", handleResize);
+
+    return () => {
+      if (moveTimeout) clearTimeout(moveTimeout);
+
+      map.off("movestart", handleMoveStart);
+      map.off("move", handleMove);
+      map.off("zoom", handleMove);
+      map.off("resize", handleResize);
+
+      if (particleSystemRef.current) {
+        particleSystemRef.current.stop();
+      }
+    };
+  }, [windData, showParticles, showHeatmap]);
+
+  // Initialize precipitation system when precipitation data loads
+  useEffect(() => {
+    if (
+      !precipData ||
+      !precipitationCanvasRef.current ||
+      !mapRef.current
+    )
+      return;
+
+    const map = mapRef.current.getMap();
+    const precipCanvas = precipitationCanvasRef.current;
+
+    // Set canvas size to match map
+    const updateCanvasSize = () => {
+      const container = map.getContainer();
+      const { width, height } = container.getBoundingClientRect();
+
+      precipCanvas.width = width;
+      precipCanvas.height = height;
+      precipCanvas.style.width = `${width}px`;
+      precipCanvas.style.height = `${height}px`;
+    };
+
+    updateCanvasSize();
+
+    // Helper to get current visible bounds
+    const getVisibleBounds = () => {
+      const mapBounds = map.getBounds();
+      return {
+        minLat: mapBounds.getSouth(),
+        maxLat: mapBounds.getNorth(),
+        minLon: mapBounds.getWest(),
+        maxLon: mapBounds.getEast(),
+      };
+    };
+
+    // Get initial visible bounds
+    const initialBounds = getVisibleBounds();
+
+    // Create precipitation system
+    precipitationSystemRef.current = new PrecipitationHeatmapCanvas(
+      precipCanvas,
+      precipData.points,
+      initialBounds,
+      0.7, // opacity
+    );
+
+    // Create projection helper
+    const getProjection = () => ({
+      project: (lngLat: [number, number]) => {
+        const point = map.project(lngLat);
+        return [point.x, point.y];
+      },
+      unproject: (xy: [number, number]) => {
+        const lngLat = map.unproject(xy);
+        return [lngLat.lng, lngLat.lat];
+      },
+    });
+
+    // Set initial projection
+    const projection = getProjection();
+    precipitationSystemRef.current.setProjection(projection);
+
+    // Draw precipitation
+    if (showPrecipitation) {
+      precipitationSystemRef.current.draw();
+    }
+
+    // Throttle and debounce for performance
+    let moveTimeout: NodeJS.Timeout | null = null;
+
+    // Update on map move/zoom
+    const handleMoveStart = () => {
+      if (precipitationSystemRef.current) {
+        precipitationSystemRef.current.setMoving(true);
+      }
+    };
+
+    const handleMove = () => {
+      const proj = getProjection();
+      const visibleBounds = getVisibleBounds();
+
+      if (precipitationSystemRef.current) {
+        precipitationSystemRef.current.setProjection(proj);
+        precipitationSystemRef.current.updateBounds(visibleBounds);
+        if (showPrecipitation) {
+          precipitationSystemRef.current.redraw();
+        }
+      }
+
+      // Clear existing timeout
+      if (moveTimeout) clearTimeout(moveTimeout);
+
+      // Set moving to false after movement stops
+      moveTimeout = setTimeout(() => {
+        if (precipitationSystemRef.current) {
+          precipitationSystemRef.current.setMoving(false);
+          if (showPrecipitation) {
+            precipitationSystemRef.current.redraw(); // Final high-quality redraw
+          }
+        }
+      }, 150);
+    };
+
+    const handleResize = () => {
+      updateCanvasSize();
+
+      if (precipitationSystemRef.current) {
+        precipitationSystemRef.current.resize(
+          precipCanvas.width,
+          precipCanvas.height,
+        );
+        if (showPrecipitation) {
+          precipitationSystemRef.current.redraw();
+        }
+      }
+    };
+
+    map.on("movestart", handleMoveStart);
+    map.on("move", handleMove);
+    map.on("zoom", handleMove);
+    map.on("resize", handleResize);
+
+    return () => {
+      if (moveTimeout) clearTimeout(moveTimeout);
+
+      map.off("movestart", handleMoveStart);
+      map.off("move", handleMove);
+      map.off("zoom", handleMove);
+      map.off("resize", handleResize);
+    };
+  }, [precipData, showPrecipitation]);
+
+  // Toggle heatmap visibility
+  useEffect(() => {
+    if (!heatmapSystemRef.current) return;
+
+    if (showHeatmap) {
+      heatmapSystemRef.current.draw();
+    } else {
+      heatmapSystemRef.current.clear();
+    }
+  }, [showHeatmap]);
+  // Get current index info for display (memoized)
+  const currentIndexInfo = useMemo(
+    () => availableIndices.find((item) => item.index === selectedIndex),
+    [availableIndices, selectedIndex]
+  );
+
+  // Memoize map style to avoid unnecessary re-renders
+  const mapStyle = useMemo(
+    () =>
+      theme === "dark"
+        ? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+        : "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+    [theme]
+  );
+
+  // Memoize slider value calculation
+  const sliderValue = useMemo(
+    () => availableIndices.findIndex((item) => item.index === selectedIndex),
+    [availableIndices, selectedIndex]
+  );
 
   return (
     <div className="wind-heatmap-container">
       <div className="wind-heatmap-header">
-        <h2>France Wind Heatmap</h2>
+        <h2>
+          {displayMode === "wind" ? t.globalWindMap : t.globalPrecipitationMap}
+        </h2>
         <div className="wind-heatmap-controls">
-          <button onClick={loadWindData} disabled={loading}>
-            {loading ? "Loading..." : "Refresh Data"}
+          <button onClick={loadAvailableIndices} disabled={loading}>
+            {loading ? t.loading : t.refreshData}
           </button>
-          <button onClick={() => setShowParticles(!showParticles)}>
-            {showParticles ? "Hide Particles" : "Show Particles"}
-          </button>
+
+          <div className="button-group">
+            <button
+              className={displayMode === "wind" ? "active" : ""}
+              onClick={() => setDisplayMode("wind")}
+            >
+              {t.winds}
+            </button>
+            <button
+              className={displayMode === "precipitation" ? "active" : ""}
+              onClick={() => setDisplayMode("precipitation")}
+              disabled={!precipData}
+              title={!precipData ? t.precipitationDataNotAvailable : ""}
+            >
+              {t.precipitation}
+            </button>
+          </div>
+
+          {displayMode === "wind" && (
+            <>
+              <button onClick={() => setShowParticles(!showParticles)}>
+                {showParticles ? "Hide Particles" : "Show Particles"}
+              </button>
+              <button onClick={() => setShowHeatmap(!showHeatmap)}>
+                {showHeatmap ? "Hide Heatmap" : "Show Heatmap"}
+              </button>
+            </>
+          )}
+
+          <span style={{ fontSize: "0.85em", opacity: 0.6, marginLeft: "auto" }}>
+            📦 Cache: {displayMode === "wind" ? `Vent ${dataCache.current.size}` : `Précip ${precipCache.current.size}`}/15
+          </span>
         </div>
       </div>
 
@@ -493,34 +706,63 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         </div>
       )}
 
-      {windData && (
+      {(windData || precipData) && (
         <div className="wind-heatmap-info">
-          <p>
-            Source: {windData.source} | Updated:{" "}
-            {new Date(windData.timestamp).toLocaleString()} | Resolution:{" "}
-            {windData.resolution}° | Points: {windData.points.length}
-          </p>
-          {windData.note && (
-            <p style={{ fontSize: "0.9em", opacity: 0.8 }}>{windData.note}</p>
+          {displayMode === "wind" && windData && (
+            <>
+              <p>
+                Source: {windData.source} | Updated:{" "}
+                {new Date(windData.timestamp).toLocaleString()} | Resolution:{" "}
+                {windData.resolution}° | Points: {windData.points.length}
+              </p>
+              {windData.note && (
+                <p style={{ fontSize: "0.9em", opacity: 0.8 }}>{windData.note}</p>
+              )}
+            </>
+          )}
+          {displayMode === "precipitation" && precipData && (
+            <p>
+              Source: {precipData.source} | Updated:{" "}
+              {new Date(precipData.timestamp).toLocaleString()} | Resolution:{" "}
+              {precipData.resolution}° | Points: {precipData.points.length} | Unit: {precipData.unit}
+            </p>
           )}
         </div>
       )}
 
       <div className="wind-heatmap-legend">
-        <div className="legend-title">Wind Speed (m/s)</div>
-        <div className="legend-gradient">
+        <div className="legend-title">
+          {displayMode === "wind" ? "Wind Speed (m/s)" : "Precipitation (mm/h)"}
+        </div>
+        <div className="legend-gradient" style={{
+          background: displayMode === "wind"
+            ? "linear-gradient(to right, rgb(50, 136, 189), rgb(102, 194, 165), rgb(254, 224, 139), rgb(244, 109, 67), rgb(213, 62, 79))"
+            : "linear-gradient(to right, rgb(240, 249, 255), rgb(186, 225, 255), rgb(97, 174, 238), rgb(33, 102, 172), rgb(0, 60, 130))"
+        }}>
           <div className="legend-labels">
-            <span>0</span>
-            <span>5</span>
-            <span>10</span>
-            <span>15</span>
-            <span>20+</span>
+            {displayMode === "wind" ? (
+              <>
+                <span>0</span>
+                <span>5</span>
+                <span>10</span>
+                <span>15</span>
+                <span>20+</span>
+              </>
+            ) : (
+              <>
+                <span>0</span>
+                <span>2.5</span>
+                <span>5</span>
+                <span>10</span>
+                <span>20+</span>
+              </>
+            )}
           </div>
         </div>
       </div>
 
       <div className="wind-map-wrapper">
-        <Map
+        <MapGL
           ref={mapRef}
           initialViewState={{
             longitude: location?.lon ?? 15, // Centre de l'Europe
@@ -530,10 +772,113 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
           style={{ width: "100%", height: "600px" }}
           mapStyle={mapStyle}
         >
-          <DeckGLOverlay layers={layers} />
           <NavigationControl position="top-right" />
-        </Map>
+        </MapGL>
+
+        {/* Canvas overlay for wind heatmap (bottom layer) */}
+        <canvas
+          ref={heatmapCanvasRef}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        />
+
+        {/* Canvas overlay for wind particles (top layer) */}
+        <canvas
+          ref={particlesCanvasRef}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            pointerEvents: "none",
+            zIndex: 2,
+          }}
+        />
+
+        {/* Canvas overlay for precipitation */}
+        <canvas
+          ref={precipitationCanvasRef}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            pointerEvents: "none",
+            zIndex: 3,
+            display: showPrecipitation ? "block" : "none",
+          }}
+        />
       </div>
+
+      {/* Timeline slider - Below the map */}
+      {availableIndices.length > 0 && (
+        <div className="wind-timeline-container">
+          <div className="timeline-main-row">
+            <button
+              className="timeline-button"
+              onClick={togglePlayPause}
+              title={isPlaying ? "Pause" : "Play"}
+            >
+              {isPlaying ? "⏸" : "▶"}
+            </button>
+
+            <div className="timeline-slider-wrapper">
+              <div className="timeline-info">
+                {currentIndexInfo && (
+                  <>
+                    <span className="timeline-timestamp">
+                      {new Date(currentIndexInfo.timestamp).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span className="timeline-date">
+                      {new Date(currentIndexInfo.timestamp).toLocaleDateString()}
+                    </span>
+                  </>
+                )}
+              </div>
+
+              <div className="timeline-slider-container">
+                <input
+                  type="range"
+                  min="0"
+                  max={availableIndices.length - 1}
+                  value={sliderValue}
+                  onChange={handleSliderChange}
+                  className="timeline-slider"
+                />
+                <div className="timeline-ticks">
+                  {availableIndices.map((item) => (
+                    <div key={item.index} className="timeline-tick" />
+                  ))}
+                </div>
+              </div>
+
+              <div className="timeline-labels">
+                <span>
+                  {new Date(availableIndices[0].timestamp).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+                <span>
+                  {availableIndices.length > 1 &&
+                    new Date(
+                      availableIndices[availableIndices.length - 1].timestamp
+                    ).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .wind-heatmap-container {
@@ -554,6 +899,58 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         .wind-heatmap-controls {
           display: flex;
           gap: 0.5rem;
+          align-items: center;
+        }
+
+        .button-group {
+          display: inline-flex;
+          border-radius: 10px;
+          overflow: hidden;
+          box-shadow: 0 2px 6px var(--card-shadow);
+        }
+
+        .button-group button {
+          border-radius: 0;
+          border-right: none;
+          box-shadow: none;
+          margin: 0;
+          min-width: 120px;
+          padding: 8px 12px;
+          border: 1px solid rgba(0, 0, 0, 0.06);
+          background: var(--card);
+          color: var(--text);
+          cursor: pointer;
+          transition: background 160ms ease;
+        }
+
+        .button-group button:first-child {
+          border-top-left-radius: 10px;
+          border-bottom-left-radius: 10px;
+        }
+
+        .button-group button:last-child {
+          border-top-right-radius: 10px;
+          border-bottom-right-radius: 10px;
+          border-right: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .button-group button.active {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .button-group button.active:hover:not(:disabled) {
+          background: linear-gradient(135deg, #5568d3 0%, #653a8e 100%);
+        }
+
+        .button-group button:not(.active):hover:not(:disabled) {
+          background: var(--card-hover);
+        }
+
+        .button-group button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
 
         .wind-heatmap-info {
@@ -566,6 +963,150 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
 
         .wind-heatmap-info p {
           margin: 0.25rem 0;
+        }
+
+        /* Timeline controls */
+        .wind-timeline-container {
+          background: var(--card-bg);
+          padding: 1rem;
+          border-radius: 8px;
+          margin-top: 1rem;
+        }
+
+        .timeline-main-row {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .timeline-button {
+          flex-shrink: 0;
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          border: 2px solid var(--primary-color);
+          background: var(--primary-color);
+          color: white;
+          font-size: 1.3rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+          padding: 0;
+        }
+
+        .timeline-button:hover {
+          transform: scale(1.1);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .timeline-button:active {
+          transform: scale(0.95);
+        }
+
+        .timeline-slider-wrapper {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .timeline-info {
+          display: flex;
+          align-items: baseline;
+          gap: 0.75rem;
+        }
+
+        .timeline-timestamp {
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: var(--primary-color);
+        }
+
+        .timeline-date {
+          font-size: 0.85rem;
+          opacity: 0.7;
+        }
+
+        .timeline-slider-container {
+          position: relative;
+          padding: 0.5rem 0;
+        }
+
+        .timeline-slider {
+          width: 100%;
+          height: 8px;
+          border-radius: 4px;
+          outline: none;
+          -webkit-appearance: none;
+          background: linear-gradient(
+            to right,
+            var(--primary-color) 0%,
+            var(--primary-color) var(--value, 0%),
+            rgba(128, 128, 128, 0.3) var(--value, 0%),
+            rgba(128, 128, 128, 0.3) 100%
+          );
+          cursor: pointer;
+        }
+
+        .timeline-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: var(--primary-color);
+          cursor: pointer;
+          border: 3px solid white;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+          transition: transform 0.2s;
+        }
+
+        .timeline-slider::-webkit-slider-thumb:hover {
+          transform: scale(1.2);
+        }
+
+        .timeline-slider::-moz-range-thumb {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: var(--primary-color);
+          cursor: pointer;
+          border: 3px solid white;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+          transition: transform 0.2s;
+        }
+
+        .timeline-slider::-moz-range-thumb:hover {
+          transform: scale(1.2);
+        }
+
+        .timeline-ticks {
+          position: absolute;
+          top: 50%;
+          left: 0;
+          right: 0;
+          transform: translateY(-50%);
+          display: flex;
+          justify-content: space-between;
+          pointer-events: none;
+          padding: 0 10px;
+        }
+
+        .timeline-tick {
+          width: 2px;
+          height: 12px;
+          background: rgba(128, 128, 128, 0.4);
+          border-radius: 1px;
+        }
+
+        .timeline-labels {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 0.5rem;
+          font-size: 0.85rem;
+          opacity: 0.7;
         }
 
         .wind-heatmap-legend {
@@ -599,6 +1140,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         }
 
         .wind-map-wrapper {
+          position: relative;
           border-radius: 12px;
           overflow: hidden;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);

@@ -1,6 +1,6 @@
 const cron = require('node-cron');
 const { getWindData, getPrecipitationData } = require('./opendap-downloader');
-const { setWindData, setBinaryData, isRedisConnected } = require('./redis-client');
+const { setWindData, setBinaryData, setWindDataWithIndex, setBinaryDataWithIndex, isRedisConnected } = require('./redis-client');
 
 // Keys for different data types in Redis
 const REDIS_KEYS = {
@@ -48,13 +48,20 @@ async function fetchAndStoreGribData() {
       }
     };
 
-    await setWindData(windData, REDIS_KEYS.WIND_POINTS);
+    // Store data with index (keeps last 10 versions)
+    const currentIndex = await setWindDataWithIndex(windData, REDIS_KEYS.WIND_POINTS, 10);
+    console.log(`Stored wind points at index ${currentIndex}`);
 
-    // Store PNG image for windgl
-    await setBinaryData(pngBuffer, REDIS_KEYS.WIND_PNG);
+    // Store PNG image for windgl with index
+    await setBinaryDataWithIndex(pngBuffer, REDIS_KEYS.WIND_PNG, currentIndex);
+    console.log(`Stored wind PNG at index ${currentIndex}`);
 
-    // Store metadata
+    // Store metadata with same index
+    const metadataIndexedKey = `${REDIS_KEYS.WIND_METADATA}:${currentIndex}`;
+    await setWindData(metadata, metadataIndexedKey);
+    // Also store as latest for backward compatibility
     await setWindData(metadata, REDIS_KEYS.WIND_METADATA);
+    console.log(`Stored wind metadata at index ${currentIndex}`);
 
     // Download and store precipitation data
     console.log('Downloading precipitation data from NOAA GFS via OpenDAP...');
@@ -74,6 +81,11 @@ async function fetchAndStoreGribData() {
         }
       };
 
+      // Store precipitation data with index (same as wind, keeps last 10 versions)
+      const precipIndex = await setWindDataWithIndex(precipData, REDIS_KEYS.PRECIPITATION_POINTS, 10);
+      console.log(`Stored precipitation data at index ${precipIndex}`);
+
+      // Also store as latest for backward compatibility
       await setWindData(precipData, REDIS_KEYS.PRECIPITATION_POINTS);
       console.log('Precipitation data successfully stored in Redis');
     } catch (precipError) {
