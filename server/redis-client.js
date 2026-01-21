@@ -20,7 +20,6 @@ async function initRedis() {
     client = createClient({
       url: REDIS_URL,
       socket: {
-        tls: true,
         rejectUnauthorized: false, // Add this line
         reconnectStrategy: (retries) => {
           if (retries > 10) {
