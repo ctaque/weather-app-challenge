@@ -1170,11 +1170,13 @@ const CityCard = React.forwardRef<
           </div>
         </div>
       </header>
-
-      <div className="forecast" style={{ marginTop: "0.75rem" }}>
-        <h4 style={{ marginTop: "0.75rem", marginBottom: "0.5rem" }}>
-          {t.tenDays}
-        </h4>
+      <h4 style={{ marginTop: "0.75rem", marginBottom: "0.5rem" }}>
+        {t.tenDays}
+      </h4>
+      <div
+        className="forecast"
+        style={{ marginTop: "0.75rem", position: "sticky", top: 0 }}
+      >
         <div
           className="forecast-list-horizontal"
           role="list"

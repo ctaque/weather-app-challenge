@@ -481,7 +481,12 @@ textarea {
 
 /* Forecast horizontal list (mobile-first: always horizontal/scrollable) */
 /* We force horizontal scrolling, adjust item sizes and snap behavior */
+.forecast {
+  z-index: 10;
+}
 .forecast-list-horizontal {
+  position: sticky;
+  top: 0;
   display: flex;
   gap: 0.5rem;
   overflow-x: auto;
@@ -493,6 +498,7 @@ textarea {
   padding-left: 0.25rem;
   padding-right: 0.25rem;
   padding-top: 1rem;
+  z-index: 100;
 }
 
 /* Day card (default small screens) */
