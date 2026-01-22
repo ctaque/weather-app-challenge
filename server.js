@@ -459,7 +459,10 @@ app.post("/api/chart-analysis", aiSummaryLimiter, async (req, res) => {
         wind_kph: h.wind_kph,
         wind_dir: h.wind_dir,
         wind_degree: h.wind_degree,
+        uv: h.uv,
+        is_day: h.is_day,
       })),
+      astro: weatherData.astro,
     };
 
     let prompt = "";
@@ -526,6 +529,28 @@ Analyse en ${language} les conditions de vent:
 - Analyse les changements de direction du vent
 - Explique l'impact sur les activités extérieures (voile, kitesurf, randonnée, etc.)
 - Donne des recommandations de sécurité si nécessaire
+
+Sois concis (4-5 phrases max) et pratique.`;
+        break;
+
+      case "sunshine":
+        const sunriseTime = weatherInfo.astro?.sunrise || "Non disponible";
+        const sunsetTime = weatherInfo.astro?.sunset || "Non disponible";
+
+        prompt = `Tu es un météorologue expert. Analyse la trajectoire du soleil et l'ensoleillement pour ${weatherInfo.location} le ${weatherInfo.date}.
+
+Données astronomiques:
+- Lever du soleil: ${sunriseTime}
+- Coucher du soleil: ${sunsetTime}
+
+Données horaires (indice UV et jour/nuit):
+${weatherInfo.hourly.map((h) => `${h.time}: UV ${h.uv || 0}, ${h.is_day === 1 ? 'jour' : 'nuit'}`).join("\n")}
+
+Analyse en ${language} l'ensoleillement de la journée:
+- Identifie la durée du jour et les heures d'ensoleillement maximal
+- Analyse l'évolution de l'indice UV au cours de la journée
+- Recommande les périodes optimales pour les activités extérieures (en fonction de l'ensoleillement)
+- Donne des conseils de protection solaire pour les heures d'UV élevé
 
 Sois concis (4-5 phrases max) et pratique.`;
         break;

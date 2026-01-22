@@ -4,6 +4,7 @@ import { fr as frLocale, enUS as enLocale } from "date-fns/locale";
 import TemperatureChart from "./TemperatureChart";
 import PressureChart from "./PressureChart";
 import RainChanceChart from "./RainChanceChart";
+import SunshineChart from "./SunshineChart";
 import WindSpeedChart from "./WindSpeedChart";
 import WindDirectionChart from "./WindDirectionChart";
 import WeatherSummary from "./WeatherSummary";
@@ -21,6 +22,8 @@ type HourEntry = {
   wind_mph?: number;
   wind_degree?: number;
   wind_dir?: string;
+  uv?: number;
+  is_day?: number;
 };
 
 type ForecastDay = {
@@ -31,9 +34,16 @@ type ForecastDay = {
     condition: Condition;
     daily_chance_of_rain: number;
     pressure_mb: number;
+    uv?: number;
     // keep raw api values if provided (optional)
     api_maxtemp_c?: number;
     api_mintemp_c?: number;
+  };
+  astro?: {
+    sunrise?: string;
+    sunset?: string;
+    moonrise?: string;
+    moonset?: string;
   };
   hour: HourEntry[];
 };
@@ -1015,6 +1025,15 @@ const CityCard = React.forwardRef<
               hoveredHourData={hoveredHourData}
             />
           </div>
+
+          <SunshineChart
+            hourlyData={selectedDay.hour}
+            date={selectedDay.date}
+            location={data.location.name}
+            day={selectedDay.day}
+            astro={selectedDay.astro}
+            latitude={data.location.lat}
+          />
 
           <WeatherSummary
             location={data.location.name}

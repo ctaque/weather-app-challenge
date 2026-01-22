@@ -21,6 +21,8 @@ type HourEntry = {
   wind_kph?: number;
   wind_dir?: string;
   wind_degree?: number;
+  uv?: number;
+  is_day?: number;
 };
 
 type DayData = {
@@ -33,7 +35,14 @@ type DayData = {
   pressure_mb: number;
 };
 
-type ChartType = "temperature" | "rain" | "pressure" | "wind";
+type ChartType = "temperature" | "rain" | "pressure" | "wind" | "sunshine";
+
+type Astro = {
+  sunrise?: string;
+  sunset?: string;
+  moonrise?: string;
+  moonset?: string;
+};
 
 type ChartAnalysisProps = {
   location: string;
@@ -42,6 +51,7 @@ type ChartAnalysisProps = {
   hour: HourEntry[];
   chartType: ChartType;
   chartTitle?: string;
+  astro?: Astro;
 };
 
 export default function ChartAnalysis({
@@ -51,6 +61,7 @@ export default function ChartAnalysis({
   hour,
   chartType,
   chartTitle,
+  astro,
 }: ChartAnalysisProps) {
   const { lang, t } = useContext(LanguageContext);
   const [analysis, setAnalysis] = useState<string>("");
@@ -74,6 +85,7 @@ export default function ChartAnalysis({
             date,
             day,
             hour,
+            astro,
           },
           lang,
           chartType,
@@ -116,6 +128,8 @@ export default function ChartAnalysis({
         return "📊";
       case "wind":
         return "💨";
+      case "sunshine":
+        return "☀️";
       default:
         return "📊";
     }
