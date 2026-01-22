@@ -1060,9 +1060,34 @@ const CityCard = React.forwardRef<
   const [hoveredHourData, setHoveredHourData] = useState<HourEntry | null>(
     null,
   );
+  const [isSticky, setIsSticky] = useState<boolean>(false);
   const forecastDays = data.forecast.forecastday;
   const selectedDay = forecastDays[selectedDayIndex];
   const hourListRef = useRef<HTMLDivElement>(null);
+  const stickyObserverRef = useRef<HTMLDivElement>(null);
+  const forecastRef = useRef<HTMLDivElement>(null);
+
+  // Detect sticky state using IntersectionObserver
+  useEffect(() => {
+    if (!stickyObserverRef.current) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // When the observer element is not intersecting (out of view), the forecast is sticky
+        setIsSticky(!entry.isIntersecting);
+      },
+      {
+        threshold: [0, 1],
+        rootMargin: "0px",
+      }
+    );
+
+    observer.observe(stickyObserverRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   React.useImperativeHandle(ref, () => ({
     goToNow: () => {
@@ -1173,8 +1198,11 @@ const CityCard = React.forwardRef<
       <h4 style={{ marginTop: "0.75rem", marginBottom: "0.5rem" }}>
         {t.tenDays}
       </h4>
+      {/* Observer element for sticky detection */}
+      <div ref={stickyObserverRef} style={{ height: "1px", marginTop: "-1px" }} />
       <div
-        className="forecast"
+        ref={forecastRef}
+        className={`forecast ${isSticky ? "is-sticky" : ""}`}
         style={{ marginTop: "0.75rem", position: "sticky", top: 0 }}
       >
         <div

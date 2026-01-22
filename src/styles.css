@@ -483,7 +483,18 @@ textarea {
 /* We force horizontal scrolling, adjust item sizes and snap behavior */
 .forecast {
   z-index: 10;
+  background: transparent;
+  transition: background 0.3s ease;
 }
+
+/* When sticky, add background */
+.forecast.is-sticky {
+  background: var(--card);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 8px var(--card-shadow);
+  padding: 0.5rem 0;
+}
+
 .forecast-list-horizontal {
   position: sticky;
   top: 0;
@@ -532,7 +543,7 @@ textarea {
   background: linear-gradient(180deg, var(--accent), var(--accent-600));
   color: #ffffff;
   transform: translateY(-4px);
-  border: 2px solid var(--selection-border);
+  border: 2px solid rgb(16, 185, 129);
 }
 
 .forecast-item-horizontal.active .date,
@@ -554,6 +565,28 @@ textarea {
   font-size: 0.9rem;
   color: var(--muted);
   margin-bottom: 0.35rem;
+}
+
+/* When sticky, show only the date in forecast items */
+.forecast.is-sticky .forecast-item-horizontal {
+  min-height: auto;
+  padding: 0.4rem 0.5rem;
+  flex: 0 0 auto;
+}
+
+.forecast.is-sticky .forecast-item-horizontal > *:not(.date) {
+  display: none;
+}
+
+.forecast.is-sticky .forecast-item-horizontal .date {
+  margin-bottom: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Keep active state visible when sticky */
+.forecast.is-sticky .forecast-item-horizontal.active .date {
+  color: rgba(255, 255, 255, 0.95);
 }
 
 /* Scrollbar styling (desktop) */
