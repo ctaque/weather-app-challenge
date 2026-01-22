@@ -11,25 +11,47 @@ import {
   ReferenceLine,
 } from "recharts";
 import { LanguageContext, UnitContext } from "../App";
+import ChartAnalysis from "./ChartAnalysis";
 
 type HourEntry = {
   time: string;
+  temp_c?: number;
+  condition?: {
+    text: string;
+    icon?: string;
+  };
+  chance_of_rain?: number;
+  pressure_mb?: number;
   wind_kph?: number;
   wind_mph?: number;
   wind_degree?: number;
   wind_dir?: string;
 };
 
+type DayData = {
+  maxtemp_c: number;
+  mintemp_c: number;
+  condition: {
+    text: string;
+  };
+  daily_chance_of_rain: number;
+  pressure_mb: number;
+};
+
 type WindSpeedChartProps = {
   hourlyData: HourEntry[];
   date: string;
   onHoverHour?: (hourData: HourEntry | null) => void;
+  location: string;
+  day: DayData;
 };
 
 export default function WindSpeedChart({
   hourlyData,
   date,
   onHoverHour,
+  location,
+  day,
 }: WindSpeedChartProps) {
   const { t } = useContext(LanguageContext);
   const { units } = useContext(UnitContext);
@@ -108,7 +130,24 @@ export default function WindSpeedChart({
 
   return (
     <div style={{ marginTop: "1.5rem", flex: "66%" }}>
-      <h4 style={{ marginBottom: "1rem" }}>{t.windSpeed}</h4>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "top",
+          marginBottom: "1rem",
+        }}
+      >
+        <h4 style={{ margin: 0 }}>{t.windSpeed}</h4>
+        <ChartAnalysis
+          location={location}
+          date={date}
+          day={day}
+          hour={hourlyData}
+          chartType="wind"
+          chartTitle={t.windSpeed}
+        />
+      </div>
       <ResponsiveContainer width="100%" height={300}>
         <LineChart
           data={chartData}

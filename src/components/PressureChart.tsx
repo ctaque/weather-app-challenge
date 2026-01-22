@@ -11,6 +11,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { LanguageContext } from "../App";
+import ChartAnalysis from "./ChartAnalysis";
 
 type HourEntry = {
   time: string;
@@ -22,18 +23,35 @@ type HourEntry = {
   };
   chance_of_rain?: number;
   pressure_mb?: number;
+  wind_kph?: number;
+  wind_dir?: string;
+  wind_degree?: number;
+};
+
+type DayData = {
+  maxtemp_c: number;
+  mintemp_c: number;
+  condition: {
+    text: string;
+  };
+  daily_chance_of_rain: number;
+  pressure_mb: number;
 };
 
 type PressureChartProps = {
   hourlyData: HourEntry[];
   date: string;
   dayPressure?: number;
+  location: string;
+  day: DayData;
 };
 
 export default function PressureChart({
   hourlyData,
   date,
   dayPressure,
+  location,
+  day,
 }: PressureChartProps) {
   const { t } = useContext(LanguageContext);
 
@@ -79,9 +97,19 @@ export default function PressureChart({
 
   return (
     <div style={{ marginTop: "1.5rem" }}>
-      <h4 style={{ marginBottom: "1rem" }}>
-        {t.pressure}
-      </h4>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+        <h4 style={{ margin: 0 }}>
+          {t.pressure}
+        </h4>
+        <ChartAnalysis
+          location={location}
+          date={date}
+          day={day}
+          hour={hourlyData}
+          chartType="pressure"
+          chartTitle={t.pressure}
+        />
+      </div>
       <ResponsiveContainer width="100%" height={300}>
         <LineChart
           data={chartData}

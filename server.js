@@ -236,7 +236,9 @@ app.get("/api/windgl/wind.png", async (req, res) => {
 // Get list of available wind data indices (last 8 only for 24h coverage)
 app.get("/api/wind-indices", async (req, res) => {
   try {
+    console.log("Fetching wind indices with key:", REDIS_KEYS.WIND_POINTS);
     const allIndices = await getAvailableIndices(REDIS_KEYS.WIND_POINTS);
+    console.log("All indices found:", allIndices.length);
 
     // Return only the last 8 indices (24h of data at 3h intervals)
     const last8Indices = allIndices.slice(-8);
@@ -408,6 +410,150 @@ Génère un résumé météo concis et informatif en ${language} (2-3 phrases ma
     console.error("Error calling Claude API:", err);
     res.status(500).json({
       error: err.message || "Failed to generate weather summary",
+    });
+  }
+});
+
+// Chart analysis endpoint using Claude API
+app.post("/api/chart-analysis", aiSummaryLimiter, async (req, res) => {
+  if (!ANTHROPIC_API_KEY || !anthropic) {
+    return res.status(500).json({
+      error: "Server missing ANTHROPIC_API_KEY environment variable",
+    });
+  }
+
+  const { weatherData, lang, chartType } = req.body;
+
+  if (!weatherData) {
+    return res.status(400).json({
+      error: 'Missing required "weatherData" in request body',
+    });
+  }
+
+  if (!chartType) {
+    return res.status(400).json({
+      error: 'Missing required "chartType" in request body',
+    });
+  }
+
+  try {
+    const language = lang === "fr" ? "français" : "anglais";
+
+    // Prepare detailed weather data for chart analysis
+    const weatherInfo = {
+      location: weatherData.location,
+      date: weatherData.date,
+      day: {
+        maxtemp: weatherData.day.maxtemp_c,
+        mintemp: weatherData.day.mintemp_c,
+        condition: weatherData.day.condition.text,
+        rain_chance: weatherData.day.daily_chance_of_rain,
+        pressure: weatherData.day.pressure_mb,
+      },
+      hourly: weatherData.hour.map((h) => ({
+        time: h.time.slice(11, 16),
+        temp: h.temp_c,
+        condition: h.condition.text,
+        rain: h.chance_of_rain,
+        pressure: h.pressure_mb,
+        wind_kph: h.wind_kph,
+        wind_dir: h.wind_dir,
+        wind_degree: h.wind_degree,
+      })),
+    };
+
+    let prompt = "";
+
+    // Generate specific prompt based on chart type
+    switch (chartType) {
+      case "temperature":
+        prompt = `Tu es un météorologue expert. Analyse le graphique de température pour ${weatherInfo.location} le ${weatherInfo.date}.
+
+Données du jour: min ${weatherInfo.day.mintemp}°C, max ${weatherInfo.day.maxtemp}°C
+
+Données horaires:
+${weatherInfo.hourly.map((h) => `${h.time}: ${h.temp}°C`).join("\n")}
+
+Analyse en ${language} l'évolution de la température sur la journée:
+- Identifie les tendances (réchauffement/refroidissement)
+- Signale les pics et creux de température
+- Donne les moments optimaux pour différentes activités
+- Fournis des conseils pratiques sur l'habillement
+
+Sois concis (4-5 phrases max) et pratique.`;
+        break;
+
+      case "rain":
+        prompt = `Tu es un météorologue expert. Analyse le graphique des risques de pluie pour ${weatherInfo.location} le ${weatherInfo.date}.
+
+Données horaires:
+${weatherInfo.hourly.map((h) => `${h.time}: ${h.rain}% de pluie`).join("\n")}
+
+Analyse en ${language} les risques de précipitations:
+- Identifie les périodes à risque et les fenêtres sèches
+- Évalue l'intensité probable des précipitations
+- Recommande les meilleurs créneaux pour les activités extérieures
+- Donne des conseils sur les équipements nécessaires
+
+Sois concis (4-5 phrases max) et pratique.`;
+        break;
+
+      case "pressure":
+        prompt = `Tu es un météorologue expert. Analyse le graphique de pression atmosphérique pour ${weatherInfo.location} le ${weatherInfo.date}.
+
+Pression moyenne: ${weatherInfo.day.pressure} mb
+
+Données horaires:
+${weatherInfo.hourly.map((h) => `${h.time}: ${h.pressure} mb`).join("\n")}
+
+Analyse en ${language} les variations de pression:
+- Identifie les tendances (hausse/baisse)
+- Explique ce que ces variations signifient météorologiquement
+- Relie les variations de pression aux changements de temps attendus
+- Donne des insights sur la stabilité atmosphérique
+
+Sois concis (4-5 phrases max) et pratique.`;
+        break;
+
+      case "wind":
+        prompt = `Tu es un météorologue expert. Analyse le graphique de vent pour ${weatherInfo.location} le ${weatherInfo.date}.
+
+Données horaires (vitesse et direction):
+${weatherInfo.hourly.map((h) => `${h.time}: ${h.wind_kph} km/h ${h.wind_dir} (${h.wind_degree}°)`).join("\n")}
+
+Analyse en ${language} les conditions de vent:
+- Identifie les périodes de vent fort et les accalmies
+- Analyse les changements de direction du vent
+- Explique l'impact sur les activités extérieures (voile, kitesurf, randonnée, etc.)
+- Donne des recommandations de sécurité si nécessaire
+
+Sois concis (4-5 phrases max) et pratique.`;
+        break;
+
+      default:
+        return res.status(400).json({
+          error: `Unknown chart type: ${chartType}`,
+        });
+    }
+
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 500,
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    });
+
+    const analysis = message.content[0].text;
+
+    res.json({ analysis });
+  } catch (err) {
+    console.error("Error calling Claude API:", err);
+    res.status(500).json({
+      error: err.message || "Failed to generate chart analysis",
     });
   }
 });

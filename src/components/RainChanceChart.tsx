@@ -11,6 +11,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { LanguageContext } from "../App";
+import ChartAnalysis from "./ChartAnalysis";
 
 type HourEntry = {
   time: string;
@@ -21,16 +22,34 @@ type HourEntry = {
     icon?: string;
   };
   chance_of_rain?: number;
+  pressure_mb?: number;
+  wind_kph?: number;
+  wind_dir?: string;
+  wind_degree?: number;
+};
+
+type DayData = {
+  maxtemp_c: number;
+  mintemp_c: number;
+  condition: {
+    text: string;
+  };
+  daily_chance_of_rain: number;
+  pressure_mb: number;
 };
 
 type RainChanceChartProps = {
   hourlyData: HourEntry[];
   date: string;
+  location: string;
+  day: DayData;
 };
 
 export default function RainChanceChart({
   hourlyData,
   date,
+  location,
+  day,
 }: RainChanceChartProps) {
   const { t } = useContext(LanguageContext);
 
@@ -76,9 +95,19 @@ export default function RainChanceChart({
 
   return (
     <div style={{ marginTop: "1.5rem" }}>
-      <h4 style={{ marginBottom: "1rem" }}>
-        {t.rainChance}
-      </h4>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+        <h4 style={{ margin: 0 }}>
+          {t.rainChance}
+        </h4>
+        <ChartAnalysis
+          location={location}
+          date={date}
+          day={day}
+          hour={hourlyData}
+          chartType="rain"
+          chartTitle={t.rainChance}
+        />
+      </div>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart
           data={chartData}

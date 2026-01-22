@@ -1263,7 +1263,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
 
         .preload-progress-fill {
           height: 100%;
-          background: linear-gradient(90deg, var(--accent), var(--accent-600));
+          background: linear-gradient(90deg, var(--accent), var(--muted));
           border-radius: 4px;
           transition: width 0.3s ease;
         }
@@ -1518,8 +1518,13 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         .timeline-tick {
           width: 2px;
           height: 12px;
-          background: rgba(128, 128, 128, 0.4);
           border-radius: 1px;
+          background: rgba(75, 75, 75, 0.3);
+        }
+        html.dark{
+          .timeline-tick {
+              background: rgba(128, 128, 128, 0.4);
+          }
         }
 
         .timeline-cursor-value {
@@ -1571,16 +1576,17 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         }
 
         .wind-heatmap-legend {
+          margin-top: 1rem;
           margin-bottom: 1rem;
         }
 
         .legend-title {
           font-weight: 600;
-          margin-bottom: 0.5rem;
+          margin-bottom: 1.6rem;
         }
 
         .legend-gradient {
-          height: 30px;
+          height: 15px;
           background: linear-gradient(
             to right,
             rgb(50, 136, 189),
@@ -1598,6 +1604,9 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
           justify-content: space-between;
           margin-top: 0.25rem;
           font-size: 0.85em;
+          margin-top: -1.5rem;
+          position: absolute;
+          width: 100%;
         }
 
         .wind-map-wrapper {

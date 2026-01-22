@@ -985,21 +985,29 @@ const CityCard = React.forwardRef<
           <TemperatureChart
             hourlyData={selectedDay.hour}
             date={selectedDay.date}
+            location={data.location.name}
+            day={selectedDay.day}
           />
           <RainChanceChart
             hourlyData={selectedDay.hour}
             date={selectedDay.date}
+            location={data.location.name}
+            day={selectedDay.day}
           />
           <PressureChart
             hourlyData={selectedDay.hour}
             date={selectedDay.date}
             dayPressure={selectedDay.day.pressure_mb}
+            location={data.location.name}
+            day={selectedDay.day}
           />
           <div style={{ display: "flex" }}>
             <WindSpeedChart
               hourlyData={selectedDay.hour}
               date={selectedDay.date}
               onHoverHour={setHoveredHourData}
+              location={data.location.name}
+              day={selectedDay.day}
             />
             <WindDirectionChart
               hourlyData={selectedDay.hour}

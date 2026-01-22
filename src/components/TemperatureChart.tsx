@@ -11,6 +11,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { LanguageContext, UnitContext } from "../App";
+import ChartAnalysis from "./ChartAnalysis";
 
 type HourEntry = {
   time: string; // "YYYY-MM-DD HH:MM"
@@ -21,16 +22,34 @@ type HourEntry = {
     icon?: string;
   };
   chance_of_rain?: number;
+  pressure_mb?: number;
+  wind_kph?: number;
+  wind_dir?: string;
+  wind_degree?: number;
+};
+
+type DayData = {
+  maxtemp_c: number;
+  mintemp_c: number;
+  condition: {
+    text: string;
+  };
+  daily_chance_of_rain: number;
+  pressure_mb: number;
 };
 
 type TemperatureChartProps = {
   hourlyData: HourEntry[];
   date: string;
+  location: string;
+  day: DayData;
 };
 
 export default function TemperatureChart({
   hourlyData,
   date,
+  location,
+  day,
 }: TemperatureChartProps) {
   const { t } = useContext(LanguageContext);
   const { units } = useContext(UnitContext);
@@ -95,9 +114,19 @@ export default function TemperatureChart({
 
   return (
     <div style={{ marginTop: "1.5rem" }}>
-      <h4 style={{ marginBottom: "1rem" }}>
-        {t.temperature}
-      </h4>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+        <h4 style={{ margin: 0 }}>
+          {t.temperature}
+        </h4>
+        <ChartAnalysis
+          location={location}
+          date={date}
+          day={day}
+          hour={hourlyData}
+          chartType="temperature"
+          chartTitle={t.temperature}
+        />
+      </div>
       <ResponsiveContainer width="100%" height={300}>
         <LineChart
           data={chartData}
