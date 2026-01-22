@@ -43,7 +43,7 @@ export default function Loader() {
         className="icon"
         draggable="false"
         aria-hidden="true"
-        width="3rem"
+        width="1.5rem"
       >
         <defs>
           <linearGradient

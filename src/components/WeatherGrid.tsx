@@ -10,6 +10,7 @@ import WindDirectionChart from "./WindDirectionChart";
 import WeatherSummary from "./WeatherSummary";
 import WindHeatmap from "./WindHeatmap";
 import { ThemeContext, LanguageContext, UnitContext } from "../App";
+import Loader from "./Loader";
 
 type Condition = { text: string; emoji?: string; icon?: string };
 
@@ -911,7 +912,7 @@ export default function WeatherGrid() {
                 aria-live="polite"
                 aria-label={t.loadingInProgress}
               >
-                <LoaderIcon />
+                <Loader />
               </div>
             )}
           </div>
