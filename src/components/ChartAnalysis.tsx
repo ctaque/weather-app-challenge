@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import Modal from "react-modal";
 import { LanguageContext } from "../App";
 import claudeLogo from "../img/Claude-ai-logo.png";
+import Loader from "./Loader";
 
 // Set app element for accessibility
 if (typeof document !== "undefined") {
@@ -265,18 +266,10 @@ export default function ChartAnalysis({
                 justifyContent: "center",
                 gap: "0.75rem",
                 padding: "2rem",
+                flexDirection: "column",
               }}
             >
-              <div
-                style={{
-                  width: "24px",
-                  height: "24px",
-                  border: "3px solid var(--accent)",
-                  borderTopColor: "transparent",
-                  borderRadius: "50%",
-                  animation: "spin 1s linear infinite",
-                }}
-              />
+              <Loader spin={true} width={100} />
               <span style={{ color: "var(--text-color)", fontSize: "1rem" }}>
                 {lang === "fr" ? "Analyse en cours..." : "Analyzing..."}
               </span>

@@ -1355,55 +1355,61 @@ const CityCard = React.forwardRef<
             </div>
           ) : null}
 
-          <TemperatureChart
-            hourlyData={selectedDay.hour}
-            date={selectedDay.date}
-            location={data.location.name}
-            day={selectedDay.day}
-          />
-          <RainChanceChart
-            hourlyData={selectedDay.hour}
-            date={selectedDay.date}
-            location={data.location.name}
-            day={selectedDay.day}
-          />
-          <PressureChart
-            hourlyData={selectedDay.hour}
-            date={selectedDay.date}
-            dayPressure={selectedDay.day.pressure_mb}
-            location={data.location.name}
-            day={selectedDay.day}
-          />
           <div style={{ display: "flex", flexWrap: "wrap" }}>
-            <WindSpeedChart
+            <TemperatureChart
               hourlyData={selectedDay.hour}
               date={selectedDay.date}
-              onHoverHour={setHoveredHourData}
               location={data.location.name}
               day={selectedDay.day}
             />
-            <WindDirectionChart
+            <RainChanceChart
               hourlyData={selectedDay.hour}
               date={selectedDay.date}
-              hoveredHourData={hoveredHourData}
+              location={data.location.name}
+              day={selectedDay.day}
             />
           </div>
+          <div style={{ display: "flex", flexWrap: "wrap" }}>
+            <PressureChart
+              hourlyData={selectedDay.hour}
+              date={selectedDay.date}
+              dayPressure={selectedDay.day.pressure_mb}
+              location={data.location.name}
+              day={selectedDay.day}
+            />
+            <div style={{ display: "flex", flexWrap: "wrap" }}>
+              <WindSpeedChart
+                hourlyData={selectedDay.hour}
+                date={selectedDay.date}
+                onHoverHour={setHoveredHourData}
+                location={data.location.name}
+                day={selectedDay.day}
+              />
+              <WindDirectionChart
+                hourlyData={selectedDay.hour}
+                date={selectedDay.date}
+                hoveredHourData={hoveredHourData}
+              />
+            </div>
+          </div>
 
-          <SunshineChart
-            hourlyData={selectedDay.hour}
-            date={selectedDay.date}
-            location={data.location.name}
-            day={selectedDay.day}
-            astro={selectedDay.astro}
-            latitude={data.location.lat}
-          />
+          <div style={{ display: "flex", flexWrap: "wrap" }}>
+            <SunshineChart
+              hourlyData={selectedDay.hour}
+              date={selectedDay.date}
+              location={data.location.name}
+              day={selectedDay.day}
+              astro={selectedDay.astro}
+              latitude={data.location.lat}
+            />
 
-          <WeatherSummary
-            location={data.location.name}
-            date={selectedDay.date}
-            day={selectedDay.day}
-            hour={selectedDay.hour}
-          />
+            <WeatherSummary
+              location={data.location.name}
+              date={selectedDay.date}
+              day={selectedDay.day}
+              hour={selectedDay.hour}
+            />
+          </div>
         </div>
       )}
     </article>

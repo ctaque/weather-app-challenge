@@ -63,7 +63,7 @@ function calculateSunElevation(
   hour: number,
   sunriseHour: number,
   sunsetHour: number,
-  latitude: number
+  latitude: number,
 ): number {
   // If before sunrise or after sunset, sun is below horizon
   if (hour < sunriseHour || hour > sunsetHour) {
@@ -126,7 +126,7 @@ export default function SunshineChart({
   // Get current date and time
   const now = new Date();
   const todayDateStr = now.toISOString().slice(0, 10);
-  const currentTime = `${String(now.getHours()).padStart(2, '0')}:00`;
+  const currentTime = `${String(now.getHours()).padStart(2, "0")}:00`;
 
   // Check if we're viewing today's forecast
   const isToday = date === todayDateStr;
@@ -138,19 +138,29 @@ export default function SunshineChart({
   // Transform the data for Recharts
   const chartData = hourlyData.map((entry) => {
     const hour = parseInt(entry.time.slice(11, 13));
-    const elevation = calculateSunElevation(hour, sunriseHour, sunsetHour, latitude);
+    const elevation = calculateSunElevation(
+      hour,
+      sunriseHour,
+      sunsetHour,
+      latitude,
+    );
 
     return {
       hour: entry.time.slice(11, 16),
       elevation: Math.round(elevation * 10) / 10,
-      isDay: entry.is_day ?? (hour >= sunriseHour && hour <= sunsetHour ? 1 : 0),
+      isDay:
+        entry.is_day ?? (hour >= sunriseHour && hour <= sunsetHour ? 1 : 0),
       hourDecimal: hour,
     };
   });
 
   // Find sunrise and sunset hours in the data
-  const sunriseData = chartData.find(d => d.hourDecimal === Math.floor(sunriseHour));
-  const sunsetData = chartData.find(d => d.hourDecimal === Math.floor(sunsetHour));
+  const sunriseData = chartData.find(
+    (d) => d.hourDecimal === Math.floor(sunriseHour),
+  );
+  const sunsetData = chartData.find(
+    (d) => d.hourDecimal === Math.floor(sunsetHour),
+  );
 
   // Custom tooltip
   const CustomTooltip = ({ active, payload }: any) => {
@@ -165,11 +175,10 @@ export default function SunshineChart({
             border: "1px solid #ccc",
             borderRadius: "4px",
             boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+            flex: 1,
           }}
         >
-          <p style={{ margin: "0 0 4px 0", fontWeight: 600 }}>
-            {data.hour}
-          </p>
+          <p style={{ margin: "0 0 4px 0", fontWeight: 600 }}>{data.hour}</p>
           <p style={{ margin: "2px 0", color: "#f59e0b", fontWeight: 600 }}>
             {t.sunElevation || "Élévation"}: {data.elevation}°
           </p>
@@ -190,8 +199,15 @@ export default function SunshineChart({
   };
 
   return (
-    <div style={{ marginTop: "1.5rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+    <div style={{ marginTop: "1.5rem", flex: 1 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "1rem",
+        }}
+      >
         <h4 style={{ margin: 0 }}>
           ☀️ {t.sunTrajectory || "Trajectoire du soleil"}
         </h4>
@@ -205,8 +221,15 @@ export default function SunshineChart({
           astro={astro}
         />
       </div>
-      <div style={{ marginBottom: "0.5rem", fontSize: "13px", color: "var(--muted)" }}>
-        {t.sunTrajectoryDescription || "La courbe représente l'élévation du soleil dans le ciel au cours de la journée"}
+      <div
+        style={{
+          marginBottom: "0.5rem",
+          fontSize: "13px",
+          color: "var(--muted)",
+        }}
+      >
+        {t.sunTrajectoryDescription ||
+          "La courbe représente l'élévation du soleil dans le ciel au cours de la journée"}
         {astro?.sunrise && astro?.sunset && (
           <span style={{ marginLeft: "0.5rem" }}>
             🌅 {astro.sunrise} • 🌇 {astro.sunset}
@@ -250,7 +273,12 @@ export default function SunshineChart({
               stroke="var(--accent)"
               strokeWidth={4}
               strokeDasharray="3 3"
-              label={{ value: t.now, position: "top", fill: "var(--accent)", fontSize: 12 }}
+              label={{
+                value: t.now,
+                position: "top",
+                fill: "var(--accent)",
+                fontSize: 12,
+              }}
               isFront={true}
             />
           )}
@@ -259,7 +287,12 @@ export default function SunshineChart({
             y={0}
             stroke="#94a3b8"
             strokeWidth={2}
-            label={{ value: t.horizon || "Horizon", position: "right", fill: "#94a3b8", fontSize: 11 }}
+            label={{
+              value: t.horizon || "Horizon",
+              position: "right",
+              fill: "#94a3b8",
+              fontSize: 11,
+            }}
           />
           {/* Sunrise marker */}
           {sunriseData && (
@@ -291,10 +324,29 @@ export default function SunshineChart({
           />
         </AreaChart>
       </ResponsiveContainer>
-      <div style={{ marginTop: "0.75rem", fontSize: "12px", color: "var(--muted)", display: "flex", flexWrap: "wrap", gap: "1rem", alignItems: "center" }}>
-        <span>🌅 {t.sunrise || "Lever"}: {astro?.sunrise || "—"}</span>
-        <span>🌇 {t.sunset || "Coucher"}: {astro?.sunset || "—"}</span>
-        <span>☀️ {t.dayLength || "Durée du jour"}: {astro?.sunrise && astro?.sunset ? `${Math.round((sunsetHour - sunriseHour) * 10) / 10}h` : "—"}</span>
+      <div
+        style={{
+          marginTop: "0.75rem",
+          fontSize: "12px",
+          color: "var(--muted)",
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "1rem",
+          alignItems: "center",
+        }}
+      >
+        <span>
+          🌅 {t.sunrise || "Lever"}: {astro?.sunrise || "—"}
+        </span>
+        <span>
+          🌇 {t.sunset || "Coucher"}: {astro?.sunset || "—"}
+        </span>
+        <span>
+          ☀️ {t.dayLength || "Durée du jour"}:{" "}
+          {astro?.sunrise && astro?.sunset
+            ? `${Math.round((sunsetHour - sunriseHour) * 10) / 10}h`
+            : "—"}
+        </span>
       </div>
     </div>
   );

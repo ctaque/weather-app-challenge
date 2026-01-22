@@ -140,16 +140,12 @@ textarea {
 .container {
   position: relative;
   width: 100%;
-  max-width: 1200px;
   padding-left: 1rem;
   padding-right: 1rem;
-  padding-top: 1rem;
   box-sizing: border-box;
   z-index: 1;
   background: var(--card);
   backdrop-filter: blur(5px);
-  border-radius: 0.8rem;
-  margin: 0rem auto;
 }
 
 /* Ensure vertical gap between weather components */
@@ -211,7 +207,6 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1rem;
   padding: 1rem 1.5rem;
   background: rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(20px);

@@ -67,7 +67,7 @@ export default function TemperatureChart({
   // Get current date and time
   const now = new Date();
   const todayDateStr = now.toISOString().slice(0, 10); // "YYYY-MM-DD"
-  const currentTime = `${String(now.getHours()).padStart(2, '0')}:00`;
+  const currentTime = `${String(now.getHours()).padStart(2, "0")}:00`;
 
   // Check if we're viewing today's forecast
   const isToday = date === todayDateStr;
@@ -94,11 +94,10 @@ export default function TemperatureChart({
             boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
           }}
         >
-          <p style={{ margin: "0 0 4px 0", fontWeight: 600 }}>
-            {data.hour}
-          </p>
+          <p style={{ margin: "0 0 4px 0", fontWeight: 600 }}>{data.hour}</p>
           <p style={{ margin: "2px 0", color: "#10b981" }}>
-            {t.temperature}: {data.temperature}{tempUnit}
+            {t.temperature}: {data.temperature}
+            {tempUnit}
           </p>
           <p style={{ margin: "2px 0", fontSize: "12px", color: "#666" }}>
             {data.condition}
@@ -113,11 +112,16 @@ export default function TemperatureChart({
   };
 
   return (
-    <div style={{ marginTop: "1.5rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-        <h4 style={{ margin: 0 }}>
-          {t.temperature}
-        </h4>
+    <div style={{ marginTop: "1.5rem", flex: 1 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "1rem",
+        }}
+      >
+        <h4 style={{ margin: 0 }}>{t.temperature}</h4>
         <ChartAnalysis
           location={location}
           date={date}
@@ -140,7 +144,11 @@ export default function TemperatureChart({
             stroke="#666"
           />
           <YAxis
-            label={{ value: `${t.temperature} (${tempUnit})`, angle: -90, position: "insideLeft" }}
+            label={{
+              value: `${t.temperature} (${tempUnit})`,
+              angle: -90,
+              position: "insideLeft",
+            }}
             tick={{ fontSize: 12 }}
             stroke="#666"
           />
@@ -152,7 +160,12 @@ export default function TemperatureChart({
               stroke="var(--accent)"
               strokeWidth={4}
               strokeDasharray="3 3"
-              label={{ value: t.now, position: "top", fill: "var(--accent)", fontSize: 12 }}
+              label={{
+                value: t.now,
+                position: "top",
+                fill: "var(--accent)",
+                fontSize: 12,
+              }}
               isFront={true}
             />
           )}

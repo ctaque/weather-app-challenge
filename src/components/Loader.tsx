@@ -1,38 +1,48 @@
 import React, { useLayoutEffect, useRef, useMemo } from "react";
 import { gsap } from "gsap";
 
-export default function Loader() {
+export default function Loader({
+  width,
+  text,
+  spin,
+}: {
+  text?: string;
+  width: number;
+  spin?: boolean;
+}) {
   const root = useRef();
 
   useLayoutEffect(() => {
-    let ctx = gsap.context(() => {
-      // all your animations go in here...
-      gsap.to(".rotate", {
-        duration: 15,
-        rotate: 360,
-        svgOrigin: "80 80",
-        repeat: -1,
-        ease: "none",
-      });
-      gsap.to(".scale", {
-        ease: "cubic-bezier(.50,0,.50,0)",
-        scale: 0.65,
-        yoyo: true,
-        duration: 3,
-        repeat: -1,
-      });
-      gsap.to(".scale-revert", {
-        ease: "cubic-bezier(.50,0,.50,0)",
-        scale: 0.65,
-        yoyo: true,
-        duration: 3,
-        repeat: -1,
-        delay: 1,
-      });
-    }, root); // <- scopes all selector text to the root element
+    if (spin) {
+      let ctx = gsap.context(() => {
+        // all your animations go in here...
+        gsap.to(".rotate", {
+          duration: 15,
+          rotate: 360,
+          svgOrigin: "80 80",
+          repeat: -1,
+          ease: "none",
+        });
+        gsap.to(".scale", {
+          ease: "cubic-bezier(.50,0,.50,0)",
+          scale: 0.65,
+          yoyo: true,
+          duration: 3,
+          repeat: -1,
+        });
+        gsap.to(".scale-revert", {
+          ease: "cubic-bezier(.50,0,.50,0)",
+          scale: 0.65,
+          yoyo: true,
+          duration: 3,
+          repeat: -1,
+          delay: 1,
+        });
+      }, root); // <- scopes all selector text to the root element
 
-    return () => ctx.revert();
-  }, []);
+      return () => ctx.revert();
+    }
+  }, [spin]);
 
   return (
     <div ref={root}>
@@ -43,7 +53,7 @@ export default function Loader() {
         className="icon"
         draggable="false"
         aria-hidden="true"
-        width="1.5rem"
+        width={width || 20}
       >
         <defs>
           <linearGradient
@@ -132,6 +142,18 @@ export default function Loader() {
           className="scale rotate"
           xlinkHref="#f2f15fa97739d6b8762a5540d983611ba"
         ></use>
+        {text && (
+          <text
+            fill="#fff"
+            fontSize="50"
+            fontWeight="500"
+            textAnchor="middle"
+            x={80}
+            y={94}
+          >
+            {text}
+          </text>
+        )}
       </svg>
     </div>
   );

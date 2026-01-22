@@ -1,6 +1,7 @@
 import React, { useContext, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { LanguageContext } from "../App";
+import Loader from "./Loader";
 
 type HourEntry = {
   time: string;
@@ -83,34 +84,11 @@ export default function WeatherSummary({
       style={{
         marginTop: "1.5rem",
         padding: "1rem",
-        backgroundColor: "var(--surface-2)",
         borderRadius: "8px",
         border: "1px solid var(--border-color)",
+        flex: 1,
       }}
     >
-      <h4 style={{ margin: 0, marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-        <span>🤖</span>
-        {t.aiSummary || "Résumé IA"}
-      </h4>
-
-      {loading && (
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <div
-            style={{
-              width: "16px",
-              height: "16px",
-              border: "2px solid var(--accent)",
-              borderTopColor: "transparent",
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite",
-            }}
-          />
-          <span style={{ color: "var(--muted)" }}>
-            {t.generatingSummary || "Génération du résumé..."}
-          </span>
-        </div>
-      )}
-
       {error && (
         <div
           style={{
@@ -136,18 +114,49 @@ export default function WeatherSummary({
         </div>
       )}
 
-      {!loading && !error && !summary && (
-        <button
-          onClick={generateSummary}
-          className="location-button"
+      {!error && !summary && (
+        <div
           style={{
-            padding: "0.75rem 1.5rem",
-            whiteSpace: "nowrap",
-            width: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          🤖 {t.viewAiSummary}
-        </button>
+          <h4
+            style={{
+              margin: 0,
+              marginBottom: "0.75rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+            }}
+          >
+            <span>🤖</span>
+            {t.aiSummary || "Résumé IA"}
+          </h4>
+          <button
+            onClick={generateSummary}
+            className="location-button"
+            style={{
+              padding: "0.75rem 1.5rem",
+              whiteSpace: "nowrap",
+              width: "fit-ccontent",
+              display: "block",
+              background: "transparent",
+              border: "none",
+              margin: "0 auto",
+              boxShadow: "none",
+            }}
+          >
+            <Loader width={150} text="IA" spin={loading} />
+          </button>
+          <p>
+            {loading
+              ? "Génération du résumé..."
+              : "Cliquez pour générer le résumé IA des prévisons"}{" "}
+          </p>
+        </div>
       )}
     </div>
   );
