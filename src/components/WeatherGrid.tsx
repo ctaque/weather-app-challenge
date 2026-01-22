@@ -875,6 +875,9 @@ export default function WeatherGrid() {
             style={{
               transition: "opacity 0.3s ease, max-width 0.3s ease",
               opacity: isSearchFocused ? 0 : 1,
+              overflowX: "auto",
+              maxWidth: "100%",
+              flexWrap: "wrap",
             }}
           >
             {dataList.map((d, idx) => (
@@ -918,12 +921,19 @@ export default function WeatherGrid() {
         <form
           onSubmit={handleSearch}
           style={{
-            display: "block",
             flex: 1,
             transition: "all 0.3s ease",
+            flexWrap: "wrap",
           }}
         >
-          <div style={{ display: "flex", gap: "0.5rem", flex: 1 }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              flex: 1,
+              flexWrap: "wrap",
+            }}
+          >
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -1363,7 +1373,7 @@ const CityCard = React.forwardRef<
             location={data.location.name}
             day={selectedDay.day}
           />
-          <div style={{ display: "flex" }}>
+          <div style={{ display: "flex", flexWrap: "wrap" }}>
             <WindSpeedChart
               hourlyData={selectedDay.hour}
               date={selectedDay.date}

@@ -1297,6 +1297,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
           align-items: center;
           margin-bottom: 1rem;
           padding-left: .75rem;
+          flex-wrap: wrap;
         }
 
         .wind-heatmap-header h2 {
@@ -1307,6 +1308,8 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
           display: flex;
           gap: 0.5rem;
           align-items: center;
+          max-width: 100%;
+          overflow-x: auto;
         }
 
         .wind-heatmap-controls > button {
