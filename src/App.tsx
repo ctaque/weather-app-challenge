@@ -203,7 +203,10 @@ export default function App() {
           <div className="welcome-wallpaper-background" data-theme={theme} />
           <div className="welcome-gradient-background" />
           <header className="app-header">
-            <h1>{t.appTitle}</h1>
+            <h1>
+              <SunIcon className="app-title-icon" />
+              Weather App
+            </h1>
             <div>
               <button
                 onClick={toggleLanguage}

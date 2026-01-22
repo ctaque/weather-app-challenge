@@ -776,6 +776,16 @@ textarea {
   }
 }
 
+.app-header h1 {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.app-title-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
 /* Very small devices: form elements full width and buttons stacked */
 @media (max-width: 520px) {
   .search-form {
