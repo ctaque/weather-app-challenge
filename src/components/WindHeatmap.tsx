@@ -96,6 +96,11 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [cacheSize, setCacheSize] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [preloadProgress, setPreloadProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
+  const hasPreloadedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapRef>(null);
   const heatmapCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -180,8 +185,8 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
       if (index !== undefined) {
         dataCache.current.set(index, data);
 
-        // Limit cache size to prevent memory issues (keep last 15 entries)
-        if (dataCache.current.size > 15) {
+        // Limit cache size to prevent memory issues (keep last 10 entries)
+        if (dataCache.current.size > 10) {
           const firstKey = dataCache.current.keys().next().value;
           dataCache.current.delete(firstKey);
           console.log(`🗑️ Removed oldest cache entry (index ${firstKey})`);
@@ -231,8 +236,8 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
       if (index !== undefined) {
         precipCache.current.set(index, data);
 
-        // Limit cache size to prevent memory issues (keep last 15 entries)
-        if (precipCache.current.size > 15) {
+        // Limit cache size to prevent memory issues (keep last 10 entries)
+        if (precipCache.current.size > 10) {
           const firstKey = precipCache.current.keys().next().value;
           precipCache.current.delete(firstKey);
           console.log(
@@ -298,10 +303,74 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   }, []);
 
   // Refresh all indices
-  const refreshAllIndices = useCallback(() => {
-    loadAvailableIndices();
-    loadAvailablePrecipIndices();
+  const refreshAllIndices = useCallback(async () => {
+    // Reset preload flag
+    hasPreloadedRef.current = false;
+
+    await loadAvailableIndices();
+    await loadAvailablePrecipIndices();
+
+    // Trigger preload will happen automatically via useEffect
   }, [loadAvailableIndices, loadAvailablePrecipIndices]);
+
+  // Preload last 24h of data (8 occurrences every 3h) for both wind and precipitation
+  const preloadLast24h = useCallback(async (windIndices: WindIndex[], precipIndices: WindIndex[]) => {
+    if (windIndices.length === 0 || precipIndices.length === 0) {
+      return;
+    }
+
+    console.log("🔄 Starting 24h data preload...");
+
+    // Backend already returns only the last 8 indices
+    const windIndicesToPreload = windIndices;
+    const precipIndicesToPreload = precipIndices;
+
+    const totalToPreload = windIndicesToPreload.length + precipIndicesToPreload.length;
+    let loadedCount = 0;
+
+    setPreloadProgress({ current: 0, total: totalToPreload });
+
+    // Preload wind data
+    for (const indexInfo of windIndicesToPreload) {
+      if (!dataCache.current.has(indexInfo.index)) {
+        try {
+          const response = await fetch(`/api/wind-global/${indexInfo.index}`);
+          if (response.ok) {
+            const data: WindData = await response.json();
+            dataCache.current.set(indexInfo.index, data);
+            console.log(`✅ Preloaded wind data for index ${indexInfo.index} (${indexInfo.hoursBack}h ago)`);
+          }
+        } catch (err) {
+          console.warn(`❌ Failed to preload wind index ${indexInfo.index}:`, err);
+        }
+      }
+      loadedCount++;
+      setPreloadProgress({ current: loadedCount, total: totalToPreload });
+    }
+
+    // Preload precipitation data
+    for (const indexInfo of precipIndicesToPreload) {
+      if (!precipCache.current.has(indexInfo.index)) {
+        try {
+          const response = await fetch(`/api/precipitation-global/${indexInfo.index}`);
+          if (response.ok) {
+            const data: PrecipitationData = await response.json();
+            precipCache.current.set(indexInfo.index, data);
+            console.log(`✅ Preloaded precipitation data for index ${indexInfo.index} (${indexInfo.hoursBack}h ago)`);
+          }
+        } catch (err) {
+          console.warn(`❌ Failed to preload precipitation index ${indexInfo.index}:`, err);
+        }
+      }
+      loadedCount++;
+      setPreloadProgress({ current: loadedCount, total: totalToPreload });
+    }
+
+    setCacheSize(Math.max(dataCache.current.size, precipCache.current.size));
+    setPreloadProgress(null);
+
+    console.log(`✨ Preload complete! Wind cache: ${dataCache.current.size}, Precip cache: ${precipCache.current.size}`);
+  }, []);
 
   // Preload adjacent data for smoother navigation
   const preloadAdjacentData = useCallback(
@@ -371,6 +440,22 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
     loadAvailableIndices();
     loadAvailablePrecipIndices();
   }, [loadAvailableIndices, loadAvailablePrecipIndices]);
+
+  // Preload last 24h of data when indices are available (only once)
+  useEffect(() => {
+    if (
+      availableIndices.length > 0 &&
+      availablePrecipIndices.length > 0 &&
+      !hasPreloadedRef.current
+    ) {
+      hasPreloadedRef.current = true;
+      // Small delay to let the UI render first
+      const timer = setTimeout(() => {
+        preloadLast24h(availableIndices, availablePrecipIndices);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [availableIndices, availablePrecipIndices, preloadLast24h]);
 
   // Listen for fullscreen changes
   useEffect(() => {
@@ -941,6 +1026,22 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
         </div>
       )}
 
+      {preloadProgress && (
+        <div className="preload-progress" style={{ margin: "1rem 0" }}>
+          <div className="preload-progress-bar">
+            <div
+              className="preload-progress-fill"
+              style={{
+                width: `${(preloadProgress.current / preloadProgress.total) * 100}%`,
+              }}
+            />
+          </div>
+          <p style={{ fontSize: "0.9em", textAlign: "center", marginTop: "0.5rem" }}>
+            {t.loading || "Chargement"} des données 24h... {preloadProgress.current}/{preloadProgress.total}
+          </p>
+        </div>
+      )}
+
       {(windData || precipData) && (
         <div className="wind-heatmap-info">
           {displayMode === "wind" && windData && (
@@ -1114,6 +1215,27 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
       <style>{`
         .wind-heatmap-container {
           margin: .2rem 0;
+        }
+
+        .preload-progress {
+          background: var(--card-bg);
+          padding: 1rem;
+          border-radius: 8px;
+        }
+
+        .preload-progress-bar {
+          width: 100%;
+          height: 8px;
+          background: rgba(128, 128, 128, 0.2);
+          border-radius: 4px;
+          overflow: hidden;
+        }
+
+        .preload-progress-fill {
+          height: 100%;
+          background: linear-gradient(90deg, var(--accent), var(--accent-600));
+          border-radius: 4px;
+          transition: width 0.3s ease;
         }
 
         .wind-heatmap-container:fullscreen {

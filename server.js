@@ -147,14 +147,17 @@ app.get("/api/precipitation-global", async (req, res) => {
   }
 });
 
-// Get list of available precipitation data indices
+// Get list of available precipitation data indices (last 8 only for 24h coverage)
 app.get("/api/precipitation-indices", async (req, res) => {
   try {
-    const indices = await getAvailableIndices(REDIS_KEYS.PRECIPITATION_POINTS);
+    const allIndices = await getAvailableIndices(REDIS_KEYS.PRECIPITATION_POINTS);
+
+    // Return only the last 8 indices (24h of data at 3h intervals)
+    const last8Indices = allIndices.slice(-8);
 
     res.json({
-      count: indices.length,
-      indices: indices
+      count: last8Indices.length,
+      indices: last8Indices
     });
   } catch (err) {
     console.error("Error fetching precipitation indices:", err);
@@ -230,14 +233,17 @@ app.get("/api/windgl/wind.png", async (req, res) => {
   }
 });
 
-// Get list of available wind data indices
+// Get list of available wind data indices (last 8 only for 24h coverage)
 app.get("/api/wind-indices", async (req, res) => {
   try {
-    const indices = await getAvailableIndices(REDIS_KEYS.WIND_POINTS);
+    const allIndices = await getAvailableIndices(REDIS_KEYS.WIND_POINTS);
+
+    // Return only the last 8 indices (24h of data at 3h intervals)
+    const last8Indices = allIndices.slice(-8);
 
     res.json({
-      count: indices.length,
-      indices: indices
+      count: last8Indices.length,
+      indices: last8Indices
     });
   } catch (err) {
     console.error("Error fetching wind indices:", err);

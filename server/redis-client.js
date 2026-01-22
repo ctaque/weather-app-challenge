@@ -330,29 +330,67 @@ async function setWindDataWithIndex(data, baseKey, maxHistory = 10) {
     const indicesStr = await redis.get(`${baseKey}:indices`);
     let indices = indicesStr ? JSON.parse(indicesStr) : [];
 
-    // Store the new data with current index
+    // Check if we already have an entry for this dataTime (within 2h tolerance)
+    const dataTimeMs = data.dataTime ? new Date(data.dataTime).getTime() : null;
+    const tolerance = 2 * 60 * 60 * 1000; // 2 hours
+
+    let existingEntryIndex = -1;
+    if (dataTimeMs) {
+      existingEntryIndex = indices.findIndex(idx => {
+        if (!idx.dataTime) return false;
+        const existingDataTimeMs = new Date(idx.dataTime).getTime();
+        const timeDiff = Math.abs(dataTimeMs - existingDataTimeMs);
+        return timeDiff < tolerance;
+      });
+    }
+
+    // If duplicate exists, update it instead of creating new entry
+    if (existingEntryIndex !== -1) {
+      const existingEntry = indices[existingEntryIndex];
+      console.log(
+        `Redis: Updating existing entry at index ${existingEntry.index} for ${data.dataTime}`,
+      );
+      currentIndex = existingEntry.index;
+
+      // Update the entry
+      indices[existingEntryIndex] = {
+        index: currentIndex,
+        timestamp: new Date().toISOString(),
+        dataPoints: Array.isArray(data)
+          ? data.length
+          : data.points
+            ? data.points.length
+            : 0,
+        runName: data.runName || null,
+        dataTime: data.dataTime || null,
+        hoursBack: data.hoursBack || null,
+        forecastOffset: data.forecastOffset || null,
+        runAge: data.runAge || null,
+      };
+    } else {
+      // Create new entry
+      const indexEntry = {
+        index: currentIndex,
+        timestamp: new Date().toISOString(),
+        dataPoints: Array.isArray(data)
+          ? data.length
+          : data.points
+            ? data.points.length
+            : 0,
+        runName: data.runName || null,
+        dataTime: data.dataTime || null,
+        hoursBack: data.hoursBack || null,
+        forecastOffset: data.forecastOffset || null,
+        runAge: data.runAge || null,
+      };
+
+      // Add new index to the list
+      indices.push(indexEntry);
+    }
+
+    // Store the data with the index (current or reused)
     const indexedKey = `${baseKey}:${currentIndex}`;
     await setWindData(data, indexedKey);
-
-    // Add timestamp info to indices list
-    const indexEntry = {
-      index: currentIndex,
-      timestamp: new Date().toISOString(),
-      dataPoints: Array.isArray(data)
-        ? data.length
-        : data.points
-          ? data.points.length
-          : 0,
-      // Include historical data metadata if available
-      runName: data.runName || null, // GFS run identifier (e.g., "20260121_00Z")
-      dataTime: data.dataTime || null,
-      hoursBack: data.hoursBack || null,
-      forecastOffset: data.forecastOffset || null,
-      runAge: data.runAge || null,
-    };
-
-    // Add new index to the list
-    indices.push(indexEntry);
 
     // Keep only the last maxHistory entries
     if (indices.length > maxHistory) {
@@ -385,13 +423,15 @@ async function setWindDataWithIndex(data, baseKey, maxHistory = 10) {
     // Store updated indices list
     await redis.setEx(`${baseKey}:indices`, REDIS_TTL, JSON.stringify(indices));
 
-    // Update current index for next time
-    const nextIndex = currentIndex + 1;
-    await redis.setEx(
-      `${baseKey}:current_index`,
-      REDIS_TTL,
-      nextIndex.toString(),
-    );
+    // Update current index for next time (only if we created a new entry)
+    if (existingEntryIndex === -1) {
+      const nextIndex = currentIndex + 1;
+      await redis.setEx(
+        `${baseKey}:current_index`,
+        REDIS_TTL,
+        nextIndex.toString(),
+      );
+    }
 
     // Also store as latest (backward compatibility)
     await setWindData(data, baseKey);
@@ -460,11 +500,11 @@ async function getAvailableIndices(baseKey) {
 
     const indices = JSON.parse(indicesStr);
 
-    // Sort by dataTime (oldest first, most recent last)
+    // Sort by dataTime (newest first, oldest last)
     indices.sort((a, b) => {
       const dateA = new Date(a.dataTime).getTime();
       const dateB = new Date(b.dataTime).getTime();
-      return dateB - dateA; // Ascending order (oldest first)
+      return dateB - dateA; // Descending order (newest first)
     });
 
     return indices;

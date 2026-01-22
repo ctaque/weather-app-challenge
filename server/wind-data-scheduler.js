@@ -66,23 +66,29 @@ async function fetchAndStoreSingleForecast(forecastOffset, runAge = 0) {
       throw new Error("Redis is not connected");
     }
 
-    // Check if this run+offset combination already exists
+    // Calculate the actual time this data represents (in the past)
+    const dataTime = new Date(Date.now() - effectiveHoursBack * 3600000);
+
+    // Check if we already have data for this time period (within 2h tolerance)
     const { getAvailableIndices } = require("./redis-client");
     const existingIndices = await getAvailableIndices(REDIS_KEYS.WIND_POINTS);
 
-    const alreadyExists = existingIndices.some(idx =>
-      idx.runName === runName && idx.forecastOffset === forecastOffset
-    );
+    const dataTimeMs = dataTime.getTime();
+    const tolerance = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+
+    const alreadyExists = existingIndices.some(idx => {
+      if (!idx.dataTime) return false;
+      const existingDataTimeMs = new Date(idx.dataTime).getTime();
+      const timeDiff = Math.abs(dataTimeMs - existingDataTimeMs);
+      return timeDiff < tolerance;
+    });
 
     if (alreadyExists) {
       console.log(
-        `⏭️  Run ${runName} + f+${forecastOffset} already exists in Redis, skipping`,
+        `⏭️  Data for ${dataTime.toISOString()} (±2h) already exists in Redis, skipping`,
       );
       return true; // Return success since data is present
     }
-
-    // Calculate the actual time this data represents (in the past)
-    const dataTime = new Date(Date.now() - effectiveHoursBack * 3600000);
 
     // Download wind data from NOAA GFS via OpenDAP
     console.log(
