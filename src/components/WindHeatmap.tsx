@@ -445,13 +445,22 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   // Center map on location when it changes
   useEffect(() => {
     if (location && mapRef.current) {
-      mapRef.current.flyTo({
-        center: [location.lon, location.lat],
-        zoom: 8,
-        duration: 2000,
-      });
+      console.log(
+        "🗺️ Recentering map on:",
+        location.name,
+        location.lat,
+        location.lon,
+      );
+      const map = mapRef.current.getMap();
+      if (map) {
+        map.flyTo({
+          center: [location.lon, location.lat],
+          zoom: 8,
+          duration: 2000,
+        });
+      }
     }
-  }, [location]);
+  }, [location?.lat, location?.lon]);
 
   // Load available indices on mount
   useEffect(() => {

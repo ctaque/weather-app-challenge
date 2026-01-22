@@ -168,6 +168,7 @@ textarea {
   -webkit-overflow-scrolling: touch;
   align-items: center;
   white-space: nowrap;
+  min-width: fit-content;
 }
 .location-button {
   display: inline-flex;

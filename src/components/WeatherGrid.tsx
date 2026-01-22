@@ -8,6 +8,7 @@ import SunshineChart from "./SunshineChart";
 import WindSpeedChart from "./WindSpeedChart";
 import WindDirectionChart from "./WindDirectionChart";
 import WeatherSummary from "./WeatherSummary";
+import WindHeatmap from "./WindHeatmap";
 import { ThemeContext, LanguageContext, UnitContext } from "../App";
 
 type Condition = { text: string; emoji?: string; icon?: string };
@@ -173,10 +174,12 @@ async function fetchWeatherApiFromServer(q: string, days = 10, lang = "en") {
   const json = await res.json();
 
   const normalized: {
+    location?: any;
     current?: any;
     forecastday?: any[];
   } = {};
 
+  if (json.location) normalized.location = json.location;
   if (json.current) normalized.current = json.current;
   if (json.forecast && Array.isArray(json.forecast.forecastday))
     normalized.forecastday = json.forecast.forecastday;
@@ -241,8 +244,8 @@ function makeForecastForCity(
   const currentTemp = nowEntry
     ? Math.round(nowEntry.temp_c)
     : Math.round(
-        (todayForecast.day.maxtemp_c + todayForecast.day.mintemp_c) / 2,
-      );
+      (todayForecast.day.maxtemp_c + todayForecast.day.mintemp_c) / 2,
+    );
   const currentCondition = nowEntry
     ? nowEntry.condition.text
     : todayForecast.day.condition.text;
@@ -295,6 +298,38 @@ function PinIcon({ className }: { className?: string }) {
   );
 }
 
+function TargetIcon({
+  className,
+  style,
+}: {
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      className={className}
+      style={style}
+      aria-hidden
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2" />
+      <line x1="12" y1="2" x2="12" y2="6" />
+      <line x1="12" y1="18" x2="12" y2="22" />
+      <line x1="2" y1="12" x2="6" y2="12" />
+      <line x1="18" y1="12" x2="22" y2="12" />
+    </svg>
+  );
+}
+
 function LoaderIcon() {
   return (
     <svg
@@ -331,6 +366,12 @@ export default function WeatherGrid() {
   const [selectedCityIndex, setSelectedCityIndex] = useState<number>(0);
   const [loadingCityIndex, setLoadingCityIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchLoading, setSearchLoading] = useState<boolean>(false);
+  const [customCityData, setCustomCityData] = useState<CityForecast | null>(
+    null,
+  );
+  const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
   const cityCardRef = useRef<{
     goToNow: () => void;
     goToDayPlus1: () => void;
@@ -370,9 +411,9 @@ export default function WeatherGrid() {
                     h.time ??
                     (h.time_epoch
                       ? new Date(h.time_epoch * 1000)
-                          .toISOString()
-                          .replace("T", " ")
-                          .slice(0, 16)
+                        .toISOString()
+                        .replace("T", " ")
+                        .slice(0, 16)
                       : `${dateStr} ${String(h.hour ?? "00").padStart(2, "0")}:00`);
                   const temp_c =
                     typeof h.temp_c !== "undefined"
@@ -526,9 +567,9 @@ export default function WeatherGrid() {
             const currentTemp = nowEntry
               ? Math.round(nowEntry.temp_c)
               : Math.round(
-                  (todayForecast.day.maxtemp_c + todayForecast.day.mintemp_c) /
-                    2,
-                );
+                (todayForecast.day.maxtemp_c + todayForecast.day.mintemp_c) /
+                2,
+              );
             copy[idx].current = {
               ...copy[idx].current,
               temp_c: currentTemp,
@@ -572,16 +613,247 @@ export default function WeatherGrid() {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       setSelectedCityIndex(idx);
+      setCustomCityData(null); // Reset custom city when selecting predefined city
     }
   }
 
+  // Search for a new city
+  async function handleSearch(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setSearchLoading(true);
+    setError(null);
+
+    try {
+      const normalized = await fetchWeatherApiFromServer(searchQuery, 10, lang);
+
+      // Create a new city forecast from the API data
+      const newCityData: CityForecast = {
+        location: {
+          name: normalized.location?.name || searchQuery,
+          region: normalized.location?.region || "",
+          country: normalized.location?.country || "",
+          lat: normalized.location?.lat || 0,
+          lon: normalized.location?.lon || 0,
+        },
+        current: {
+          temp_c: Math.round(normalized.current?.temp_c || 0),
+          temp_f: Math.round(normalized.current?.temp_f || 0),
+          condition_text: normalized.current?.condition?.text || "",
+          humidity: normalized.current?.humidity || 0,
+          wind_kph: normalized.current?.wind_kph || 0,
+          emoji: normalized.current?.condition?.text || "",
+          pressure_mb: normalized.current?.pressure_mb || 0,
+          condition_icon: normalized.current?.condition?.icon,
+        },
+        forecast: {
+          forecastday: (normalized.forecastday || []).map(
+            (ad: any, i: number) => {
+              const dateStr =
+                ad.date ?? addDays(new Date(), i).toISOString().slice(0, 10);
+
+              let hourEntries: HourEntry[] = [];
+              if (Array.isArray(ad.hour) && ad.hour.length > 0) {
+                hourEntries = ad.hour.map((h: any) => ({
+                  time:
+                    h.time ??
+                    `${dateStr} ${String(h.hour ?? "00").padStart(2, "0")}:00`,
+                  temp_c: Math.round(Number(h.temp_c ?? 0)),
+                  condition: {
+                    text: h.condition?.text ?? "",
+                    icon: h.condition?.icon,
+                  },
+                  chance_of_rain: h.chance_of_rain
+                    ? Math.round(Number(h.chance_of_rain))
+                    : undefined,
+                  pressure_mb: h.pressure_mb
+                    ? Math.round(Number(h.pressure_mb))
+                    : undefined,
+                  wind_kph: h.wind_kph
+                    ? Math.round(Number(h.wind_kph))
+                    : undefined,
+                  wind_degree: h.wind_degree,
+                  wind_dir: h.wind_dir,
+                  uv: h.uv,
+                  is_day: h.is_day,
+                }));
+              }
+
+              const { maxtemp_c, mintemp_c } =
+                hourEntries.length > 0
+                  ? computeDayMinMaxFromHours(hourEntries)
+                  : {
+                    maxtemp_c: ad.day?.maxtemp_c || 0,
+                    mintemp_c: ad.day?.mintemp_c || 0,
+                  };
+
+              return {
+                date: dateStr,
+                day: {
+                  maxtemp_c: Math.round(maxtemp_c),
+                  mintemp_c: Math.round(mintemp_c),
+                  condition: {
+                    text: ad.day?.condition?.text || "",
+                    icon: ad.day?.condition?.icon,
+                  },
+                  daily_chance_of_rain: ad.day?.daily_chance_of_rain || 0,
+                  pressure_mb: ad.day?.pressure_mb || 0,
+                  uv: ad.day?.uv,
+                  api_maxtemp_c: ad.day?.maxtemp_c,
+                  api_mintemp_c: ad.day?.mintemp_c,
+                },
+                astro: ad.astro,
+                hour: hourEntries,
+              };
+            },
+          ),
+        },
+      };
+
+      // Set as custom city (don't add to predefined list)
+      setCustomCityData(newCityData);
+      setSearchQuery("");
+    } catch (err: any) {
+      console.error("Search error:", err);
+      setError(err.message || t.fetchError);
+    } finally {
+      setSearchLoading(false);
+    }
+  }
+
+  // Use geolocation
+  async function handleUseLocation() {
+    if (!navigator.geolocation) {
+      setError(t.geolocationNotSupported);
+      return;
+    }
+
+    setSearchLoading(true);
+    setError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const q = `${pos.coords.latitude},${pos.coords.longitude}`;
+        setSearchQuery(q);
+
+        try {
+          const normalized = await fetchWeatherApiFromServer(q, 10, lang);
+
+          const newCityData: CityForecast = {
+            location: {
+              name: normalized.location?.name || "Ma position",
+              region: normalized.location?.region || "",
+              country: normalized.location?.country || "",
+              lat: normalized.location?.lat || pos.coords.latitude,
+              lon: normalized.location?.lon || pos.coords.longitude,
+            },
+            current: {
+              temp_c: Math.round(normalized.current?.temp_c || 0),
+              temp_f: Math.round(normalized.current?.temp_f || 0),
+              condition_text: normalized.current?.condition?.text || "",
+              humidity: normalized.current?.humidity || 0,
+              wind_kph: normalized.current?.wind_kph || 0,
+              emoji: normalized.current?.condition?.text || "",
+              pressure_mb: normalized.current?.pressure_mb || 0,
+              condition_icon: normalized.current?.condition?.icon,
+            },
+            forecast: {
+              forecastday: (normalized.forecastday || []).map(
+                (ad: any, i: number) => {
+                  const dateStr =
+                    ad.date ??
+                    addDays(new Date(), i).toISOString().slice(0, 10);
+
+                  let hourEntries: HourEntry[] = [];
+                  if (Array.isArray(ad.hour) && ad.hour.length > 0) {
+                    hourEntries = ad.hour.map((h: any) => ({
+                      time:
+                        h.time ??
+                        `${dateStr} ${String(h.hour ?? "00").padStart(2, "0")}:00`,
+                      temp_c: Math.round(Number(h.temp_c ?? 0)),
+                      condition: {
+                        text: h.condition?.text ?? "",
+                        icon: h.condition?.icon,
+                      },
+                      chance_of_rain: h.chance_of_rain
+                        ? Math.round(Number(h.chance_of_rain))
+                        : undefined,
+                      pressure_mb: h.pressure_mb
+                        ? Math.round(Number(h.pressure_mb))
+                        : undefined,
+                      wind_kph: h.wind_kph
+                        ? Math.round(Number(h.wind_kph))
+                        : undefined,
+                      wind_degree: h.wind_degree,
+                      wind_dir: h.wind_dir,
+                      uv: h.uv,
+                      is_day: h.is_day,
+                    }));
+                  }
+
+                  const { maxtemp_c, mintemp_c } =
+                    hourEntries.length > 0
+                      ? computeDayMinMaxFromHours(hourEntries)
+                      : {
+                        maxtemp_c: ad.day?.maxtemp_c || 0,
+                        mintemp_c: ad.day?.mintemp_c || 0,
+                      };
+
+                  return {
+                    date: dateStr,
+                    day: {
+                      maxtemp_c: Math.round(maxtemp_c),
+                      mintemp_c: Math.round(mintemp_c),
+                      condition: {
+                        text: ad.day?.condition?.text || "",
+                        icon: ad.day?.condition?.icon,
+                      },
+                      daily_chance_of_rain: ad.day?.daily_chance_of_rain || 0,
+                      pressure_mb: ad.day?.pressure_mb || 0,
+                      uv: ad.day?.uv,
+                      api_maxtemp_c: ad.day?.maxtemp_c,
+                      api_mintemp_c: ad.day?.mintemp_c,
+                    },
+                    astro: ad.astro,
+                    hour: hourEntries,
+                  };
+                },
+              ),
+            },
+          };
+
+          // Set as custom city (don't add to predefined list)
+          setCustomCityData(newCityData);
+          setSearchQuery("");
+        } catch (err: any) {
+          console.error("Geolocation search error:", err);
+          setError(err.message || t.fetchError);
+        } finally {
+          setSearchLoading(false);
+        }
+      },
+      (err) => {
+        setError(err.message);
+        setSearchLoading(false);
+      },
+    );
+  }
+
   // Get current selected city location
-  const selectedCity = CITY_INFO[selectedCityIndex];
-  const currentLocation = {
-    name: selectedCity.name,
-    lat: selectedCity.lat,
-    lon: selectedCity.lon,
-  };
+  const currentData = customCityData || dataList[selectedCityIndex];
+  const currentLocation = useMemo(() => {
+    if (!currentData?.location) return null;
+    return {
+      name: currentData.location.name,
+      lat: currentData.location.lat,
+      lon: currentData.location.lon,
+    };
+  }, [
+    currentData?.location?.name,
+    currentData?.location?.lat,
+    currentData?.location?.lon,
+  ]);
 
   return (
     <section style={{ paddingBottom: "1rem" }}>
@@ -591,47 +863,120 @@ export default function WeatherGrid() {
         style={{
           display: "flex",
           gap: "0.5rem",
-          alignItems: "flex-start",
+          alignItems: "center",
+          flexWrap: "wrap",
         }}
       >
-        <div
-          className="location-list"
-          role="tablist"
-          aria-label={t.chooseLocation}
-          style={{ flex: 1 }}
+        {!isSearchFocused && (
+          <div
+            className="location-list"
+            role="tablist"
+            aria-label={t.chooseLocation}
+            style={{
+              transition: "opacity 0.3s ease, max-width 0.3s ease",
+              opacity: isSearchFocused ? 0 : 1,
+            }}
+          >
+            {dataList.map((d, idx) => (
+              <button
+                key={d.location.name}
+                role="tab"
+                aria-selected={idx === selectedCityIndex}
+                tabIndex={0}
+                className={`location-button ${idx === selectedCityIndex && !customCityData ? "active" : ""}`}
+                onClick={() => {
+                  setSelectedCityIndex(idx);
+                  setCustomCityData(null); // Reset custom city when clicking predefined city
+                }}
+                onKeyDown={(e) => onKeySelect(e, idx)}
+                title={`${t.showForecast} ${d.location.name}`}
+              >
+                <span className="loc-name">{d.location.name}</span>
+                <span className="loc-country muted small">
+                  {d.location.country}
+                </span>
+              </button>
+            ))}
+            {loadingCityIndex !== null && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "0.25rem",
+                }}
+                aria-live="polite"
+                aria-label={t.loadingInProgress}
+              >
+                <LoaderIcon />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Search form */}
+        <form
+          onSubmit={handleSearch}
+          style={{
+            display: "block",
+            flex: 1,
+            transition: "all 0.3s ease",
+          }}
         >
-          {dataList.map((d, idx) => (
-            <button
-              key={d.location.name}
-              role="tab"
-              aria-selected={idx === selectedCityIndex}
-              tabIndex={0}
-              className={`location-button ${idx === selectedCityIndex ? "active" : ""}`}
-              onClick={() => setSelectedCityIndex(idx)}
-              onKeyDown={(e) => onKeySelect(e, idx)}
-              title={`${t.showForecast} ${d.location.name}`}
-            >
-              <span className="loc-name">{d.location.name}</span>
-              <span className="loc-country muted small">
-                {d.location.country}
-              </span>
-            </button>
-          ))}
-          {loadingCityIndex !== null && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "0.25rem",
+          <div style={{ display: "flex", gap: "0.5rem", flex: 1 }}>
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => {
+                // Delay to allow clicking on buttons
+                setTimeout(() => setIsSearchFocused(false), 200);
               }}
-              aria-live="polite"
-              aria-label={t.loadingInProgress}
+              placeholder={t.searchPlaceholder}
+              disabled={searchLoading}
+              style={{
+                flex: 1,
+                padding: "0.75rem",
+                fontSize: "0.875rem",
+                borderRadius: "8px",
+                border: "1px solid var(--border-color)",
+                backgroundColor: "var(--surface-2)",
+                color: "var(--text-color)",
+                display: "block",
+                width: "100%",
+                minWidth: "200px",
+                transition: "all 0.3s ease",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={searchLoading || !searchQuery.trim()}
+              className="location-button"
+              style={{
+                padding: "0.75rem 1rem",
+                fontSize: "0.875rem",
+                whiteSpace: "nowrap",
+              }}
             >
-              <LoaderIcon />
-            </div>
-          )}
-        </div>
+              {searchLoading ? t.loading : t.searchButton}
+            </button>
+            <button
+              type="button"
+              onClick={handleUseLocation}
+              disabled={searchLoading}
+              className="location-button"
+              style={{
+                padding: "0.75rem",
+                fontSize: "0.875rem",
+                whiteSpace: "nowrap",
+              }}
+              title={t.useLocation}
+            >
+              <TargetIcon />
+            </button>
+          </div>
+        </form>
+
         <div
           style={{
             display: "flex",
@@ -644,7 +989,7 @@ export default function WeatherGrid() {
             className="location-button"
             onClick={() => cityCardRef.current?.goToNow()}
             title={t.goToNow}
-            style={{ padding: "0.75rem 1.5rem", whiteSpace: "nowrap" }}
+            style={{ padding: "0.75rem 1rem", whiteSpace: "nowrap" }}
           >
             {t.now}
           </button>
@@ -652,7 +997,7 @@ export default function WeatherGrid() {
             className="location-button"
             onClick={() => cityCardRef.current?.goToDayPlus1()}
             title={t.goToDayPlus1}
-            style={{ padding: "0.75rem 1.5rem", whiteSpace: "nowrap" }}
+            style={{ padding: "0.75rem 1rem", whiteSpace: "nowrap" }}
           >
             {t.dayPlus1}
           </button>
@@ -660,7 +1005,7 @@ export default function WeatherGrid() {
             className="location-button"
             onClick={() => cityCardRef.current?.goToDayPlus2()}
             title={t.goToDayPlus2}
-            style={{ padding: "0.75rem 1.5rem", whiteSpace: "nowrap" }}
+            style={{ padding: "0.75rem 1rem", whiteSpace: "nowrap" }}
           >
             {t.dayPlus2}
           </button>
@@ -670,7 +1015,7 @@ export default function WeatherGrid() {
       <div style={{ marginTop: 12 }}>
         <CityCard
           ref={cityCardRef}
-          data={dataList[selectedCityIndex]}
+          data={customCityData || dataList[selectedCityIndex]}
           locale={locale}
         />
         {error && (
@@ -679,6 +1024,13 @@ export default function WeatherGrid() {
           </div>
         )}
       </div>
+
+      {/* Wind Heatmap for selected city */}
+      {currentLocation && (
+        <div style={{ marginTop: 24 }}>
+          <WindHeatmap location={currentLocation} />
+        </div>
+      )}
     </section>
   );
 }
@@ -909,10 +1261,10 @@ const CityCard = React.forwardRef<
                   style={
                     isCurrentHour
                       ? {
-                          backgroundColor: "var(--accent)",
-                          color: "#ffffff",
-                          border: "2px solid var(--selection-border)",
-                        }
+                        backgroundColor: "var(--accent)",
+                        color: "#ffffff",
+                        border: "2px solid var(--selection-border)",
+                      }
                       : undefined
                   }
                 >
@@ -975,7 +1327,7 @@ const CityCard = React.forwardRef<
           )}
 
           {selectedDay?.day?.api_mintemp_c !== undefined ||
-          selectedDay?.day?.api_maxtemp_c !== undefined ? (
+            selectedDay?.day?.api_maxtemp_c !== undefined ? (
             <div className="small muted" style={{ marginTop: 6 }}>
               {t.apiValues}{" "}
               {units === "knots-celsius"

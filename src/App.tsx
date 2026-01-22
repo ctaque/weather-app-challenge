@@ -1,7 +1,5 @@
 import React, { useEffect, useState, createContext } from "react";
-import WeatherDisplay from "./components/Weather";
 import WeatherGrid from "./components/WeatherGrid";
-import WindHeatmap from "./components/WindHeatmap";
 import { getTranslations, type Language, type Translations } from "./i18n";
 
 type WeatherData = any;
@@ -250,48 +248,6 @@ export default function App() {
           </header>
           <div className="container">
             <h2 style={{ marginTop: 0 }}>{t.forecastByCity}</h2>
-            <form onSubmit={search} className="search-form">
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t.searchPlaceholder}
-              />
-              <select
-                value={days}
-                onChange={(e) => setDays(Number(e.target.value))}
-              >
-                <option value={1}>1 {t.day}</option>
-                <option value={3}>3 {t.days}</option>
-                <option value={7}>7 {t.days}</option>
-                <option value={10}>10 {t.days}</option>
-              </select>
-              <button type="submit" disabled={loading}>
-                {loading ? t.loading : t.searchButton}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!navigator.geolocation) {
-                    setError(t.geolocationNotSupported);
-                    return;
-                  }
-                  setLoading(true);
-                  navigator.geolocation.getCurrentPosition(
-                    async (pos) => {
-                      const q = `${pos.coords.latitude},${pos.coords.longitude}`;
-                      setQuery(q);
-                      await fetchWeather(q);
-                    },
-                    (err) => {
-                      setError(err.message);
-                      setLoading(false);
-                    },
-                  );
-                }}
-              >
-                {t.useLocation}
-              </button>
-            </form>
 
             {error && (
               <div className="error">
@@ -300,13 +256,8 @@ export default function App() {
               </div>
             )}
 
-            {data && <WeatherDisplay data={data} />}
-
             {/* Composant avec données en dur pour les 5 villes */}
             <WeatherGrid />
-
-            {/* Wind Heatmap avec timeline animée */}
-            <WindHeatmap location={data?.location} />
           </div>
         </ThemeContext.Provider>
       </UnitContext.Provider>
