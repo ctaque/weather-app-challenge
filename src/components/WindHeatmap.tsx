@@ -314,63 +314,81 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   }, [loadAvailableIndices, loadAvailablePrecipIndices]);
 
   // Preload last 24h of data (8 occurrences every 3h) for both wind and precipitation
-  const preloadLast24h = useCallback(async (windIndices: WindIndex[], precipIndices: WindIndex[]) => {
-    if (windIndices.length === 0 || precipIndices.length === 0) {
-      return;
-    }
-
-    console.log("🔄 Starting 24h data preload...");
-
-    // Backend already returns only the last 8 indices
-    const windIndicesToPreload = windIndices;
-    const precipIndicesToPreload = precipIndices;
-
-    const totalToPreload = windIndicesToPreload.length + precipIndicesToPreload.length;
-    let loadedCount = 0;
-
-    setPreloadProgress({ current: 0, total: totalToPreload });
-
-    // Preload wind data
-    for (const indexInfo of windIndicesToPreload) {
-      if (!dataCache.current.has(indexInfo.index)) {
-        try {
-          const response = await fetch(`/api/wind-global/${indexInfo.index}`);
-          if (response.ok) {
-            const data: WindData = await response.json();
-            dataCache.current.set(indexInfo.index, data);
-            console.log(`✅ Preloaded wind data for index ${indexInfo.index} (${indexInfo.hoursBack}h ago)`);
-          }
-        } catch (err) {
-          console.warn(`❌ Failed to preload wind index ${indexInfo.index}:`, err);
-        }
+  const preloadLast24h = useCallback(
+    async (windIndices: WindIndex[], precipIndices: WindIndex[]) => {
+      if (windIndices.length === 0 || precipIndices.length === 0) {
+        return;
       }
-      loadedCount++;
-      setPreloadProgress({ current: loadedCount, total: totalToPreload });
-    }
 
-    // Preload precipitation data
-    for (const indexInfo of precipIndicesToPreload) {
-      if (!precipCache.current.has(indexInfo.index)) {
-        try {
-          const response = await fetch(`/api/precipitation-global/${indexInfo.index}`);
-          if (response.ok) {
-            const data: PrecipitationData = await response.json();
-            precipCache.current.set(indexInfo.index, data);
-            console.log(`✅ Preloaded precipitation data for index ${indexInfo.index} (${indexInfo.hoursBack}h ago)`);
+      console.log("🔄 Starting 24h data preload...");
+
+      // Backend already returns only the last 8 indices
+      const windIndicesToPreload = windIndices;
+      const precipIndicesToPreload = precipIndices;
+
+      const totalToPreload =
+        windIndicesToPreload.length + precipIndicesToPreload.length;
+      let loadedCount = 0;
+
+      setPreloadProgress({ current: 0, total: totalToPreload });
+
+      // Preload wind data
+      for (const indexInfo of windIndicesToPreload) {
+        if (!dataCache.current.has(indexInfo.index)) {
+          try {
+            const response = await fetch(`/api/wind-global/${indexInfo.index}`);
+            if (response.ok) {
+              const data: WindData = await response.json();
+              dataCache.current.set(indexInfo.index, data);
+              console.log(
+                `✅ Preloaded wind data for index ${indexInfo.index} (${indexInfo.hoursBack}h ago)`,
+              );
+            }
+          } catch (err) {
+            console.warn(
+              `❌ Failed to preload wind index ${indexInfo.index}:`,
+              err,
+            );
           }
-        } catch (err) {
-          console.warn(`❌ Failed to preload precipitation index ${indexInfo.index}:`, err);
         }
+        loadedCount++;
+        setPreloadProgress({ current: loadedCount, total: totalToPreload });
       }
-      loadedCount++;
-      setPreloadProgress({ current: loadedCount, total: totalToPreload });
-    }
 
-    setCacheSize(Math.max(dataCache.current.size, precipCache.current.size));
-    setPreloadProgress(null);
+      // Preload precipitation data
+      for (const indexInfo of precipIndicesToPreload) {
+        if (!precipCache.current.has(indexInfo.index)) {
+          try {
+            const response = await fetch(
+              `/api/precipitation-global/${indexInfo.index}`,
+            );
+            if (response.ok) {
+              const data: PrecipitationData = await response.json();
+              precipCache.current.set(indexInfo.index, data);
+              console.log(
+                `✅ Preloaded precipitation data for index ${indexInfo.index} (${indexInfo.hoursBack}h ago)`,
+              );
+            }
+          } catch (err) {
+            console.warn(
+              `❌ Failed to preload precipitation index ${indexInfo.index}:`,
+              err,
+            );
+          }
+        }
+        loadedCount++;
+        setPreloadProgress({ current: loadedCount, total: totalToPreload });
+      }
 
-    console.log(`✨ Preload complete! Wind cache: ${dataCache.current.size}, Precip cache: ${precipCache.current.size}`);
-  }, []);
+      setCacheSize(Math.max(dataCache.current.size, precipCache.current.size));
+      setPreloadProgress(null);
+
+      console.log(
+        `✨ Preload complete! Wind cache: ${dataCache.current.size}, Precip cache: ${precipCache.current.size}`,
+      );
+    },
+    [],
+  );
 
   // Preload adjacent data for smoother navigation
   const preloadAdjacentData = useCallback(
@@ -1014,7 +1032,10 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
             </>
           )}
 
-          <button onClick={toggleFullscreen} title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}>
+          <button
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          >
             {isFullscreen ? "⮌" : "⛶"}
           </button>
         </div>
@@ -1027,19 +1048,28 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
       )}
 
       {preloadProgress && (
-        <div className="preload-progress" style={{ margin: "1rem 0" }}>
-          <div className="preload-progress-bar">
-            <div
-              className="preload-progress-fill"
-              style={{
-                width: `${(preloadProgress.current / preloadProgress.total) * 100}%`,
-              }}
-            />
+        <>
+          <div className="preload-progress" style={{ margin: 0 }}>
+            <div className="preload-progress-bar">
+              <div
+                className="preload-progress-fill"
+                style={{
+                  width: `${(preloadProgress.current / preloadProgress.total) * 100}%`,
+                }}
+              />
+            </div>
           </div>
-          <p style={{ fontSize: "0.9em", textAlign: "center", marginTop: "0.5rem" }}>
-            {t.loading || "Chargement"} des données 24h... {preloadProgress.current}/{preloadProgress.total}
-          </p>
-        </div>
+          <small
+            style={{
+              textAlign: "left",
+              marginLeft: ".75rem",
+              marginTop: ".1rem",
+            }}
+          >
+            {t.loading || "Chargement"} des données 24h...{" "}
+            {preloadProgress.current}/{preloadProgress.total}
+          </small>
+        </>
       )}
 
       {(windData || precipData) && (
@@ -1219,7 +1249,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
 
         .preload-progress {
           background: var(--card-bg);
-          padding: 1rem;
+          padding: .75rem;
           border-radius: 8px;
         }
 
@@ -1257,6 +1287,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
           justify-content: space-between;
           align-items: center;
           margin-bottom: 1rem;
+          padding-left: .75rem;
         }
 
         .wind-heatmap-header h2 {
