@@ -43,13 +43,7 @@ variable "ssh_allowed_ips" {
   default     = ["0.0.0.0/0", "::/0"]
 }
 
-# Database PostgreSQL (Managed)
-variable "db_cluster_size" {
-  description = "Database cluster size"
-  type        = string
-  default     = "db-s-1vcpu-1gb" # 1GB RAM, 1 vCPU - $15/mois
-}
-
+# Database PostgreSQL (Local sur le droplet)
 variable "db_name" {
   description = "PostgreSQL database name"
   type        = string
@@ -60,6 +54,12 @@ variable "db_username" {
   description = "PostgreSQL username"
   type        = string
   default     = "weatherapp_user"
+}
+
+variable "db_password" {
+  description = "PostgreSQL password"
+  type        = string
+  sensitive   = true
 }
 
 # Application secrets

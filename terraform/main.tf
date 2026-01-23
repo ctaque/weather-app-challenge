@@ -19,31 +19,7 @@ resource "digitalocean_ssh_key" "default" {
   public_key = file(pathexpand(var.ssh_public_key_path))
 }
 
-# PostgreSQL Managed Database
-resource "digitalocean_database_cluster" "postgres" {
-  name       = "${var.project_name}-db"
-  engine     = "pg"
-  version    = "16"
-  size       = var.db_cluster_size
-  region     = var.do_region
-  node_count = 1
-
-  tags = [var.environment, var.project_name]
-}
-
-# Create database
-resource "digitalocean_database_db" "app_db" {
-  cluster_id = digitalocean_database_cluster.postgres.id
-  name       = var.db_name
-}
-
-# Create database user
-resource "digitalocean_database_user" "app_user" {
-  cluster_id = digitalocean_database_cluster.postgres.id
-  name       = var.db_username
-}
-
-# Droplet (VM)
+# Droplet (VM) with PostgreSQL, Redis, nginx
 resource "digitalocean_droplet" "app" {
   name   = "${var.project_name}-droplet"
   size   = var.droplet_size
@@ -56,13 +32,9 @@ resource "digitalocean_droplet" "app" {
     project_name      = var.project_name
     weatherapi_key    = var.weatherapi_key
     anthropic_api_key = var.anthropic_api_key
-    db_host           = digitalocean_database_cluster.postgres.private_host
-    db_port           = digitalocean_database_cluster.postgres.port
     db_name           = var.db_name
-    db_username       = digitalocean_database_user.app_user.name
-    db_password       = digitalocean_database_user.app_user.password
-    db_uri            = digitalocean_database_cluster.postgres.private_uri
-    droplet_ip        = "DROPLET_IP_PLACEHOLDER" # Sera remplacé par l'IP réelle après création
+    db_username       = var.db_username
+    db_password       = var.db_password
     domain_name       = var.domain_name
   })
 
@@ -117,16 +89,6 @@ resource "digitalocean_firewall" "app" {
   outbound_rule {
     protocol              = "icmp"
     destination_addresses = ["0.0.0.0/0", "::/0"]
-  }
-}
-
-# Firewall rule to allow droplet to access database
-resource "digitalocean_database_firewall" "app_db_firewall" {
-  cluster_id = digitalocean_database_cluster.postgres.id
-
-  rule {
-    type  = "droplet"
-    value = digitalocean_droplet.app.id
   }
 }
 

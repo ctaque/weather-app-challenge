@@ -20,43 +20,6 @@ output "droplet_region" {
   value       = digitalocean_droplet.app.region
 }
 
-output "db_host" {
-  description = "PostgreSQL database host (private)"
-  value       = digitalocean_database_cluster.postgres.private_host
-}
-
-output "db_port" {
-  description = "PostgreSQL database port"
-  value       = digitalocean_database_cluster.postgres.port
-}
-
-output "db_connection_uri" {
-  description = "PostgreSQL connection URI (private network)"
-  value       = digitalocean_database_cluster.postgres.private_uri
-  sensitive   = true
-}
-
-output "db_public_host" {
-  description = "PostgreSQL database host (public)"
-  value       = digitalocean_database_cluster.postgres.host
-}
-
-output "db_database" {
-  description = "Database name"
-  value       = digitalocean_database_db.app_db.name
-}
-
-output "db_username" {
-  description = "Database username"
-  value       = digitalocean_database_user.app_user.name
-}
-
-output "db_password" {
-  description = "Database password"
-  value       = digitalocean_database_user.app_user.password
-  sensitive   = true
-}
-
 output "ssh_command" {
   description = "SSH command to connect to droplet"
   value       = "ssh root@${digitalocean_droplet.app.ipv4_address}"
@@ -72,6 +35,17 @@ output "deployment_script" {
   value       = "ssh root@${digitalocean_droplet.app.ipv4_address} 'sudo -u weatherapp /home/weatherapp/deploy.sh'"
 }
 
+output "database_info" {
+  description = "Database connection information (local PostgreSQL)"
+  value = {
+    host     = "localhost"
+    port     = 5432
+    database = var.db_name
+    username = var.db_username
+    note     = "PostgreSQL is installed locally on the droplet"
+  }
+}
+
 # Quick reference commands
 output "useful_commands" {
   description = "Useful commands for managing the infrastructure"
@@ -84,6 +58,9 @@ output "useful_commands" {
     pm2_restart      = "ssh root@${digitalocean_droplet.app.ipv4_address} 'sudo -u weatherapp pm2 restart all'"
     nginx_status     = "ssh root@${digitalocean_droplet.app.ipv4_address} 'systemctl status nginx'"
     redis_status     = "ssh root@${digitalocean_droplet.app.ipv4_address} 'systemctl status redis-server'"
+    postgres_status  = "ssh root@${digitalocean_droplet.app.ipv4_address} 'systemctl status postgresql'"
+    postgres_connect = "ssh root@${digitalocean_droplet.app.ipv4_address} 'sudo -u postgres psql ${var.db_name}'"
+    backup_database  = "ssh root@${digitalocean_droplet.app.ipv4_address} 'sudo -u weatherapp /home/weatherapp/backup-db.sh'"
     check_cloud_init = "ssh root@${digitalocean_droplet.app.ipv4_address} 'tail -f /var/log/cloud-init-output.log'"
   }
 }

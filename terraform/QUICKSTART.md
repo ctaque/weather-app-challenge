@@ -129,11 +129,11 @@ terraform output useful_commands
 
 ## Coûts
 
-- **Droplet 2GB:** $12/mois
-- **PostgreSQL 1GB:** $15/mois
-- **Total:** $27/mois
+- **Droplet 2GB:** $12/mois (inclut PostgreSQL + Redis)
+- **Total:** $12/mois
 
-Pas de frais cachés, pas de surprises!
+PostgreSQL et Redis sont installés directement sur le droplet.
+Pas de base de données managée = pas de frais supplémentaires!
 
 ## Problèmes?
 

@@ -9,15 +9,13 @@ L'infrastructure déploie:
 - **Droplet** (VM Ubuntu 22.04) avec:
   - Node.js 20
   - pnpm + PM2
-  - Redis (local)
+  - PostgreSQL 16 (installé localement)
+  - Redis (installé localement)
   - nginx (reverse proxy)
 
-- **PostgreSQL Managed Database** (1 node)
-  - PostgreSQL 16
-  - Réseau privé pour connexion sécurisée
-  - Backups automatiques
-
 - **Firewall** configuré pour HTTP, HTTPS, SSH
+
+**Note:** PostgreSQL et Redis sont installés directement sur le droplet pour réduire les coûts.
 
 ## Prérequis
 
@@ -260,20 +258,26 @@ terraform apply
 ### Sauvegarder la base de données
 
 ```bash
-# Se connecter au droplet
+# Utiliser le script de backup automatique (s'exécute tous les jours à 2h)
+ssh root@<DROPLET_IP> 'sudo -u weatherapp /home/weatherapp/backup-db.sh'
+
+# Ou manuellement
 ssh root@<DROPLET_IP>
+sudo -u postgres pg_dump weatherapp > /home/weatherapp/backups/manual-backup.sql
 
-# Dump de la base
-pg_dump $(terraform output -raw db_connection_uri) > backup.sql
-
-# Ou utiliser le script fourni
-./backup-db.sh
+# Télécharger le backup localement
+scp root@<DROPLET_IP>:/home/weatherapp/backups/db-backup-*.sql ./
 ```
 
 ### Restaurer une sauvegarde
 
 ```bash
-psql $(terraform output -raw db_connection_uri) < backup.sql
+# Depuis le droplet
+ssh root@<DROPLET_IP>
+sudo -u postgres psql weatherapp < /path/to/backup.sql
+
+# Depuis votre machine
+cat backup.sql | ssh root@<DROPLET_IP> 'sudo -u postgres psql weatherapp'
 ```
 
 ## Monitoring
@@ -299,15 +303,21 @@ Affiche:
 - Disk I/O
 - Network traffic
 
-### Monitoring de la base de données
+### Monitoring de PostgreSQL
 
-Dashboard PostgreSQL:
-- Databases → Votre cluster → Insights
+```bash
+# Statut du service
+ssh root@<DROPLET_IP> 'systemctl status postgresql'
 
-Affiche:
-- Queries per second
-- CPU & Memory
-- Connection pool
+# Se connecter à PostgreSQL
+ssh root@<DROPLET_IP> 'sudo -u postgres psql weatherapp'
+
+# Voir les bases de données
+ssh root@<DROPLET_IP> 'sudo -u postgres psql -l'
+
+# Voir les connexions actives
+ssh root@<DROPLET_IP> "sudo -u postgres psql -c 'SELECT * FROM pg_stat_activity;'"
+```
 
 ## Coûts
 
@@ -316,22 +326,23 @@ Affiche:
 | Ressource | Taille | Prix/mois |
 |-----------|--------|-----------|
 | Droplet | 2GB RAM, 1 vCPU | $12 |
-| PostgreSQL | 1GB RAM, 1 vCPU | $15 |
+| PostgreSQL | Installé sur droplet | $0 |
+| Redis | Installé sur droplet | $0 |
 | Bandwidth | 2TB inclus | $0 |
-| **Total** | | **$27/mois** |
+| **Total** | | **$12/mois** |
 
 ### Optimisation des coûts
 
-Pour réduire les coûts en dev:
+Pour réduire encore les coûts en dev:
 
 ```hcl
 # Dans terraform.tfvars
 environment = "dev"
 droplet_size = "s-1vcpu-1gb"      # $6/mois au lieu de $12
-db_cluster_size = "db-s-1vcpu-1gb" # $15/mois (minimum)
 ```
 
-**Dev:** ~$21/mois
+**Dev:** $6/mois
+**Production:** $12/mois (configuration actuelle)
 
 ## Détruire l'infrastructure
 

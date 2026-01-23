@@ -1,7 +1,7 @@
 #cloud-config
 
 # Cloud-init script pour provisionner le droplet DigitalOcean
-# Installe: Node.js 20, pnpm, PM2, Redis, nginx, PostgreSQL client
+# Installe: Node.js 20, pnpm, PM2, PostgreSQL, Redis, nginx
 
 package_update: true
 package_upgrade: true
@@ -11,7 +11,8 @@ packages:
   - curl
   - nginx
   - redis-server
-  - postgresql-client
+  - postgresql
+  - postgresql-contrib
   - ufw
 
 write_files:
@@ -76,10 +77,10 @@ write_files:
       WEATHERAPI_KEY=${weatherapi_key}
       ANTHROPIC_API_KEY=${anthropic_api_key}
 
-      # Database (PostgreSQL managed)
-      DATABASE_URL=${db_uri}
-      DB_HOST=${db_host}
-      DB_PORT=${db_port}
+      # Database (PostgreSQL local)
+      DATABASE_URL=postgresql://${db_username}:${db_password}@localhost:5432/${db_name}
+      DB_HOST=localhost
+      DB_PORT=5432
       DB_NAME=${db_name}
       DB_USER=${db_username}
       DB_PASSWORD=${db_password}
@@ -88,7 +89,7 @@ write_files:
       REDIS_URL=redis://localhost:6379
 
       # Backend URL
-      BACKEND_URL=${domain_name != "" ? "http://${domain_name}" : "http://${droplet_ip}"}
+      BACKEND_URL=${domain_name != "" ? "http://${domain_name}" : ""}
 
   # PM2 ecosystem file
   - path: /home/weatherapp/app/ecosystem.config.js
@@ -100,7 +101,7 @@ write_files:
           script: './server.js',
           instances: 1,
           exec_mode: 'cluster',
-          max_memory_restart: '400M',
+          max_memory_restart: '500M',
           node_args: '--max-old-space-size=16000',
           env: {
             NODE_ENV: 'production'
@@ -148,6 +149,20 @@ write_files:
 
       echo "✅ Deployment complete!"
 
+  # Script de backup PostgreSQL
+  - path: /home/weatherapp/backup-db.sh
+    owner: weatherapp:weatherapp
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      BACKUP_DIR="/home/weatherapp/backups"
+      TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+      mkdir -p $BACKUP_DIR
+      pg_dump -U ${db_username} ${db_name} > $BACKUP_DIR/db-backup-$TIMESTAMP.sql
+      echo "Backup saved to $BACKUP_DIR/db-backup-$TIMESTAMP.sql"
+      # Keep only last 7 backups
+      ls -t $BACKUP_DIR/db-backup-*.sql | tail -n +8 | xargs -r rm
+
 runcmd:
   # Install Node.js 20.x
   - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
@@ -155,6 +170,18 @@ runcmd:
 
   # Install pnpm globally
   - npm install -g pnpm pm2
+
+  # Configure PostgreSQL
+  - systemctl start postgresql
+  - systemctl enable postgresql
+  - |
+    sudo -u postgres psql << EOF
+    CREATE USER ${db_username} WITH PASSWORD '${db_password}';
+    CREATE DATABASE ${db_name} OWNER ${db_username};
+    GRANT ALL PRIVILEGES ON DATABASE ${db_name} TO ${db_username};
+    ALTER USER ${db_username} CREATEDB;
+    \q
+    EOF
 
   # Configure Redis
   - cat /etc/redis/redis.conf.append >> /etc/redis/redis.conf
@@ -204,7 +231,10 @@ runcmd:
   # Configure PM2 to start on boot
   - env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u weatherapp --hp /home/weatherapp
 
+  # Setup daily database backup cron job
+  - echo "0 2 * * * /home/weatherapp/backup-db.sh" | crontab -u weatherapp -
+
   # Write completion marker
   - echo "$(date) - Cloud-init completed" >> /var/log/cloud-init-complete.log
 
-final_message: "Weather App droplet provisioning complete! System is ready."
+final_message: "Weather App droplet provisioning complete! PostgreSQL, Redis, nginx and app are ready."
