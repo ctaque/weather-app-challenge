@@ -6,6 +6,10 @@ terraform {
       source  = "digitalocean/digitalocean"
       version = "~> 2.0"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.9"
+    }
   }
 }
 
@@ -18,6 +22,11 @@ data "digitalocean_ssh_key" "default" {
   name = var.ssh_key_name
 }
 
+# Reserved IP (Floating IP) - creates a static IP address
+resource "digitalocean_reserved_ip" "app" {
+  region = var.do_region
+}
+
 # Droplet (VM) with PostgreSQL, Redis, nginx
 resource "digitalocean_droplet" "app" {
   name   = "${var.project_name}-droplet"
@@ -27,22 +36,32 @@ resource "digitalocean_droplet" "app" {
 
   ssh_keys = [data.digitalocean_ssh_key.default.id]
 
+  # Cloud-init configuration with all application setup
   user_data = templatefile("${path.module}/cloud-init.yml", {
-    project_name      = var.project_name
-    weatherapi_key    = var.weatherapi_key
+    db_name          = var.db_name
+    db_username      = var.db_username
+    db_password      = var.db_password
+    weatherapi_key   = var.weatherapi_key
     anthropic_api_key = var.anthropic_api_key
-    db_name           = var.db_name
-    db_username       = var.db_username
-    db_password       = var.db_password
-    domain_name       = var.domain_name
+    domain_name      = var.domain_name
   })
 
   tags = [var.environment, var.project_name]
+}
 
-  # Prevent droplet recreation on user_data changes
-  lifecycle {
-    ignore_changes = [user_data]
-  }
+# Wait for droplet to be fully ready before assigning IP
+resource "time_sleep" "wait_for_droplet" {
+  depends_on = [digitalocean_droplet.app]
+
+  create_duration = "30s"
+}
+
+# Assign Reserved IP to droplet
+resource "digitalocean_reserved_ip_assignment" "app" {
+  depends_on = [time_sleep.wait_for_droplet]
+
+  ip_address = digitalocean_reserved_ip.app.ip_address
+  droplet_id = digitalocean_droplet.app.id
 }
 
 # Firewall

@@ -28,7 +28,7 @@ variable "droplet_size" {
 variable "droplet_image" {
   description = "Droplet OS image"
   type        = string
-  default     = "ubuntu-22-04-x64"
+  default     = "rockylinux-9-x64"
 }
 
 variable "ssh_key_name" {
@@ -79,7 +79,7 @@ variable "anthropic_api_key" {
 variable "domain_name" {
   description = "Domain name (optional)"
   type        = string
-  default     = ""
+  default     = "matambouille.quest"
 }
 
 # DigitalOcean API Token
