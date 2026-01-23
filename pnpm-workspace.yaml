@@ -1,7 +1,7 @@
 packages:
-  - '.'
+  - "."
 
 ignoredBuiltDependencies:
-  - '@vaadin/vaadin-usage-statistics'
+  - "@vaadin/vaadin-usage-statistics"
   - canvas
   - esbuild
