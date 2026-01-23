@@ -165,8 +165,10 @@ resource "aws_instance" "app" {
   subnet_id              = aws_subnet.public[0].id
   vpc_security_group_ids = [aws_security_group.ec2.id]
   key_name               = var.ec2_key_name
+  iam_instance_profile   = aws_iam_instance_profile.ec2_cloudwatch.name
 
   user_data = templatefile("${path.module}/user_data.sh", {
+    project_name      = var.project_name
     weatherapi_key    = var.weatherapi_key
     anthropic_api_key = var.anthropic_api_key
     db_host           = aws_db_instance.postgres.address
@@ -255,7 +257,7 @@ resource "aws_db_instance" "postgres" {
   skip_final_snapshot       = var.environment == "dev" ? true : false
   final_snapshot_identifier = "${var.project_name}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
   # heletion_protection       = var.environment == "prod" ? true : false
-  deletion_protection       = false
+  deletion_protection = false
 
   # Pas de multi-AZ pour économiser
   multi_az = false
@@ -320,17 +322,6 @@ resource "aws_s3_bucket_policy" "assets" {
   })
 
   depends_on = [aws_s3_bucket_public_access_block.assets]
-}
-
-# CloudWatch pour logs et monitoring
-resource "aws_cloudwatch_log_group" "app" {
-  name              = "/aws/ec2/${var.project_name}"
-  retention_in_days = 7
-
-  tags = {
-    Name        = "${var.project_name}-logs"
-    Environment = var.environment
-  }
 }
 
 # Data sources

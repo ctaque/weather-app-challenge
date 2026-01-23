@@ -10,8 +10,8 @@ echo "Starting user data script..."
 # Update system
 dnf update -y
 
-# Install Node.js 20.x
-dnf install -y nodejs npm git redis6 nginx
+# Install Node.js 20.x, CloudWatch agent et autres outils
+dnf install -y nodejs npm git redis6 nginx amazon-cloudwatch-agent
 
 # Enable pnpm
 npm install -g pnpm pm2
@@ -114,6 +114,117 @@ NGINX
 # Enable and start Nginx
 systemctl enable nginx
 systemctl start nginx
+
+# Configure CloudWatch Agent
+cat > /opt/aws/amazon-cloudwatch-agent/etc/cloudwatch-config.json <<'CWCONFIG'
+{
+  "agent": {
+    "metrics_collection_interval": 60,
+    "run_as_user": "cwagent"
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/home/weatherapp/logs/out.log",
+            "log_group_name": "/aws/ec2/${project_name}",
+            "log_stream_name": "application",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S %Z"
+          },
+          {
+            "file_path": "/home/weatherapp/logs/err.log",
+            "log_group_name": "/aws/ec2/${project_name}",
+            "log_stream_name": "application-errors",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S %Z"
+          },
+          {
+            "file_path": "/var/log/nginx/access.log",
+            "log_group_name": "/aws/ec2/${project_name}",
+            "log_stream_name": "nginx-access"
+          },
+          {
+            "file_path": "/var/log/nginx/error.log",
+            "log_group_name": "/aws/ec2/${project_name}",
+            "log_stream_name": "nginx-error"
+          },
+          {
+            "file_path": "/var/log/redis6/redis6.log",
+            "log_group_name": "/aws/ec2/${project_name}",
+            "log_stream_name": "redis"
+          },
+          {
+            "file_path": "/var/log/messages",
+            "log_group_name": "/aws/ec2/${project_name}",
+            "log_stream_name": "system"
+          },
+          {
+            "file_path": "/var/log/user-data.log",
+            "log_group_name": "/aws/ec2/${project_name}",
+            "log_stream_name": "user-data"
+          }
+        ]
+      }
+    }
+  },
+  "metrics": {
+    "namespace": "WeatherApp",
+    "metrics_collected": {
+      "cpu": {
+        "measurement": [
+          {
+            "name": "cpu_usage_idle",
+            "rename": "CPU_IDLE",
+            "unit": "Percent"
+          },
+          "cpu_usage_iowait"
+        ],
+        "metrics_collection_interval": 60,
+        "totalcpu": false
+      },
+      "disk": {
+        "measurement": [
+          {
+            "name": "used_percent",
+            "rename": "DISK_USED",
+            "unit": "Percent"
+          }
+        ],
+        "metrics_collection_interval": 60,
+        "resources": [
+          "*"
+        ]
+      },
+      "diskio": {
+        "measurement": [
+          "io_time"
+        ],
+        "metrics_collection_interval": 60
+      },
+      "mem": {
+        "measurement": [
+          {
+            "name": "mem_used_percent",
+            "rename": "MEM_USED",
+            "unit": "Percent"
+          }
+        ],
+        "metrics_collection_interval": 60
+      }
+    }
+  }
+}
+CWCONFIG
+
+# Start CloudWatch Agent
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config \
+  -m ec2 \
+  -s \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/cloudwatch-config.json
+
+# Enable CloudWatch Agent to start on boot
+systemctl enable amazon-cloudwatch-agent
 
 # Create PM2 ecosystem file
 cat > /home/weatherapp/app/ecosystem.config.js <<'EOF'

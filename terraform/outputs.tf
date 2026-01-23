@@ -38,3 +38,24 @@ output "ssh_command" {
   description = "SSH command to connect to EC2"
   value       = "ssh -i ~/.ssh/${var.ec2_key_name}.pem ec2-user@${aws_eip.app.public_ip}"
 }
+
+# CloudWatch Outputs
+output "cloudwatch_log_group" {
+  description = "CloudWatch log group name"
+  value       = aws_cloudwatch_log_group.ec2_main.name
+}
+
+output "cloudwatch_dashboard_url" {
+  description = "CloudWatch dashboard URL"
+  value       = "https://console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${aws_cloudwatch_dashboard.main.dashboard_name}"
+}
+
+output "cloudwatch_logs_url" {
+  description = "CloudWatch logs URL"
+  value       = "https://console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#logsV2:log-groups/log-group/${replace(aws_cloudwatch_log_group.ec2_main.name, "/", "$252F")}"
+}
+
+output "cloudwatch_tail_command" {
+  description = "AWS CLI command to tail CloudWatch logs"
+  value       = "aws logs tail ${aws_cloudwatch_log_group.ec2_main.name} --follow"
+}
