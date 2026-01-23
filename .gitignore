@@ -4,3 +4,4 @@ dist
 .env
 .envrc
 .cache
+.env.production.example
