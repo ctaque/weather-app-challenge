@@ -1,0 +1,251 @@
+# GitHub Actions - Déploiement automatique sur DigitalOcean
+#
+# Configuration requise:
+# 1. Créer les secrets dans GitHub Settings > Secrets and variables > Actions:
+#    - DO_SSH_PRIVATE_KEY: Votre clé SSH privée (contenu complet)
+#    - DROPLET_IP: IP publique du droplet (obtenue après terraform apply)
+#    - WEATHERAPI_KEY: Clé API WeatherAPI
+#    - ANTHROPIC_API_KEY: Clé API Anthropic
+#
+# 2. S'assurer que la clé SSH publique correspondante est sur le droplet
+#
+# 3. Push vers main pour déclencher le déploiement
+
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # Permet déclenchement manuel
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "10"
+
+jobs:
+  # Job 1: Build et test
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+  # Job 2: Déployer sur DigitalOcean Droplet
+  deploy-droplet:
+    name: Deploy to Droplet
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Check droplet configuration
+        id: check-secrets
+        run: |
+          if [ -z "${{ secrets.DROPLET_IP }}" ] || [ -z "${{ secrets.DO_SSH_PRIVATE_KEY }}" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo ""
+            echo "ℹ️  Droplet deployment is not configured"
+            echo ""
+            echo "To enable deployment, add these secrets in GitHub Settings:"
+            echo "  Settings > Secrets and variables > Actions > New repository secret"
+            echo ""
+            echo "Required secrets:"
+            echo "  - DROPLET_IP: Your droplet public IP address"
+            echo "  - DO_SSH_PRIVATE_KEY: Your SSH private key content"
+            echo ""
+            echo "Get the droplet IP after running: terraform apply"
+            echo ""
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup SSH
+        if: steps.check-secrets.outputs.configured == 'true'
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DO_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          # Test SSH connectivity
+          echo "Testing connection to ${{ secrets.DROPLET_IP }}..."
+          if timeout 10 bash -c "echo > /dev/tcp/${{ secrets.DROPLET_IP }}/22" 2>/dev/null; then
+            echo "✅ Port 22 is reachable"
+            ssh-keyscan -H -T 10 ${{ secrets.DROPLET_IP }} >> ~/.ssh/known_hosts 2>&1 || {
+              echo "⚠️  ssh-keyscan failed, using permissive config"
+              echo "StrictHostKeyChecking no" >> ~/.ssh/config
+              echo "UserKnownHostsFile /dev/null" >> ~/.ssh/config
+            }
+          else
+            echo "❌ Cannot connect to ${{ secrets.DROPLET_IP }}:22"
+            echo ""
+            echo "Possible issues:"
+            echo "  1. Droplet may be stopped"
+            echo "  2. Firewall blocking SSH"
+            echo "  3. Incorrect DROPLET_IP secret"
+            exit 1
+          fi
+
+      - name: Deploy to Droplet
+        if: steps.check-secrets.outputs.configured == 'true'
+        env:
+          DROPLET_IP: ${{ secrets.DROPLET_IP }}
+        run: |
+          # Create deployment archive
+          echo "📦 Creating deployment archive..."
+          tar -czf app.tar.gz \
+            --exclude=node_modules \
+            --exclude=.git \
+            --exclude=terraform \
+            --exclude=.github \
+            .
+
+          # Upload to droplet
+          echo "📤 Uploading to droplet..."
+          scp -i ~/.ssh/deploy_key app.tar.gz root@$DROPLET_IP:/tmp/
+
+          # Deploy on droplet
+          echo "🚀 Deploying application..."
+          ssh -i ~/.ssh/deploy_key root@$DROPLET_IP << 'ENDSSH'
+            set -e
+
+            # Switch to weatherapp user
+            sudo -u weatherapp bash << 'EOF'
+              cd /home/weatherapp/app
+
+              # Backup current version
+              echo "💾 Creating backup..."
+              mkdir -p /home/weatherapp/backups
+              tar -czf /home/weatherapp/backups/app-$(date +%Y%m%d-%H%M%S).tar.gz . || true
+
+              # Extract new version
+              echo "📦 Extracting new version..."
+              tar -xzf /tmp/app.tar.gz
+
+              # Install dependencies
+              echo "📥 Installing dependencies..."
+              pnpm install --prod
+
+              # Build frontend
+              echo "🔨 Building frontend..."
+              pnpm run build
+
+              # Restart with PM2
+              echo "♻️  Restarting application..."
+              pm2 restart ecosystem.config.js --update-env || pm2 start ecosystem.config.js
+
+              # Save PM2 config
+              pm2 save
+
+              # Wait and check status
+              sleep 3
+              pm2 status
+
+              echo "✅ Deployment successful!"
+          EOF
+
+          # Cleanup
+          rm -f /tmp/app.tar.gz
+          ENDSSH
+
+      - name: Health check
+        if: steps.check-secrets.outputs.configured == 'true'
+        env:
+          DROPLET_IP: ${{ secrets.DROPLET_IP }}
+        run: |
+          # Wait for app to start
+          echo "⏳ Waiting for application to start..."
+          sleep 10
+
+          # Test HTTP endpoint
+          echo "🏥 Running health check..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://$DROPLET_IP)
+
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "304" ]; then
+            echo "✅ Deployment successful! HTTP $HTTP_CODE"
+            echo "🌐 Application URL: http://$DROPLET_IP"
+          else
+            echo "❌ Health check failed! HTTP $HTTP_CODE"
+            echo "Check application logs on the droplet:"
+            echo "  ssh root@$DROPLET_IP 'sudo -u weatherapp pm2 logs'"
+            exit 1
+          fi
+
+  # Job 3: Notification
+  notify:
+    name: Notify
+    needs: [build, deploy-droplet]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Deployment status
+        run: |
+          BUILD_RESULT="${{ needs.build.result }}"
+          DEPLOY_RESULT="${{ needs.deploy-droplet.result }}"
+
+          echo "📊 Deployment Summary"
+          echo "===================="
+          echo "Build: $BUILD_RESULT"
+          echo "Deploy: $DEPLOY_RESULT"
+          echo ""
+
+          if [ "$BUILD_RESULT" == "success" ]; then
+            echo "✅ Build succeeded!"
+          else
+            echo "❌ Build failed!"
+            exit 1
+          fi
+
+          if [ "$DEPLOY_RESULT" == "success" ]; then
+            echo "✅ Droplet deployment succeeded!"
+          elif [ "$DEPLOY_RESULT" == "skipped" ]; then
+            echo "⏭️  Droplet deployment skipped (secrets not configured)"
+          else
+            echo "❌ Droplet deployment failed!"
+            exit 1
+          fi

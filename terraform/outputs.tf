@@ -1,61 +1,89 @@
-output "ec2_public_ip" {
-  description = "EC2 public IP address"
-  value       = aws_eip.app.public_ip
+# DigitalOcean Outputs
+
+output "droplet_ip" {
+  description = "Droplet public IP address"
+  value       = digitalocean_droplet.app.ipv4_address
 }
 
-output "ec2_instance_id" {
-  description = "EC2 instance ID"
-  value       = aws_instance.app.id
+output "droplet_id" {
+  description = "Droplet ID"
+  value       = digitalocean_droplet.app.id
 }
 
-output "rds_endpoint" {
-  description = "RDS PostgreSQL endpoint"
-  value       = aws_db_instance.postgres.endpoint
+output "droplet_name" {
+  description = "Droplet name"
+  value       = digitalocean_droplet.app.name
 }
 
-output "rds_address" {
-  description = "RDS PostgreSQL address"
-  value       = aws_db_instance.postgres.address
+output "droplet_region" {
+  description = "Droplet region"
+  value       = digitalocean_droplet.app.region
 }
 
-output "s3_bucket_name" {
-  description = "S3 bucket name for assets"
-  value       = aws_s3_bucket.assets.id
+output "db_host" {
+  description = "PostgreSQL database host (private)"
+  value       = digitalocean_database_cluster.postgres.private_host
 }
 
-output "s3_website_endpoint" {
-  description = "S3 website endpoint"
-  value       = aws_s3_bucket_website_configuration.assets.website_endpoint
+output "db_port" {
+  description = "PostgreSQL database port"
+  value       = digitalocean_database_cluster.postgres.port
 }
 
-output "connection_string" {
-  description = "PostgreSQL connection string"
-  value       = "postgresql://${var.db_username}:${var.db_password}@${aws_db_instance.postgres.address}:5432/${var.db_name}"
+output "db_connection_uri" {
+  description = "PostgreSQL connection URI (private network)"
+  value       = digitalocean_database_cluster.postgres.private_uri
+  sensitive   = true
+}
+
+output "db_public_host" {
+  description = "PostgreSQL database host (public)"
+  value       = digitalocean_database_cluster.postgres.host
+}
+
+output "db_database" {
+  description = "Database name"
+  value       = digitalocean_database_db.app_db.name
+}
+
+output "db_username" {
+  description = "Database username"
+  value       = digitalocean_database_user.app_user.name
+}
+
+output "db_password" {
+  description = "Database password"
+  value       = digitalocean_database_user.app_user.password
   sensitive   = true
 }
 
 output "ssh_command" {
-  description = "SSH command to connect to EC2"
-  value       = "ssh -i ~/.ssh/${var.ec2_key_name}.pem ec2-user@${aws_eip.app.public_ip}"
+  description = "SSH command to connect to droplet"
+  value       = "ssh root@${digitalocean_droplet.app.ipv4_address}"
 }
 
-# CloudWatch Outputs
-output "cloudwatch_log_group" {
-  description = "CloudWatch log group name"
-  value       = aws_cloudwatch_log_group.ec2_main.name
+output "app_url" {
+  description = "Application URL"
+  value       = var.domain_name != "" ? "http://${var.domain_name}" : "http://${digitalocean_droplet.app.ipv4_address}"
 }
 
-output "cloudwatch_dashboard_url" {
-  description = "CloudWatch dashboard URL"
-  value       = "https://console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${aws_cloudwatch_dashboard.main.dashboard_name}"
+output "deployment_script" {
+  description = "Command to trigger deployment on droplet"
+  value       = "ssh root@${digitalocean_droplet.app.ipv4_address} 'sudo -u weatherapp /home/weatherapp/deploy.sh'"
 }
 
-output "cloudwatch_logs_url" {
-  description = "CloudWatch logs URL"
-  value       = "https://console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#logsV2:log-groups/log-group/${replace(aws_cloudwatch_log_group.ec2_main.name, "/", "$252F")}"
-}
-
-output "cloudwatch_tail_command" {
-  description = "AWS CLI command to tail CloudWatch logs"
-  value       = "aws logs tail ${aws_cloudwatch_log_group.ec2_main.name} --follow"
+# Quick reference commands
+output "useful_commands" {
+  description = "Useful commands for managing the infrastructure"
+  value = {
+    ssh              = "ssh root@${digitalocean_droplet.app.ipv4_address}"
+    ssh_weatherapp   = "ssh root@${digitalocean_droplet.app.ipv4_address} -t 'sudo -u weatherapp bash'"
+    deploy           = "ssh root@${digitalocean_droplet.app.ipv4_address} 'sudo -u weatherapp /home/weatherapp/deploy.sh'"
+    logs             = "ssh root@${digitalocean_droplet.app.ipv4_address} 'tail -f /home/weatherapp/logs/*.log'"
+    pm2_status       = "ssh root@${digitalocean_droplet.app.ipv4_address} 'sudo -u weatherapp pm2 status'"
+    pm2_restart      = "ssh root@${digitalocean_droplet.app.ipv4_address} 'sudo -u weatherapp pm2 restart all'"
+    nginx_status     = "ssh root@${digitalocean_droplet.app.ipv4_address} 'systemctl status nginx'"
+    redis_status     = "ssh root@${digitalocean_droplet.app.ipv4_address} 'systemctl status redis-server'"
+    check_cloud_init = "ssh root@${digitalocean_droplet.app.ipv4_address} 'tail -f /var/log/cloud-init-output.log'"
+  }
 }

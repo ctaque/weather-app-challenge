@@ -1,7 +1,9 @@
-variable "aws_region" {
-  description = "AWS region"
+# DigitalOcean Variables
+
+variable "do_region" {
+  description = "DigitalOcean region"
   type        = string
-  default     = "eu-west-3" # Paris - le moins cher en Europe
+  default     = "fra1" # Frankfurt - proche de la France
 }
 
 variable "environment" {
@@ -16,29 +18,36 @@ variable "project_name" {
   default     = "weather-app"
 }
 
-# EC2
-variable "ec2_instance_type" {
-  description = "EC2 instance type"
+# Droplet
+variable "droplet_size" {
+  description = "Droplet size/plan"
   type        = string
-  default     = "t3.micro" # Free tier eligible
+  default     = "s-1vcpu-2gb" # 2GB RAM, 1 vCPU - $12/mois
 }
 
-variable "ec2_key_name" {
-  description = "EC2 SSH key pair name"
+variable "droplet_image" {
+  description = "Droplet OS image"
   type        = string
+  default     = "ubuntu-22-04-x64"
+}
+
+variable "ssh_public_key_path" {
+  description = "Path to SSH public key"
+  type        = string
+  default     = "~/.ssh/id_rsa.pub"
 }
 
 variable "ssh_allowed_ips" {
-  description = "IPs allowed to SSH to EC2"
+  description = "IPs allowed to SSH to droplet (use ['0.0.0.0/0', '::/0'] for all)"
   type        = list(string)
-  default     = ["0.0.0.0/0"] # À restreindre en production!
+  default     = ["0.0.0.0/0", "::/0"]
 }
 
-# RDS
-variable "rds_instance_type" {
-  description = "RDS instance type"
+# Database PostgreSQL (Managed)
+variable "db_cluster_size" {
+  description = "Database cluster size"
   type        = string
-  default     = "db.t4g.micro" # Le moins cher
+  default     = "db-s-1vcpu-1gb" # 1GB RAM, 1 vCPU - $15/mois
 }
 
 variable "db_name" {
@@ -51,12 +60,6 @@ variable "db_username" {
   description = "PostgreSQL username"
   type        = string
   default     = "weatherapp_user"
-}
-
-variable "db_password" {
-  description = "PostgreSQL password"
-  type        = string
-  sensitive   = true
 }
 
 # Application secrets
@@ -77,4 +80,11 @@ variable "domain_name" {
   description = "Domain name (optional)"
   type        = string
   default     = ""
+}
+
+# DigitalOcean API Token
+variable "do_token" {
+  description = "DigitalOcean API token"
+  type        = string
+  sensitive   = true
 }

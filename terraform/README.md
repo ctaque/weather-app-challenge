@@ -1,74 +1,77 @@
-# Déploiement AWS avec Terraform
+# Weather App - Infrastructure Terraform (DigitalOcean)
 
-Infrastructure optimisée pour minimiser les coûts (~12-18€/mois).
+Infrastructure as Code pour déployer Weather App sur DigitalOcean.
 
 ## Architecture
 
-- **EC2 t3.micro**: Node.js + Redis (Free Tier eligible)
-- **RDS PostgreSQL db.t4g.micro**: Base de données avec sauvegardes
-- **S3**: Stockage assets statiques
-- **Elastic IP**: IP publique fixe
-- **CloudWatch**: Logs et monitoring
+L'infrastructure déploie:
 
-## Coûts Estimés (eu-west-3 Paris)
+- **Droplet** (VM Ubuntu 22.04) avec:
+  - Node.js 20
+  - pnpm + PM2
+  - Redis (local)
+  - nginx (reverse proxy)
 
-| Service | Type | Coût/mois |
-|---------|------|-----------|
-| EC2 t3.micro | On-Demand | 0€ (750h Free Tier) ou 8€ |
-| RDS db.t4g.micro | PostgreSQL | 0€ (750h Free Tier) ou 13€ |
-| EBS gp3 20GB | Stockage EC2 | 2€ |
-| RDS Storage 20GB | Stockage DB | 2€ |
-| Elastic IP | IP fixe | 0€ (attachée) |
-| S3 | Assets | <1€ |
-| **Total** | | **4-25€/mois** |
+- **PostgreSQL Managed Database** (1 node)
+  - PostgreSQL 16
+  - Réseau privé pour connexion sécurisée
+  - Backups automatiques
 
-> Free Tier AWS: 12 mois gratuits pour EC2 t3.micro et RDS db.t4g.micro
+- **Firewall** configuré pour HTTP, HTTPS, SSH
 
 ## Prérequis
 
-### 1. Installer Terraform
+### 1. Compte DigitalOcean
+
+Créez un compte sur [DigitalOcean](https://www.digitalocean.com/)
+
+### 2. Token API DigitalOcean
+
+1. Connectez-vous à DigitalOcean
+2. Allez dans **API** → **Tokens/Keys**
+3. Cliquez sur **Generate New Token**
+4. Nommez-le "terraform-weather-app"
+5. Sélectionnez **Read** et **Write**
+6. Copiez le token (il ne sera affiché qu'une fois!)
+
+### 3. Clé SSH
+
+Si vous n'avez pas de clé SSH:
+
+```bash
+ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+# Appuyez sur Entrée pour accepter l'emplacement par défaut
+```
+
+Votre clé publique sera dans `~/.ssh/id_rsa.pub`
+
+### 4. Terraform installé
 
 ```bash
 # macOS
 brew install terraform
 
 # Linux
-wget https://releases.hashicorp.com/terraform/1.7.0/terraform_1.7.0_linux_amd64.zip
-unzip terraform_1.7.0_linux_amd64.zip
+wget https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_amd64.zip
+unzip terraform_1.6.0_linux_amd64.zip
 sudo mv terraform /usr/local/bin/
+
+# Vérifier
+terraform version
 ```
-
-### 2. Configurer AWS CLI
-
-```bash
-# Installer AWS CLI
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
-
-# Configurer les credentials
-aws configure
-```
-
-Vous aurez besoin de:
-- AWS Access Key ID
-- AWS Secret Access Key
-- Region: `eu-west-3`
-
-### 3. Créer une clé SSH
-
-Dans la console AWS EC2 > Key Pairs:
-1. Créer une nouvelle paire de clés
-2. Télécharger le fichier `.pem`
-3. `chmod 400 ~/.ssh/your-key.pem`
 
 ## Installation
 
-### 1. Configuration
+### 1. Cloner le projet
 
 ```bash
-cd terraform/
+git clone https://github.com/ctaque/weather-app-challenge.git
+cd weather-app-challenge/terraform
+```
 
+### 2. Configurer les variables
+
+```bash
 # Copier le fichier d'exemple
 cp terraform.tfvars.example terraform.tfvars
 
@@ -76,28 +79,41 @@ cp terraform.tfvars.example terraform.tfvars
 nano terraform.tfvars
 ```
 
-**Important**: Modifier ces valeurs dans `terraform.tfvars`:
-- `ec2_key_name`: Nom de votre clé SSH AWS
-- `db_password`: Mot de passe PostgreSQL fort
-- `weatherapi_key`: Votre clé WeatherAPI
-- `anthropic_api_key`: Votre clé Anthropic
-- `ssh_allowed_ips`: Votre IP publique (sécurité)
+**Variables requises dans `terraform.tfvars`:**
 
-### 2. Initialiser Terraform
+```hcl
+# Token API DigitalOcean
+do_token = "dop_v1_xxxxxxxxxxxxx"
+
+# Clés API
+weatherapi_key    = "your_weatherapi_key"
+anthropic_api_key = "sk-ant-xxxxx"
+
+# SSH (optionnel - par défaut ~/.ssh/id_rsa.pub)
+ssh_public_key_path = "~/.ssh/id_rsa.pub"
+
+# Région (optionnel - par défaut fra1)
+do_region = "fra1"
+
+# Domain (optionnel)
+domain_name = ""  # Laissez vide pour utiliser l'IP
+```
+
+### 3. Initialiser Terraform
 
 ```bash
 terraform init
 ```
 
-### 3. Vérifier le plan
+### 4. Vérifier le plan
 
 ```bash
 terraform plan
 ```
 
-Vérifiez les ressources qui seront créées.
+Terraform affichera toutes les ressources qui seront créées.
 
-### 4. Déployer l'infrastructure
+### 5. Déployer l'infrastructure
 
 ```bash
 terraform apply
@@ -105,293 +121,299 @@ terraform apply
 
 Tapez `yes` pour confirmer.
 
-⏱️ Durée: ~10-15 minutes
+**Durée:** ~5-10 minutes (la base de données prend du temps à provisionner)
 
-### 5. Récupérer les informations
+### 6. Récupérer les informations
 
 ```bash
-# IP publique de l'EC2
-terraform output ec2_public_ip
+# IP du droplet
+terraform output droplet_ip
 
-# Endpoint PostgreSQL
-terraform output rds_endpoint
-
-# Bucket S3
-terraform output s3_bucket_name
+# Toutes les informations
+terraform output
 
 # Commande SSH
 terraform output ssh_command
 ```
 
-## Déploiement de l'Application
+## Utilisation
 
-### 1. Se connecter à l'EC2
+### Se connecter au droplet
 
 ```bash
-ssh -i ~/.ssh/your-key.pem ec2-user@<EC2_PUBLIC_IP>
+# Via Terraform output
+$(terraform output -raw ssh_command)
+
+# Ou directement
+ssh root@<DROPLET_IP>
 ```
 
-### 2. Uploader le code
-
-**Option A: Git (recommandé)**
+### Vérifier l'application
 
 ```bash
-# Sur l'EC2
-sudo su - weatherapp
-cd ~/app
-git clone https://github.com/votre-username/weather-app.git .
-```
+# Se connecter en tant que weatherapp user
+ssh root@<DROPLET_IP> -t 'sudo -u weatherapp bash'
 
-**Option B: SCP (depuis votre machine)**
-
-```bash
-# Créer une archive
-tar -czf app.tar.gz --exclude=node_modules --exclude=dist --exclude=.git .
-
-# Uploader
-scp -i ~/.ssh/your-key.pem app.tar.gz ec2-user@<EC2_IP>:/tmp/
-
-# Sur l'EC2
-sudo su - weatherapp
-cd ~/app
-tar -xzf /tmp/app.tar.gz
-```
-
-### 3. Installer et démarrer
-
-```bash
-# En tant qu'utilisateur weatherapp
-cd ~/app
-
-# Installer les dépendances
-pnpm install
-
-# Build le frontend
-pnpm run build
-
-# Démarrer avec PM2
-pm2 start ecosystem.config.js
-pm2 save
-```
-
-### 4. Vérifier
-
-```bash
-# Status PM2
+# Voir le statut PM2
 pm2 status
 
-# Logs
+# Voir les logs
 pm2 logs
 
-# Nginx status
-sudo systemctl status nginx
-
-# Redis status
-sudo systemctl status redis6
+# Ou depuis votre machine
+terraform output -json useful_commands | jq -r '.pm2_status'
 ```
 
-### 5. Accéder à l'application
+### Déployer une nouvelle version
 
-Ouvrez dans votre navigateur:
-```
-http://<EC2_PUBLIC_IP>
-```
-
-## Sauvegardes PostgreSQL
-
-### Automatiques (RDS)
-
-- **Quotidiennes**: Activées par défaut
-- **Rétention**: 7 jours
-- **Fenêtre**: 03:00-04:00 UTC
-- **Point-in-Time Recovery**: Jusqu'à 5 minutes
-
-### Manuelles
+Utilisez le script de déploiement:
 
 ```bash
-# Créer un snapshot
-aws rds create-db-snapshot \
-  --db-instance-identifier weather-app-db \
-  --db-snapshot-identifier weather-app-manual-$(date +%Y%m%d)
+ssh root@<DROPLET_IP> 'sudo -u weatherapp /home/weatherapp/deploy.sh'
 
-# Lister les snapshots
-aws rds describe-db-snapshots \
-  --db-instance-identifier weather-app-db
+# Ou via Terraform output
+$(terraform output -raw deployment_script)
 ```
 
-### Restauration
+### Accéder à l'application
 
 ```bash
-# Restaurer depuis un snapshot
-aws rds restore-db-instance-from-db-snapshot \
-  --db-instance-identifier weather-app-db-restored \
-  --db-snapshot-identifier weather-app-manual-20260123
+# Récupérer l'URL
+terraform output app_url
+
+# Ouvrir dans le navigateur
+open $(terraform output -raw app_url)
+```
+
+## GitHub Actions
+
+Le déploiement automatique est configuré dans `.github/workflows/deploy-digitalocean.yml`
+
+### Configuration requise
+
+Ajoutez ces secrets dans GitHub:
+
+**Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+
+1. **DROPLET_IP**: L'IP publique du droplet (récupérée avec `terraform output droplet_ip`)
+2. **DO_SSH_PRIVATE_KEY**: Votre clé SSH privée complète
+
+```bash
+# Récupérer votre clé privée
+cat ~/.ssh/id_rsa
+# Copiez TOUT le contenu (de -----BEGIN à -----END-----)
+```
+
+3. **WEATHERAPI_KEY**: Votre clé WeatherAPI
+4. **ANTHROPIC_API_KEY**: Votre clé Anthropic
+
+### Déclenchement
+
+Le déploiement se lance automatiquement à chaque push sur `main`:
+
+```bash
+git add .
+git commit -m "Update feature"
+git push origin main
+```
+
+Le workflow va:
+1. ✅ Build l'application
+2. 📦 Créer une archive
+3. 📤 Uploader sur le droplet
+4. 🚀 Déployer avec PM2
+5. 🏥 Health check
+
+## Gestion
+
+### Mettre à jour l'infrastructure
+
+```bash
+# Modifier variables.tf ou main.tf
+nano variables.tf
+
+# Appliquer les changements
+terraform plan
+terraform apply
+```
+
+### Redimensionner le droplet
+
+```bash
+# Éditer terraform.tfvars
+droplet_size = "s-2vcpu-4gb"  # 4GB RAM au lieu de 2GB
+
+# Appliquer (nécessite redémarrage du droplet!)
+terraform apply
+```
+
+### Redimensionner la base de données
+
+```bash
+# Éditer terraform.tfvars
+db_cluster_size = "db-s-2vcpu-4gb"
+
+# Appliquer (peut prendre plusieurs minutes)
+terraform apply
+```
+
+### Sauvegarder la base de données
+
+```bash
+# Se connecter au droplet
+ssh root@<DROPLET_IP>
+
+# Dump de la base
+pg_dump $(terraform output -raw db_connection_uri) > backup.sql
+
+# Ou utiliser le script fourni
+./backup-db.sh
+```
+
+### Restaurer une sauvegarde
+
+```bash
+psql $(terraform output -raw db_connection_uri) < backup.sql
 ```
 
 ## Monitoring
 
-### CloudWatch Logs
+### Logs de l'application
 
 ```bash
-# Voir les logs
-aws logs tail /aws/ec2/weather-app --follow
+# Via SSH
+ssh root@<DROPLET_IP> 'tail -f /home/weatherapp/logs/*.log'
+
+# PM2 logs
+ssh root@<DROPLET_IP> 'sudo -u weatherapp pm2 logs'
 ```
 
-### Métriques RDS
+### Métriques du droplet
 
-- CPU, Mémoire, Connexions
-- Performance Insights (gratuit)
-- Alertes CloudWatch
+Disponibles dans le **DigitalOcean Dashboard**:
+- Droplets → Votre droplet → Graphs
 
-### PM2 Monitoring
+Affiche:
+- CPU usage
+- Memory usage
+- Disk I/O
+- Network traffic
 
-```bash
-# Sur l'EC2
-pm2 monit
+### Monitoring de la base de données
+
+Dashboard PostgreSQL:
+- Databases → Votre cluster → Insights
+
+Affiche:
+- Queries per second
+- CPU & Memory
+- Connection pool
+
+## Coûts
+
+### Infrastructure mensuelle
+
+| Ressource | Taille | Prix/mois |
+|-----------|--------|-----------|
+| Droplet | 2GB RAM, 1 vCPU | $12 |
+| PostgreSQL | 1GB RAM, 1 vCPU | $15 |
+| Bandwidth | 2TB inclus | $0 |
+| **Total** | | **$27/mois** |
+
+### Optimisation des coûts
+
+Pour réduire les coûts en dev:
+
+```hcl
+# Dans terraform.tfvars
+environment = "dev"
+droplet_size = "s-1vcpu-1gb"      # $6/mois au lieu de $12
+db_cluster_size = "db-s-1vcpu-1gb" # $15/mois (minimum)
 ```
 
-## Mise à jour de l'application
+**Dev:** ~$21/mois
+
+## Détruire l'infrastructure
+
+⚠️ **ATTENTION**: Ceci supprime TOUT de manière irréversible!
 
 ```bash
-# SSH vers EC2
-ssh -i ~/.ssh/your-key.pem ec2-user@<EC2_IP>
-
-# Exécuter le script de déploiement
-sudo su - weatherapp
-./deploy.sh
-```
-
-Ou manuellement:
-```bash
-cd ~/app
-git pull
-pnpm install
-pnpm run build
-pm2 restart all
-```
-
-## Optimisations de Coûts
-
-### 1. Arrêter les instances hors production
-
-```bash
-# Arrêter EC2 (économise ~8€/mois)
-aws ec2 stop-instances --instance-ids <INSTANCE_ID>
-
-# Arrêter RDS (économise ~13€/mois)
-aws rds stop-db-instance --db-instance-identifier weather-app-db
-```
-
-> RDS redémarre automatiquement après 7 jours.
-
-### 2. Reserved Instances (engagement 1-3 ans)
-
-- **EC2**: -40% de réduction
-- **RDS**: -35% de réduction
-
-### 3. Spot Instances (pour dev/staging uniquement)
-
-- **EC2**: -70% de réduction
-- Risque d'interruption
-
-### 4. Supprimer les snapshots anciens
-
-```bash
-# Lister les snapshots
-aws rds describe-db-snapshots --db-instance-identifier weather-app-db
-
-# Supprimer un snapshot
-aws rds delete-db-snapshot --db-snapshot-identifier <SNAPSHOT_ID>
-```
-
-## Domaine Personnalisé (Optionnel)
-
-### Avec Route 53
-
-```bash
-# Créer une zone hébergée
-aws route53 create-hosted-zone --name votre-domaine.com --caller-reference $(date +%s)
-
-# Créer un record A vers l'IP EC2
-# (via console AWS Route 53)
-```
-
-### Avec SSL/TLS (Let's Encrypt)
-
-```bash
-# Sur l'EC2
-sudo dnf install -y certbot python3-certbot-nginx
-
-# Obtenir un certificat
-sudo certbot --nginx -d votre-domaine.com
-
-# Renouvellement automatique
-sudo systemctl enable certbot-renew.timer
-```
-
-## Destruction de l'infrastructure
-
-⚠️ **ATTENTION**: Cela supprimera tout!
-
-```bash
-# Désactiver la protection de suppression RDS d'abord
-aws rds modify-db-instance \
-  --db-instance-identifier weather-app-db \
-  --no-deletion-protection
+# Sauvegarder d'abord la base de données!
+./backup-db.sh
 
 # Détruire
 terraform destroy
+
+# Confirmer en tapant: yes
 ```
 
 ## Dépannage
 
-### EC2 ne répond pas
+### Le droplet ne répond pas
 
 ```bash
-# Vérifier les logs user-data
-ssh -i ~/.ssh/your-key.pem ec2-user@<EC2_IP>
-sudo cat /var/log/user-data.log
+# Vérifier le statut via DigitalOcean Dashboard
+# Droplets → Votre droplet → Status
 
-# Redémarrer Nginx
-sudo systemctl restart nginx
-
-# Vérifier PM2
-sudo su - weatherapp
-pm2 status
-pm2 logs
+# Redémarrer via console DigitalOcean
+# Dashboard → Droplets → Power → Reboot
 ```
 
-### RDS inaccessible
+### L'application ne démarre pas
 
 ```bash
-# Vérifier le security group
-aws ec2 describe-security-groups --group-ids <RDS_SG_ID>
+# Se connecter et vérifier les logs
+ssh root@<DROPLET_IP>
+sudo -u weatherapp pm2 logs
 
-# Tester la connexion depuis EC2
-sudo dnf install -y postgresql15
-psql -h <RDS_ENDPOINT> -U weatherapp_user -d weatherapp
+# Vérifier nginx
+systemctl status nginx
+
+# Vérifier Redis
+systemctl status redis-server
+
+# Vérifier cloud-init (première installation)
+tail -f /var/log/cloud-init-output.log
 ```
 
-### Redis ne démarre pas
+### Erreur de connexion à la base de données
 
 ```bash
-# Vérifier le service
-sudo systemctl status redis6
+# Vérifier le firewall de la base
+# Dashboard → Databases → Votre cluster → Settings → Trusted Sources
+# Le droplet doit être listé
 
-# Logs
-sudo journalctl -u redis6 -f
-
-# Redémarrer
-sudo systemctl restart redis6
+# Tester la connexion
+ssh root@<DROPLET_IP>
+psql $(cat /home/weatherapp/app/.env | grep DATABASE_URL | cut -d= -f2)
 ```
+
+### Terraform state corrompu
+
+```bash
+# Sauvegarder le state actuel
+cp terraform.tfstate terraform.tfstate.backup
+
+# Rafraîchir le state
+terraform refresh
+
+# En dernier recours, réimporter
+terraform import digitalocean_droplet.app <DROPLET_ID>
+```
+
+## Ressources
+
+- [Terraform DigitalOcean Provider](https://registry.terraform.io/providers/digitalocean/digitalocean/latest/docs)
+- [DigitalOcean Documentation](https://docs.digitalocean.com/)
+- [cloud-init Documentation](https://cloudinit.readthedocs.io/)
 
 ## Support
 
-Pour toute question:
-1. Vérifier les logs CloudWatch
-2. Consulter la documentation AWS
-3. Ouvrir une issue sur GitHub
+Pour des questions ou problèmes:
+1. Vérifier les logs sur le droplet
+2. Consulter le DigitalOcean Dashboard
+3. Ouvrir une issue GitHub
 
-## Licence
+---
 
-Voir LICENSE
+**Créé avec ❤️ et Terraform**

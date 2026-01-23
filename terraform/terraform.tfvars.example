@@ -1,23 +1,39 @@
-# AWS Configuration
-aws_region  = "eu-west-3" # Paris
+# DigitalOcean Configuration
+# Copiez ce fichier vers terraform.tfvars et remplissez les valeurs
+
+# DigitalOcean API Token
+# Obtenez-le sur: https://cloud.digitalocean.com/account/api/tokens
+do_token = "your_digitalocean_api_token_here"
+
+# Région DigitalOcean
+# Options: nyc1, nyc3, ams3, sfo3, sgp1, lon1, fra1, tor1, blr1, syd1
+do_region = "fra1"  # Frankfurt - proche de la France
+
+# Environment
 environment = "prod"
 
-# EC2 Configuration
-ec2_instance_type = "t3.micro"
-ec2_key_name      = "your-key-name" # Créer une clé SSH dans AWS EC2
+# Projet
+project_name = "weather-app"
 
-# SSH Access (à restreindre!)
-ssh_allowed_ips = ["0.0.0.0/0"] # Remplacer par votre IP: ["1.2.3.4/32"]
+# Droplet configuration
+droplet_size = "s-1vcpu-2gb"  # 2GB RAM, 1 vCPU - $12/mois
+droplet_image = "ubuntu-22-04-x64"
 
-# RDS Configuration
-rds_instance_type = "db.t4g.micro"
-db_name           = "weatherapp"
-db_username       = "weatherapp_user"
-db_password       = "CHANGE_ME_STRONG_PASSWORD_123"
+# SSH Key
+# Chemin vers votre clé publique SSH (sera uploadée sur DigitalOcean)
+ssh_public_key_path = "~/.ssh/id_rsa.pub"
+
+# IP autorisées pour SSH (liste)
+ssh_allowed_ips = ["0.0.0.0/0", "::/0"]  # Tous - à restreindre en production!
+
+# Database PostgreSQL (Managed)
+db_cluster_size = "db-s-1vcpu-1gb"  # 1GB RAM - $15/mois
+db_name         = "weatherapp"
+db_username     = "weatherapp_user"
 
 # API Keys
 weatherapi_key    = "your_weatherapi_key_here"
-anthropic_api_key = "your_anthropic_key_here"
+anthropic_api_key = "your_anthropic_api_key_here"
 
 # Domain (optionnel)
-domain_name = "" # Laisser vide ou mettre votre domaine
+domain_name = ""  # Laissez vide pour utiliser l'IP du droplet

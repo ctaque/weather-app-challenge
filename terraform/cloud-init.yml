@@ -1,0 +1,210 @@
+#cloud-config
+
+# Cloud-init script pour provisionner le droplet DigitalOcean
+# Installe: Node.js 20, pnpm, PM2, Redis, nginx, PostgreSQL client
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - git
+  - curl
+  - nginx
+  - redis-server
+  - postgresql-client
+  - ufw
+
+write_files:
+  # Configuration nginx
+  - path: /etc/nginx/sites-available/weatherapp
+    content: |
+      upstream backend {
+          server 127.0.0.1:3000;
+      }
+
+      server {
+          listen 80 default_server;
+          listen [::]:80 default_server;
+          server_name _;
+
+          client_max_body_size 10M;
+
+          # Proxy vers Node.js
+          location / {
+              proxy_pass http://backend;
+              proxy_http_version 1.1;
+              proxy_set_header Upgrade $http_upgrade;
+              proxy_set_header Connection 'upgrade';
+              proxy_set_header Host $host;
+              proxy_cache_bypass $http_upgrade;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+          }
+
+          # Cache pour assets statiques
+          location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+              proxy_pass http://backend;
+              expires 1y;
+              add_header Cache-Control "public, immutable";
+          }
+      }
+
+  # Configuration Redis
+  - path: /etc/redis/redis.conf.append
+    content: |
+      bind 127.0.0.1
+      protected-mode yes
+      port 6379
+      timeout 0
+      tcp-keepalive 300
+      maxmemory 512mb
+      maxmemory-policy allkeys-lru
+      save 900 1
+      save 300 10
+      save 60 10000
+
+  # Fichier .env pour l'application
+  - path: /home/weatherapp/app/.env
+    owner: weatherapp:weatherapp
+    permissions: '0600'
+    content: |
+      NODE_ENV=production
+      PORT=3000
+
+      # API Keys
+      WEATHERAPI_KEY=${weatherapi_key}
+      ANTHROPIC_API_KEY=${anthropic_api_key}
+
+      # Database (PostgreSQL managed)
+      DATABASE_URL=${db_uri}
+      DB_HOST=${db_host}
+      DB_PORT=${db_port}
+      DB_NAME=${db_name}
+      DB_USER=${db_username}
+      DB_PASSWORD=${db_password}
+
+      # Redis (local)
+      REDIS_URL=redis://localhost:6379
+
+      # Backend URL
+      BACKEND_URL=${domain_name != "" ? "http://${domain_name}" : "http://${droplet_ip}"}
+
+  # PM2 ecosystem file
+  - path: /home/weatherapp/app/ecosystem.config.js
+    owner: weatherapp:weatherapp
+    content: |
+      module.exports = {
+        apps: [{
+          name: 'weather-app',
+          script: './server.js',
+          instances: 1,
+          exec_mode: 'cluster',
+          max_memory_restart: '400M',
+          node_args: '--max-old-space-size=16000',
+          env: {
+            NODE_ENV: 'production'
+          },
+          error_file: '/home/weatherapp/logs/err.log',
+          out_file: '/home/weatherapp/logs/out.log',
+          log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+          merge_logs: true,
+          autorestart: true,
+          watch: false,
+          max_restarts: 10,
+          min_uptime: '10s'
+        }]
+      };
+
+  # Script de déploiement
+  - path: /home/weatherapp/deploy.sh
+    owner: weatherapp:weatherapp
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -e
+
+      echo "🚀 Starting deployment..."
+      cd /home/weatherapp/app
+
+      # Pull latest code
+      echo "📥 Pulling latest changes..."
+      git pull origin main
+
+      # Install dependencies
+      echo "📦 Installing dependencies..."
+      pnpm install --prod
+
+      # Build frontend
+      echo "🔨 Building frontend..."
+      pnpm run build
+
+      # Restart app
+      echo "♻️  Restarting application..."
+      pm2 restart ecosystem.config.js --update-env
+
+      # Show status
+      pm2 status
+
+      echo "✅ Deployment complete!"
+
+runcmd:
+  # Install Node.js 20.x
+  - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  - apt-get install -y nodejs
+
+  # Install pnpm globally
+  - npm install -g pnpm pm2
+
+  # Configure Redis
+  - cat /etc/redis/redis.conf.append >> /etc/redis/redis.conf
+  - systemctl enable redis-server
+  - systemctl restart redis-server
+
+  # Configure nginx
+  - rm -f /etc/nginx/sites-enabled/default
+  - ln -sf /etc/nginx/sites-available/weatherapp /etc/nginx/sites-enabled/
+  - nginx -t
+  - systemctl enable nginx
+  - systemctl restart nginx
+
+  # Configure firewall (UFW)
+  - ufw --force enable
+  - ufw allow 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw reload
+
+  # Create weatherapp user
+  - useradd -m -s /bin/bash weatherapp || true
+  - mkdir -p /home/weatherapp/logs
+  - mkdir -p /home/weatherapp/backups
+  - chown -R weatherapp:weatherapp /home/weatherapp
+
+  # Clone repository
+  - |
+    sudo -u weatherapp bash -c '
+    cd /home/weatherapp
+    if [ ! -d app ]; then
+      git clone https://github.com/ctaque/weather-app-challenge.git app
+    fi
+    cd app
+    pnpm install --prod
+    pnpm run build
+    '
+
+  # Start app with PM2
+  - |
+    sudo -u weatherapp bash -c '
+    cd /home/weatherapp/app
+    pm2 start ecosystem.config.js
+    pm2 save
+    '
+
+  # Configure PM2 to start on boot
+  - env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u weatherapp --hp /home/weatherapp
+
+  # Write completion marker
+  - echo "$(date) - Cloud-init completed" >> /var/log/cloud-init-complete.log
+
+final_message: "Weather App droplet provisioning complete! System is ready."
