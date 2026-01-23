@@ -19,8 +19,8 @@ on:
   workflow_dispatch: # Permet déclenchement manuel
 
 env:
-  NODE_VERSION: '20'
-  PNPM_VERSION: '8'
+  NODE_VERSION: "20"
+  PNPM_VERSION: "8"
 
 jobs:
   # Job 1: Build et test
