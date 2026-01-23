@@ -41,20 +41,36 @@ cd weather-app-challenge/terraform
 
 ### 2. Configurer
 
+**Méthode recommandée: Variables d'environnement**
+
 ```bash
-cp terraform.tfvars.example terraform.tfvars
-nano terraform.tfvars  # ou vim/code
+cd terraform
+cp .env.example .env
+nano .env  # ou vim/code
 ```
 
 **Remplissez ces 3 valeurs OBLIGATOIRES:**
 
-```hcl
-do_token = "dop_v1_xxxxx"              # Token de l'étape 2
-weatherapi_key = "your_key_here"        # De weatherapi.com
-anthropic_api_key = "sk-ant-xxxxx"     # De console.anthropic.com
+```bash
+export TF_VAR_do_token="dop_v1_xxxxx"              # Token de l'étape 2
+export TF_VAR_weatherapi_key="your_key_here"        # De weatherapi.com
+export TF_VAR_anthropic_api_key="sk-ant-xxxxx"     # De console.anthropic.com
 ```
 
-Le reste est optionnel (bonnes valeurs par défaut).
+**Chargez les variables:**
+
+```bash
+source scripts/load-env.sh
+```
+
+Le script vérifie automatiquement que toutes les variables requises sont définies.
+
+**Alternative: terraform.tfvars** (méthode classique)
+
+```bash
+cp terraform.tfvars.example terraform.tfvars
+nano terraform.tfvars
+```
 
 ### 3. Déployer
 
@@ -62,6 +78,9 @@ Le reste est optionnel (bonnes valeurs par défaut).
 # Installer Terraform (si pas encore fait)
 # macOS: brew install terraform
 # Linux: voir README.md
+
+# Charger les variables (si méthode .env)
+source scripts/load-env.sh
 
 # Déployer
 terraform init
@@ -71,6 +90,8 @@ terraform apply
 Tapez `yes` quand demandé.
 
 **Durée:** 5-10 minutes
+
+**Note:** Si vous utilisez terraform.tfvars, pas besoin de `source scripts/load-env.sh`.
 
 ### 4. Accéder à l'app
 

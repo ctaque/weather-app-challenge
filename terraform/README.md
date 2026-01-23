@@ -90,6 +90,47 @@ cd weather-app-challenge/terraform
 
 ### 2. Configurer les variables
 
+Deux méthodes sont disponibles:
+
+#### Méthode A: Variables d'environnement (recommandée)
+
+Cette méthode utilise des variables d'environnement préfixées par `TF_VAR_`, ce qui évite de stocker les secrets dans des fichiers.
+
+```bash
+# Copier le fichier d'exemple
+cp .env.example .env
+
+# Éditer avec vos valeurs
+nano .env
+```
+
+**Variables requises dans `.env`:**
+
+```bash
+# Token API DigitalOcean
+export TF_VAR_do_token="dop_v1_xxxxxxxxxxxxx"
+
+# Clés API
+export TF_VAR_weatherapi_key="your_weatherapi_key"
+export TF_VAR_anthropic_api_key="sk-ant-xxxxx"
+
+# SSH Key - Nom de la clé dans votre compte DigitalOcean
+export TF_VAR_ssh_key_name="weather-app-key"  # Doit exister sur DO
+
+# Base de données (locale sur le droplet)
+export TF_VAR_db_password="CHANGE_ME_STRONG_PASSWORD"
+```
+
+**Charger les variables:**
+
+```bash
+source scripts/load-env.sh
+```
+
+Le script valide automatiquement que toutes les variables requises sont définies et affiche leur statut (en masquant les secrets).
+
+#### Méthode B: terraform.tfvars (classique)
+
 ```bash
 # Copier le fichier d'exemple
 cp terraform.tfvars.example terraform.tfvars
@@ -118,6 +159,13 @@ do_region = "fra1"
 domain_name = ""  # Laissez vide pour utiliser l'IP
 ```
 
+**💡 Avantages de la méthode .env:**
+- ✅ Les secrets ne sont jamais commités (`.env` est dans `.gitignore`)
+- ✅ Validation automatique des variables requises
+- ✅ Affichage sécurisé (secrets masqués)
+- ✅ Facile à partager (`.env.example` comme template)
+- ✅ Compatible avec les outils de gestion de secrets
+
 ### 3. Initialiser Terraform
 
 ```bash
@@ -127,6 +175,10 @@ terraform init
 ### 4. Vérifier le plan
 
 ```bash
+# Si vous utilisez .env, chargez d'abord les variables
+source scripts/load-env.sh
+
+# Puis vérifiez le plan
 terraform plan
 ```
 
@@ -140,7 +192,9 @@ terraform apply
 
 Tapez `yes` pour confirmer.
 
-**Durée:** ~5-10 minutes (la base de données prend du temps à provisionner)
+**Durée:** ~5-10 minutes
+
+**Note:** Les variables d'environnement restent chargées dans votre session shell. Pour une nouvelle session, relancez `source scripts/load-env.sh` avant d'exécuter des commandes Terraform.
 
 ### 6. Récupérer les informations
 
