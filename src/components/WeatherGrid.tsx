@@ -1061,11 +1061,34 @@ const CityCard = React.forwardRef<
     null,
   );
   const [isSticky, setIsSticky] = useState<boolean>(false);
+  const [forecastHeight, setForecastHeight] = useState<number>(0);
   const forecastDays = data.forecast.forecastday;
   const selectedDay = forecastDays[selectedDayIndex];
   const hourListRef = useRef<HTMLDivElement>(null);
   const stickyObserverRef = useRef<HTMLDivElement>(null);
   const forecastRef = useRef<HTMLDivElement>(null);
+
+  // Measure forecast height for placeholder
+  useEffect(() => {
+    if (!forecastRef.current) return;
+
+    const updateHeight = () => {
+      if (forecastRef.current) {
+        setForecastHeight(forecastRef.current.offsetHeight);
+      }
+    };
+
+    // Initial measurement
+    updateHeight();
+
+    // Use ResizeObserver to track height changes
+    const resizeObserver = new ResizeObserver(updateHeight);
+    resizeObserver.observe(forecastRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   // Detect sticky state using IntersectionObserver
   useEffect(() => {
@@ -1074,11 +1097,12 @@ const CityCard = React.forwardRef<
     const observer = new IntersectionObserver(
       ([entry]) => {
         // When the observer element is not intersecting (out of view), the forecast is sticky
-        setIsSticky(!entry.isIntersecting);
+        // Use intersectionRatio for more reliable detection
+        setIsSticky(entry.intersectionRatio < 1);
       },
       {
-        threshold: [0, 1],
-        rootMargin: "0px",
+        threshold: [0, 0.5, 1],
+        rootMargin: "-1px 0px 0px 0px",
       }
     );
 
@@ -1199,7 +1223,24 @@ const CityCard = React.forwardRef<
         {t.tenDays}
       </h4>
       {/* Observer element for sticky detection */}
-      <div ref={stickyObserverRef} style={{ height: "1px", marginTop: "-1px" }} />
+      <div
+        ref={stickyObserverRef}
+        style={{
+          height: "5px",
+          marginTop: "-5px",
+          pointerEvents: "none"
+        }}
+      />
+      {/* Placeholder to prevent content jump when forecast becomes sticky */}
+      {isSticky && (
+        <div
+          style={{
+            height: `${forecastHeight}px`,
+            pointerEvents: "none"
+          }}
+          aria-hidden="true"
+        />
+      )}
       <div
         ref={forecastRef}
         className={`forecast ${isSticky ? "is-sticky" : ""}`}
