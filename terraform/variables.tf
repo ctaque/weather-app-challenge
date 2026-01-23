@@ -34,7 +34,7 @@ variable "droplet_image" {
 variable "ssh_public_key_path" {
   description = "Path to SSH public key"
   type        = string
-  default     = "~/.ssh/id_rsa.pub"
+  default     = "~/.ssh/id_ed25519.pub"
 }
 
 variable "ssh_allowed_ips" {

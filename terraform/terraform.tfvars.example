@@ -21,7 +21,7 @@ droplet_image = "ubuntu-22-04-x64"
 
 # SSH Key
 # Chemin vers votre clé publique SSH (sera uploadée sur DigitalOcean)
-ssh_public_key_path = "~/.ssh/id_rsa.pub"
+ssh_public_key_path = "~/.ssh/id_ed25519.pub"  # ou ~/.ssh/id_rsa.pub
 
 # IP autorisées pour SSH (liste)
 ssh_allowed_ips = ["0.0.0.0/0", "::/0"]  # Tous - à restreindre en production!
