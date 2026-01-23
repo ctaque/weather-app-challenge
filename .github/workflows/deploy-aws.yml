@@ -67,11 +67,35 @@ jobs:
           path: dist/
           retention-days: 1
 
-  # Job 2: Déployer sur EC2
+  # Job 2a: Check EC2 Configuration
+  check-ec2-secrets:
+    name: Check EC2 Secrets
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ secrets.EC2_HOST == '' || secrets.EC2_SSH_PRIVATE_KEY == '' }}
+
+    steps:
+      - name: EC2 secrets not configured
+        run: |
+          echo "ℹ️  EC2 deployment is not configured"
+          echo ""
+          echo "To enable EC2 deployment, add these secrets in GitHub Settings:"
+          echo "  Settings > Secrets and variables > Actions > New repository secret"
+          echo ""
+          echo "Required secrets:"
+          echo "  - EC2_HOST: Your EC2 instance public IP or hostname"
+          echo "  - EC2_SSH_PRIVATE_KEY: Content of your .pem key file"
+          echo "  - AWS_ACCESS_KEY_ID: (optional, for S3 deployment)"
+          echo "  - AWS_SECRET_ACCESS_KEY: (optional, for S3 deployment)"
+          echo ""
+          echo "Build artifacts are available for manual deployment."
+
+  # Job 2b: Déployer sur EC2
   deploy-ec2:
     name: Deploy to EC2
     needs: build
     runs-on: ubuntu-latest
+    if: ${{ secrets.EC2_HOST != '' && secrets.EC2_SSH_PRIVATE_KEY != '' }}
 
     steps:
       - name: Checkout code
@@ -85,6 +109,19 @@ jobs:
 
       - name: Setup SSH
         run: |
+          # Verify required secrets are set
+          if [ -z "${{ secrets.EC2_HOST }}" ]; then
+            echo "❌ Error: EC2_HOST secret is not set"
+            echo "Please add EC2_HOST in GitHub Settings > Secrets and variables > Actions"
+            exit 1
+          fi
+
+          if [ -z "${{ secrets.EC2_SSH_PRIVATE_KEY }}" ]; then
+            echo "❌ Error: EC2_SSH_PRIVATE_KEY secret is not set"
+            echo "Please add EC2_SSH_PRIVATE_KEY in GitHub Settings > Secrets and variables > Actions"
+            exit 1
+          fi
+
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key.pem
           chmod 600 ~/.ssh/deploy_key.pem
@@ -189,17 +226,32 @@ jobs:
   # Job 4: Notification
   notify:
     name: Notify
-    needs: [deploy-ec2]
+    needs: [build, deploy-ec2]
     runs-on: ubuntu-latest
     if: always()
 
     steps:
       - name: Deployment status
         run: |
-          if [ "${{ needs.deploy-ec2.result }}" == "success" ]; then
-            echo "✅ Deployment succeeded!"
+          BUILD_RESULT="${{ needs.build.result }}"
+          DEPLOY_RESULT="${{ needs.deploy-ec2.result }}"
+
+          echo "Build result: $BUILD_RESULT"
+          echo "Deploy result: $DEPLOY_RESULT"
+
+          if [ "$BUILD_RESULT" == "success" ]; then
+            echo "✅ Build succeeded!"
           else
-            echo "❌ Deployment failed!"
+            echo "❌ Build failed!"
+            exit 1
+          fi
+
+          if [ "$DEPLOY_RESULT" == "success" ]; then
+            echo "✅ EC2 deployment succeeded!"
+          elif [ "$DEPLOY_RESULT" == "skipped" ]; then
+            echo "⏭️  EC2 deployment skipped (secrets not configured)"
+          else
+            echo "❌ EC2 deployment failed!"
             exit 1
           fi
 
