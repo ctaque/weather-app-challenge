@@ -32,16 +32,37 @@ Créez un compte sur [DigitalOcean](https://www.digitalocean.com/)
 5. Sélectionnez **Read** et **Write**
 6. Copiez le token (il ne sera affiché qu'une fois!)
 
-### 3. Clé SSH
+### 3. Clé SSH sur DigitalOcean
 
-Si vous n'avez pas de clé SSH:
+Vous devez avoir une clé SSH dans votre compte DigitalOcean.
+
+**Option 1: Upload automatique (recommandé)**
 
 ```bash
-ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
-# Appuyez sur Entrée pour accepter l'emplacement par défaut
+# Définir votre token DO
+export DO_TOKEN="dop_v1_xxxxxxxxxxxxx"
+
+# Utiliser le script d'upload
+cd terraform/scripts
+./setup-ssh-key.sh
 ```
 
-Votre clé publique sera dans `~/.ssh/id_rsa.pub`
+**Option 2: Upload manuel**
+
+1. Allez sur: https://cloud.digitalocean.com/account/security
+2. Cliquez sur **Add SSH Key**
+3. Collez votre clé publique:
+   ```bash
+   cat ~/.ssh/id_ed25519.pub  # ou ~/.ssh/id_rsa.pub
+   ```
+4. Nommez-la: `weather-app-key`
+
+**Si vous n'avez pas de clé SSH:**
+
+```bash
+ssh-keygen -t ed25519 -C "your_email@example.com"
+# Appuyez sur Entrée pour accepter les valeurs par défaut
+```
 
 ### 4. Terraform installé
 
@@ -87,8 +108,8 @@ do_token = "dop_v1_xxxxxxxxxxxxx"
 weatherapi_key    = "your_weatherapi_key"
 anthropic_api_key = "sk-ant-xxxxx"
 
-# SSH (optionnel - par défaut ~/.ssh/id_rsa.pub)
-ssh_public_key_path = "~/.ssh/id_rsa.pub"
+# SSH Key - Nom de la clé dans votre compte DigitalOcean
+ssh_key_name = "weather-app-key"  # Doit exister sur DO
 
 # Région (optionnel - par défaut fra1)
 do_region = "fra1"

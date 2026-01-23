@@ -13,10 +13,9 @@ provider "digitalocean" {
   token = var.do_token
 }
 
-# SSH Key
-resource "digitalocean_ssh_key" "default" {
-  name       = "${var.project_name}-key"
-  public_key = file(pathexpand(var.ssh_public_key_path))
+# SSH Key - Use existing key from DigitalOcean account
+data "digitalocean_ssh_key" "default" {
+  name = var.ssh_key_name
 }
 
 # Droplet (VM) with PostgreSQL, Redis, nginx
@@ -26,7 +25,7 @@ resource "digitalocean_droplet" "app" {
   image  = var.droplet_image
   region = var.do_region
 
-  ssh_keys = [digitalocean_ssh_key.default.id]
+  ssh_keys = [data.digitalocean_ssh_key.default.id]
 
   user_data = templatefile("${path.module}/cloud-init.yml", {
     project_name      = var.project_name

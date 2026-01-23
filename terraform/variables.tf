@@ -31,10 +31,10 @@ variable "droplet_image" {
   default     = "ubuntu-22-04-x64"
 }
 
-variable "ssh_public_key_path" {
-  description = "Path to SSH public key"
+variable "ssh_key_name" {
+  description = "Name of the SSH key in DigitalOcean (must already exist in your DO account)"
   type        = string
-  default     = "~/.ssh/id_ed25519.pub"
+  default     = "weather-app-key"
 }
 
 variable "ssh_allowed_ips" {

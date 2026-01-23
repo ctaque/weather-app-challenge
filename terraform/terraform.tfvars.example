@@ -20,8 +20,9 @@ droplet_size = "s-1vcpu-2gb"  # 2GB RAM, 1 vCPU - $12/mois
 droplet_image = "ubuntu-22-04-x64"
 
 # SSH Key
-# Chemin vers votre clé publique SSH (sera uploadée sur DigitalOcean)
-ssh_public_key_path = "~/.ssh/id_ed25519.pub"  # ou ~/.ssh/id_rsa.pub
+# Nom de la clé SSH dans votre compte DigitalOcean
+# La clé doit déjà exister dans: https://cloud.digitalocean.com/account/security
+ssh_key_name = "weather-app-key"  # Utilisez le nom de votre clé existante
 
 # IP autorisées pour SSH (liste)
 ssh_allowed_ips = ["0.0.0.0/0", "::/0"]  # Tous - à restreindre en production!
