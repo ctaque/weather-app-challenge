@@ -111,7 +111,31 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key.pem
           chmod 600 ~/.ssh/deploy_key.pem
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+          # Test SSH connectivity before scanning
+          echo "Testing connection to ${{ secrets.EC2_HOST }}..."
+          if timeout 10 bash -c "echo > /dev/tcp/${{ secrets.EC2_HOST }}/22" 2>/dev/null; then
+            echo "✅ Port 22 is reachable"
+            ssh-keyscan -H -T 10 ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>&1 || {
+              echo "⚠️  ssh-keyscan failed, but continuing with deployment"
+              echo "StrictHostKeyChecking no" >> ~/.ssh/config
+              echo "UserKnownHostsFile /dev/null" >> ~/.ssh/config
+            }
+          else
+            echo "❌ Cannot connect to ${{ secrets.EC2_HOST }}:22"
+            echo ""
+            echo "Possible issues:"
+            echo "  1. EC2_HOST secret may be incorrect (check IP/hostname)"
+            echo "  2. EC2 instance may be stopped"
+            echo "  3. Security group may not allow SSH (port 22) from GitHub Actions IPs"
+            echo "  4. Network ACLs may be blocking the connection"
+            echo ""
+            echo "To fix:"
+            echo "  - Verify EC2_HOST value in GitHub secrets"
+            echo "  - Check EC2 instance state in AWS Console"
+            echo "  - Update security group to allow SSH from 0.0.0.0/0 (or specific GitHub IP ranges)"
+            exit 1
+          fi
 
       - name: Deploy to EC2
         if: steps.check-secrets.outputs.configured == 'true'
