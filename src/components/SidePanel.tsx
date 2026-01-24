@@ -26,8 +26,14 @@ interface SidePanelProps {
   onRemoveWaypoint: (waypointId: string) => void;
   onReverseRoute: () => void;
   onClearRoute: () => void;
-  routeInfo: { distance: number; duration: number } | null;
+  routeInfo: {
+    distance: number;
+    duration: number;
+    elevationGain?: number;
+    elevationLoss?: number;
+  } | null;
   routeSegments: Array<{ type: string; distance: number; name: string }> | null;
+  elevationData: Array<{ distance: number; elevation: number }> | null;
   waypointCount: number;
   isCalculating: boolean;
   isPlacingWaypoint: boolean;
@@ -49,6 +55,7 @@ export default function SidePanel({
   onClearRoute,
   routeInfo,
   routeSegments,
+  elevationData,
   waypointCount,
   isCalculating,
   isPlacingWaypoint,
@@ -391,7 +398,7 @@ export default function SidePanel({
           left: isOpen ? "1rem" : "-380px",
           bottom: "1rem",
           width: "320px",
-          backgroundColor: "var(--brand)",
+          backgroundColor: "#89a380",
           boxShadow: "2px 0 10px rgba(0, 0, 0, 0.3)",
           zIndex: 1000,
           transition: "left 0.3s ease-in-out",
@@ -1103,7 +1110,7 @@ export default function SidePanel({
                       : "#ef4444"
                     }`,
                   display: "flex",
-                  alignItems: "center",
+                  alignItems: "ce</select>nter",
                   gap: "10px",
                   cursor: "move",
                   opacity: draggedPointType === "end" ? 0.3 : 1,
@@ -1272,6 +1279,19 @@ export default function SidePanel({
                 <strong>Durée :</strong> {Math.round(routeInfo.duration / 60)}{" "}
                 min
               </p>
+              {routeInfo.elevationGain !== undefined &&
+                routeInfo.elevationLoss !== undefined && (
+                  <>
+                    <p style={{ margin: "5px 0", fontSize: "14px" }}>
+                      <strong>Dénivelé positif :</strong> ⬆️{" "}
+                      {routeInfo.elevationGain} m
+                    </p>
+                    <p style={{ margin: "5px 0", fontSize: "14px" }}>
+                      <strong>Dénivelé négatif :</strong> ⬇️{" "}
+                      {routeInfo.elevationLoss} m
+                    </p>
+                  </>
+                )}
               {waypointCount > 0 && (
                 <p style={{ margin: "5px 0", fontSize: "14px" }}>
                   <strong>Points intermédiaires :</strong> {waypointCount}

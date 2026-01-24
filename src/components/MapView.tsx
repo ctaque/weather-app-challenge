@@ -11,6 +11,7 @@ import type { MapRef } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { LanguageContext, ThemeContext } from "../App";
 import SidePanel from "./SidePanel";
+import ElevationProfile from "./ElevationProfile";
 import arrowIconBlack from "../assets/arrow-icon.png";
 import arrowIconWhite from "../assets/arrow-icon-white.png";
 
@@ -44,11 +45,17 @@ export default function MapView() {
   const [routeInfo, setRouteInfo] = useState<{
     distance: number;
     duration: number;
+    elevationGain?: number;
+    elevationLoss?: number;
   } | null>(null);
   const [routeSegments, setRouteSegments] = useState<Array<{
     type: string;
     distance: number;
     name: string;
+  }> | null>(null);
+  const [elevationData, setElevationData] = useState<Array<{
+    distance: number;
+    elevation: number;
   }> | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -308,7 +315,7 @@ export default function MapView() {
       const pointsParams = points.map((p) => `point=${p[0]},${p[1]}`).join("&");
       const apiKey = import.meta.env.VITE_GRAPHHOPPER_TOKEN || "";
       const keyParam = apiKey ? `&key=${apiKey}` : "";
-      const url = `https://graphhopper.com/api/1/route?${pointsParams}&profile=${profile}&locale=fr&points_encoded=false&instructions=true&details=road_class${keyParam}`;
+      const url = `https://graphhopper.com/api/1/route?${pointsParams}&profile=${profile}&locale=fr&points_encoded=false&instructions=true&details=road_class&elevation=true${keyParam}`;
 
       const response = await fetch(url);
       const data = await response.json();
@@ -322,11 +329,66 @@ export default function MapView() {
           coordinates: path.points.coordinates, // GraphHopper retourne [lon, lat]
         };
 
+        // Calculer le dénivelé positif et négatif et préparer les données pour le graphique
+        let elevationGain = 0;
+        let elevationLoss = 0;
+        const coords = path.points.coordinates;
+        const elevationPoints: Array<{ distance: number; elevation: number }> =
+          [];
+        let cumulativeDistance = 0;
+
+        for (let i = 0; i < coords.length; i++) {
+          const elevation = coords[i][2] || 0;
+
+          // Calculer la distance cumulée
+          if (i > 0) {
+            const prevCoord = coords[i - 1];
+            const currCoord = coords[i];
+
+            // Formule de Haversine pour calculer la distance entre deux points
+            const R = 6371000; // Rayon de la Terre en mètres
+            const lat1 = (prevCoord[1] * Math.PI) / 180;
+            const lat2 = (currCoord[1] * Math.PI) / 180;
+            const deltaLat = ((currCoord[1] - prevCoord[1]) * Math.PI) / 180;
+            const deltaLon = ((currCoord[0] - prevCoord[0]) * Math.PI) / 180;
+
+            const a =
+              Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+              Math.cos(lat1) *
+              Math.cos(lat2) *
+              Math.sin(deltaLon / 2) *
+              Math.sin(deltaLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const segmentDistance = R * c;
+
+            cumulativeDistance += segmentDistance;
+
+            // Calculer le dénivelé
+            const prevElevation = coords[i - 1][2] || 0;
+            const currElevation = elevation;
+            const diff = currElevation - prevElevation;
+
+            if (diff > 0) {
+              elevationGain += diff;
+            } else {
+              elevationLoss += Math.abs(diff);
+            }
+          }
+
+          elevationPoints.push({
+            distance: cumulativeDistance,
+            elevation: elevation,
+          });
+        }
+
         setRouteGeometry(geometry);
         setRouteInfo({
           distance: path.distance,
           duration: path.time / 1000, // GraphHopper retourne en millisecondes
+          elevationGain: Math.round(elevationGain),
+          elevationLoss: Math.round(elevationLoss),
         });
+        setElevationData(elevationPoints);
 
         // Extraire les informations sur les segments avec les instructions GraphHopper
         const segments: Array<{
@@ -777,6 +839,7 @@ export default function MapView() {
     setRouteGeometry(null);
     setRouteInfo(null);
     setRouteSegments(null);
+    setElevationData(null);
     // Nettoyer aussi le localStorage
     localStorage.removeItem("saved-route");
   }, []);
@@ -803,6 +866,7 @@ export default function MapView() {
       setRouteGeometry(null);
       setRouteInfo(null);
       setRouteSegments(null);
+      setElevationData(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startPoint, endPoint]);
@@ -859,6 +923,7 @@ export default function MapView() {
         onClearRoute={clearRoute}
         routeInfo={routeInfo}
         routeSegments={routeSegments}
+        elevationData={elevationData}
         waypointCount={waypoints.length}
         isCalculating={isCalculating}
         isPlacingWaypoint={!!isDraggingNewWaypoint}
@@ -1102,8 +1167,8 @@ export default function MapView() {
         onClick={() => setSidePanelOpen(true)}
         style={{
           ...controlButtonStyle,
-          left: "10px",
-          top: "10px",
+          left: "1rem",
+          top: "1rem",
           right: "auto",
           fontSize: "24px",
           fontWeight: "300",
@@ -1111,7 +1176,20 @@ export default function MapView() {
         title="Menu"
         aria-label="Ouvrir le menu"
       >
-        <span>+</span>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 1024 1024"
+          version="1.1"
+          p-id="4796"
+          width="20"
+          height="25"
+          fill="currentColor"
+        >
+          <path
+            d="M896 307.2h-768a25.6 25.6 0 0 1 0-51.2h768a25.6 25.6 0 0 1 0 51.2zM896 563.2h-768a25.6 25.6 0 0 1 0-51.2h768a25.6 25.6 0 0 1 0 51.2zM896 819.2h-768a25.6 25.6 0 0 1 0-51.2h768a25.6 25.6 0 0 1 0 51.2z"
+            p-id="4797"
+          />
+        </svg>
       </button>
 
       <button
@@ -1305,6 +1383,15 @@ export default function MapView() {
             Supprimer ce point
           </button>
         </div>
+      )}
+
+      {/* Profil d'élévation */}
+      {elevationData && elevationData.length > 0 && routeInfo && (
+        <ElevationProfile
+          elevationData={elevationData}
+          totalDistance={routeInfo.distance}
+          sidePanelOpen={sidePanelOpen}
+        />
       )}
     </div>
   );
