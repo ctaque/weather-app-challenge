@@ -709,7 +709,7 @@ export default function SidePanel({
                 <p
                   style={{
                     margin: "0 0 10px 0",
-                    color: theme === "dark" ? "#aaa" : "#666",
+                    color: theme === "dark" ? "#333" : "#666",
                     fontSize: "13px",
                   }}
                 >
@@ -742,7 +742,7 @@ export default function SidePanel({
               <p
                 style={{
                   margin: "10px 0",
-                  color: theme === "dark" ? "#aaa" : "#666",
+                  color: theme === "dark" ? "#333" : "#666",
                   fontSize: "13px",
                   textAlign: "center",
                 }}
@@ -1224,30 +1224,6 @@ export default function SidePanel({
             </div>
           </div>
         )}
-
-        {/* Indicateur de placement de waypoint */}
-        {isPlacingWaypoint && (
-          <div
-            style={{
-              marginTop: "20px",
-              padding: "15px",
-              borderRadius: "6px",
-              backgroundColor: "#f59e0b",
-              color: "#fff",
-              textAlign: "center",
-              animation: "pulse 2s ease-in-out infinite",
-            }}
-          >
-            <div style={{ marginBottom: "8px", fontSize: "24px" }}>📍</div>
-            <p style={{ margin: 0, fontSize: "14px", fontWeight: "500" }}>
-              L'itinéraire se met à jour en temps réel
-            </p>
-            <p style={{ margin: "5px 0 0 0", fontSize: "12px", opacity: 0.9 }}>
-              Relâchez pour valider • Échap pour annuler
-            </p>
-          </div>
-        )}
-
         {/* Indicateur de calcul */}
         {!searchType &&
           isCalculating &&

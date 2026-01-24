@@ -10,6 +10,7 @@ import { Map, Marker, Source, Layer } from "react-map-gl/maplibre";
 import type { MapRef } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { LanguageContext, ThemeContext } from "../App";
+import { useSearchParams } from "react-router-dom";
 import SidePanel from "./SidePanel";
 import ElevationProfile from "./ElevationProfile";
 import arrowIconBlack from "../assets/arrow-icon.png";
@@ -29,6 +30,8 @@ interface Waypoint {
 }
 
 export default function MapView() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const initialViewState = {
     longitude: 2.3522,
     latitude: 48.8566,
@@ -39,6 +42,16 @@ export default function MapView() {
 
   const [viewState, setViewState] = useState(initialViewState);
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
+
+  // Ouvrir le SidePanel si le paramètre "create=true" est présent dans l'URL
+  useEffect(() => {
+    if (searchParams.get("create") === "true") {
+      setSidePanelOpen(true);
+      // Retirer le paramètre de l'URL pour éviter de rouvrir à chaque rechargement
+      searchParams.delete("create");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const [startPoint, setStartPoint] = useState<Location | null>(null);
   const [endPoint, setEndPoint] = useState<Location | null>(null);
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
@@ -78,6 +91,11 @@ export default function MapView() {
   } | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [isHoveringRoute, setIsHoveringRoute] = useState(false);
+  const [routeHoverPosition, setRouteHoverPosition] = useState<{
+    lat: number;
+    lon: number;
+    distance: number;
+  } | null>(null);
   const [isDraggingNewWaypoint, setIsDraggingNewWaypoint] = useState<
     string | null
   >(null);
@@ -790,6 +808,62 @@ export default function MapView() {
     };
   }, [routeGeometry, calculateArrowPoints]);
 
+  // Fonction pour trouver le point le plus proche sur l'itinéraire avec sa distance depuis le début
+  const findClosestPointOnRoute = useCallback(
+    (mousePos: { x: number; y: number }) => {
+      if (!mapRef.current || !routeGeometry) return null;
+
+      const map = mapRef.current.getMap();
+      const coords = routeGeometry.coordinates;
+
+      let closestPoint = null;
+      let closestIndex = 0;
+      let minDistance = Infinity;
+
+      for (let i = 0; i < coords.length; i++) {
+        const coord = coords[i];
+        const point = map.project([coord[0], coord[1]]);
+        const dx = point.x - mousePos.x;
+        const dy = point.y - mousePos.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestPoint = { lat: coord[1], lon: coord[0] };
+          closestIndex = i;
+        }
+      }
+
+      // Calculer la distance cumulée jusqu'à ce point
+      let cumulativeDistance = 0;
+      for (let i = 1; i <= closestIndex; i++) {
+        const prevCoord = coords[i - 1];
+        const currCoord = coords[i];
+
+        // Formule de Haversine
+        const R = 6371000; // Rayon de la Terre en mètres
+        const lat1 = (prevCoord[1] * Math.PI) / 180;
+        const lat2 = (currCoord[1] * Math.PI) / 180;
+        const deltaLat = ((currCoord[1] - prevCoord[1]) * Math.PI) / 180;
+        const deltaLon = ((currCoord[0] - prevCoord[0]) * Math.PI) / 180;
+
+        const a =
+          Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+          Math.cos(lat1) *
+            Math.cos(lat2) *
+            Math.sin(deltaLon / 2) *
+            Math.sin(deltaLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const segmentDistance = R * c;
+
+        cumulativeDistance += segmentDistance;
+      }
+
+      return { ...closestPoint, distance: cumulativeDistance };
+    },
+    [routeGeometry],
+  );
+
   // Attacher les événements au layer de la route
   useEffect(() => {
     if (!mapRef.current || !routeGeometry) return;
@@ -812,6 +886,13 @@ export default function MapView() {
       map.getCanvas().style.cursor = "crosshair";
     };
 
+    const handleRouteMouseMove = (e: any) => {
+      const closestPoint = findClosestPointOnRoute(e.point);
+      if (closestPoint) {
+        setRouteHoverPosition(closestPoint);
+      }
+    };
+
     const handleMouseEnter = () => {
       map.getCanvas().style.cursor = "pointer";
       setIsHoveringRoute(true);
@@ -820,12 +901,14 @@ export default function MapView() {
     const handleMouseLeave = () => {
       map.getCanvas().style.cursor = "";
       setIsHoveringRoute(false);
+      setRouteHoverPosition(null);
     };
 
     // Attendre que le layer soit chargé
     const waitForLayer = () => {
       if (map.getLayer("route-layer-clickable")) {
         map.on("mousedown", "route-layer-clickable", handleRouteMouseDown);
+        map.on("mousemove", "route-layer-clickable", handleRouteMouseMove);
         map.on("mouseenter", "route-layer-clickable", handleMouseEnter);
         map.on("mouseleave", "route-layer-clickable", handleMouseLeave);
       } else {
@@ -838,11 +921,12 @@ export default function MapView() {
     return () => {
       if (map.getLayer("route-layer-clickable")) {
         map.off("mousedown", "route-layer-clickable", handleRouteMouseDown);
+        map.off("mousemove", "route-layer-clickable", handleRouteMouseMove);
         map.off("mouseenter", "route-layer-clickable", handleMouseEnter);
         map.off("mouseleave", "route-layer-clickable", handleMouseLeave);
       }
     };
-  }, [routeGeometry]);
+  }, [routeGeometry, findClosestPointOnRoute]);
 
   // Gérer le drag du waypoint nouvellement créé
   useEffect(() => {
@@ -1374,6 +1458,26 @@ export default function MapView() {
             />
           </Marker>
         )}
+
+        {/* Curseur au survol de l'itinéraire */}
+        {routeHoverPosition && (
+          <Marker
+            longitude={routeHoverPosition.lon}
+            latitude={routeHoverPosition.lat}
+          >
+            <div
+              style={{
+                width: "12px",
+                height: "12px",
+                borderRadius: "50%",
+                backgroundColor: theme === "dark" ? "#3b82f6" : "#555555",
+                border: "2px solid white",
+                boxShadow: "0 0 8px rgba(0,0,0,0.4)",
+                pointerEvents: "none",
+              }}
+            />
+          </Marker>
+        )}
       </Map>
 
       {/* Menu button - top left */}
@@ -1612,6 +1716,7 @@ export default function MapView() {
             setElevationCursorPosition(position);
           }}
           onLeave={() => setElevationCursorPosition(null)}
+          externalHoverDistance={routeHoverPosition?.distance}
         />
       )}
     </div>

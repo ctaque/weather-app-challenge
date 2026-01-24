@@ -1,5 +1,12 @@
 import React, { useEffect, useState, createContext } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 import WeatherGrid from "./components/WeatherGrid";
 import MapView from "./components/MapView";
 import { getTranslations, type Language, type Translations } from "./i18n";
@@ -84,6 +91,92 @@ function LanguageIcon(props: { className?: string }) {
       <line x1="2" y1="12" x2="22" y2="12" />
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
     </svg>
+  );
+}
+
+function AppHeader({
+  theme,
+  toggleTheme,
+  toggleLanguage,
+  toggleUnits,
+  lang,
+  t,
+  units,
+}: {
+  theme: "light" | "dark";
+  toggleTheme: () => void;
+  toggleLanguage: () => void;
+  toggleUnits: () => void;
+  lang: Language;
+  t: Translations;
+  units: UnitSystem;
+}) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleCreateClick = () => {
+    navigate("/plan?create=true");
+  };
+
+  return (
+    <header className="app-header">
+      <h1>
+        <SunIcon className="app-title-icon" />
+        Weather App
+      </h1>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <button
+          onClick={handleCreateClick}
+          className="theme-toggle"
+          style={{
+            backgroundColor: "var(--brand)",
+            color: "white",
+            fontWeight: "600",
+          }}
+          title="Créer un itinéraire"
+          aria-label="Créer un itinéraire"
+        >
+          <span className="theme-label">+ Créer</span>
+        </button>
+        <button
+          onClick={toggleLanguage}
+          className="theme-toggle"
+          title={t.languageAria}
+          aria-label={t.languageAria}
+        >
+          <span className="theme-icon" aria-hidden>
+            <LanguageIcon />
+          </span>
+          <span className="theme-label">{lang.toUpperCase()}</span>
+        </button>
+        <button
+          aria-pressed={theme === "dark"}
+          onClick={toggleTheme}
+          className="theme-toggle"
+          title={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
+          aria-label={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
+        >
+          <span className="theme-icon" aria-hidden>
+            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+          </span>
+          <span className="theme-label">
+            {theme === "dark" ? t.themeDark : t.themeLight}
+          </span>
+        </button>
+        <button
+          onClick={toggleUnits}
+          className="theme-toggle"
+          title={t.unitsAria}
+          aria-label={t.unitsAria}
+        >
+          <span className="theme-label">
+            {units === "knots-celsius"
+              ? t.unitsKnotsCelsius
+              : t.unitsMphFahrenheit}
+          </span>
+        </button>
+      </div>
+    </header>
   );
 }
 
@@ -205,53 +298,15 @@ export default function App() {
           <BrowserRouter>
             <div className="welcome-wallpaper-background" data-theme={theme} />
             <div className="welcome-gradient-background" />
-            <header className="app-header">
-              <h1>
-                <SunIcon className="app-title-icon" />
-                Weather App
-              </h1>
-              <div>
-                <button
-                  onClick={toggleLanguage}
-                  className="theme-toggle"
-                  title={t.languageAria}
-                  aria-label={t.languageAria}
-                >
-                  <span className="theme-icon" aria-hidden>
-                    <LanguageIcon />
-                  </span>
-                  <span className="theme-label">{lang.toUpperCase()}</span>
-                </button>
-                <button
-                  aria-pressed={theme === "dark"}
-                  onClick={toggleTheme}
-                  className="theme-toggle"
-                  title={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
-                  aria-label={
-                    theme === "dark" ? t.themeDarkAria : t.themeLightAria
-                  }
-                >
-                  <span className="theme-icon" aria-hidden>
-                    {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-                  </span>
-                  <span className="theme-label">
-                    {theme === "dark" ? t.themeDark : t.themeLight}
-                  </span>
-                </button>
-                <button
-                  onClick={toggleUnits}
-                  className="theme-toggle"
-                  title={t.unitsAria}
-                  aria-label={t.unitsAria}
-                >
-                  <span className="theme-label">
-                    {units === "knots-celsius"
-                      ? t.unitsKnotsCelsius
-                      : t.unitsMphFahrenheit}
-                  </span>
-                </button>
-              </div>
-            </header>
+            <AppHeader
+              theme={theme}
+              toggleTheme={toggleTheme}
+              toggleLanguage={toggleLanguage}
+              toggleUnits={toggleUnits}
+              lang={lang}
+              t={t}
+              units={units}
+            />
             <Routes>
               <Route path="/" element={<Navigate to="/weather" replace />} />
               <Route

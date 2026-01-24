@@ -12,6 +12,7 @@ interface ElevationProfileProps {
   sidePanelOpen: boolean;
   onHoverDistance?: (distance: number) => void;
   onLeave?: () => void;
+  externalHoverDistance?: number;
 }
 
 export default function ElevationProfile({
@@ -20,6 +21,7 @@ export default function ElevationProfile({
   sidePanelOpen,
   onHoverDistance,
   onLeave,
+  externalHoverDistance,
 }: ElevationProfileProps) {
   const theme = useContext(ThemeContext);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -117,6 +119,15 @@ export default function ElevationProfile({
       onLeave();
     }
   };
+
+  // Utiliser soit le hover interne (depuis le graphique) soit le hover externe (depuis la carte)
+  // Le hover interne a la priorité
+  const displayHoverDistance = hoverPosition?.distance ?? externalHoverDistance;
+  const displayHoverX =
+    hoverPosition?.x ??
+    (externalHoverDistance !== undefined
+      ? (externalHoverDistance / totalDistance) * graphWidth
+      : null);
 
   return (
     <div
@@ -221,13 +232,13 @@ export default function ElevationProfile({
           />
 
           {/* Ligne verticale et point au survol */}
-          {hoverPosition && (
+          {displayHoverX !== null && displayHoverDistance !== undefined && (
             <>
               {/* Ligne verticale */}
               <line
-                x1={hoverPosition.x}
+                x1={displayHoverX}
                 y1={0}
-                x2={hoverPosition.x}
+                x2={displayHoverX}
                 y2={graphHeight}
                 stroke={"var(--brand)"}
                 strokeWidth="1"
@@ -237,7 +248,7 @@ export default function ElevationProfile({
               {/* Point sur la courbe */}
               {(() => {
                 // Trouver le point le plus proche sur la courbe
-                const targetDistance = hoverPosition.distance;
+                const targetDistance = displayHoverDistance;
                 const closestPointIndex = elevationData.reduce(
                   (closestIdx, point, idx) => {
                     const distDiff = Math.abs(point.distance - targetDistance);
