@@ -505,9 +505,15 @@ export default function SidePanel({
                       borderRadius: "10px",
                     }}
                   >
-                    <option value="car">Voiture</option>
-                    <option value="bike">Vélo</option>
-                    <option value="foot">À pied</option>
+                    <option value="car" style={{ color: "#000" }}>
+                      Voiture
+                    </option>
+                    <option value="bike" style={{ color: "#000" }}>
+                      Vélo
+                    </option>
+                    <option value="foot" style={{ color: "#000" }}>
+                      À pied
+                    </option>
                   </select>
                 </div>
               )}

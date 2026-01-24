@@ -10,15 +10,20 @@ interface ElevationProfileProps {
   elevationData: ElevationPoint[];
   totalDistance: number;
   sidePanelOpen: boolean;
+  onHoverDistance?: (distance: number) => void;
+  onLeave?: () => void;
 }
 
 export default function ElevationProfile({
   elevationData,
   totalDistance,
   sidePanelOpen,
+  onHoverDistance,
+  onLeave,
 }: ElevationProfileProps) {
   const theme = useContext(ThemeContext);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [hoverPosition, setHoverPosition] = useState<{ x: number; distance: number } | null>(null);
 
   // Écouter les changements de taille de fenêtre
   useEffect(() => {
@@ -88,6 +93,28 @@ export default function ElevationProfile({
   const xAxisMarks = 4;
   const xAxisStep = totalDistance / xAxisMarks;
 
+  // Gestionnaires d'événements pour le survol
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const svg = e.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    const x = e.clientX - rect.left - padding.left;
+
+    if (x >= 0 && x <= graphWidth) {
+      const distance = (x / graphWidth) * totalDistance;
+      setHoverPosition({ x, distance });
+      if (onHoverDistance) {
+        onHoverDistance(distance);
+      }
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setHoverPosition(null);
+    if (onLeave) {
+      onLeave();
+    }
+  };
+
   return (
     <div
       style={{
@@ -106,7 +133,9 @@ export default function ElevationProfile({
       <svg
         width={width}
         height={height}
-        style={{ display: "block", margin: "0 auto" }}
+        style={{ display: "block", margin: "0 auto", cursor: "crosshair" }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
       >
         {/* Grille horizontale */}
         {Array.from({ length: yAxisMarks + 1 }).map((_, i) => {
@@ -187,6 +216,76 @@ export default function ElevationProfile({
             strokeLinejoin="round"
             strokeLinecap="round"
           />
+
+          {/* Ligne verticale et point au survol */}
+          {hoverPosition && (
+            <>
+              {/* Ligne verticale */}
+              <line
+                x1={hoverPosition.x}
+                y1={0}
+                x2={hoverPosition.x}
+                y2={graphHeight}
+                stroke={"var(--brand)"}
+                strokeWidth="1"
+                strokeDasharray="4,2"
+                opacity="0.7"
+              />
+              {/* Point sur la courbe */}
+              {(() => {
+                // Trouver le point le plus proche sur la courbe
+                const targetDistance = hoverPosition.distance;
+                const closestPoint = elevationData.reduce((closest, point) => {
+                  const distDiff = Math.abs(point.distance - targetDistance);
+                  const closestDiff = Math.abs(closest.distance - targetDistance);
+                  return distDiff < closestDiff ? point : closest;
+                });
+
+                const x = (closestPoint.distance / totalDistance) * graphWidth;
+                const y =
+                  graphHeight -
+                  ((closestPoint.elevation - minElevation) / elevationRange) *
+                    graphHeight;
+
+                return (
+                  <>
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r="4"
+                      fill={"var(--brand)"}
+                      stroke="white"
+                      strokeWidth="2"
+                    />
+                    {/* Info bulle */}
+                    <g>
+                      <rect
+                        x={x - 40}
+                        y={y - 30}
+                        width="80"
+                        height="20"
+                        rx="3"
+                        fill={theme === "dark" ? "#1a1a1a" : "white"}
+                        stroke={"var(--brand)"}
+                        strokeWidth="1"
+                        opacity="0.95"
+                      />
+                      <text
+                        x={x}
+                        y={y - 16}
+                        textAnchor="middle"
+                        fontSize="10"
+                        fill={theme === "dark" ? "#fff" : "#333"}
+                        fontWeight="600"
+                      >
+                        {Math.round(closestPoint.elevation)}m
+                      </text>
+                    </g>
+                  </>
+                );
+              })()}
+            </>
+          )}
         </g>
       </svg>
 

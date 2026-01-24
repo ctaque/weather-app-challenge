@@ -57,6 +57,10 @@ export default function MapView() {
     distance: number;
     elevation: number;
   }> | null>(null);
+  const [elevationCursorPosition, setElevationCursorPosition] = useState<{
+    lat: number;
+    lon: number;
+  } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -295,6 +299,56 @@ export default function MapView() {
     }
     setContextMenu(null);
   };
+
+  // Fonction pour calculer la position sur l'itinéraire à une distance donnée
+  const getPositionAtDistance = useCallback(
+    (targetDistance: number) => {
+      if (!routeGeometry || !routeGeometry.coordinates) return null;
+
+      const coords = routeGeometry.coordinates;
+      let cumulativeDistance = 0;
+
+      for (let i = 1; i < coords.length; i++) {
+        const prevCoord = coords[i - 1];
+        const currCoord = coords[i];
+
+        // Calculer la distance de ce segment (Haversine)
+        const R = 6371000; // Rayon de la Terre en mètres
+        const lat1 = (prevCoord[1] * Math.PI) / 180;
+        const lat2 = (currCoord[1] * Math.PI) / 180;
+        const deltaLat = ((currCoord[1] - prevCoord[1]) * Math.PI) / 180;
+        const deltaLon = ((currCoord[0] - prevCoord[0]) * Math.PI) / 180;
+
+        const a =
+          Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+          Math.cos(lat1) *
+            Math.cos(lat2) *
+            Math.sin(deltaLon / 2) *
+            Math.sin(deltaLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const segmentDistance = R * c;
+
+        if (cumulativeDistance + segmentDistance >= targetDistance) {
+          // La distance cible est dans ce segment
+          const remainingDistance = targetDistance - cumulativeDistance;
+          const ratio = remainingDistance / segmentDistance;
+
+          // Interpoler entre les deux points
+          const lon = prevCoord[0] + (currCoord[0] - prevCoord[0]) * ratio;
+          const lat = prevCoord[1] + (currCoord[1] - prevCoord[1]) * ratio;
+
+          return { lat, lon };
+        }
+
+        cumulativeDistance += segmentDistance;
+      }
+
+      // Si on arrive ici, retourner le dernier point
+      const lastCoord = coords[coords.length - 1];
+      return { lat: lastCoord[1], lon: lastCoord[0] };
+    },
+    [routeGeometry],
+  );
 
   const calculateRoute = async (shouldZoom: boolean = true) => {
     if (!startPoint || !endPoint) return;
@@ -1160,6 +1214,26 @@ export default function MapView() {
             </div>
           </Marker>
         ))}
+
+        {/* Curseur d'élévation au survol du graphique */}
+        {elevationCursorPosition && (
+          <Marker
+            longitude={elevationCursorPosition.lon}
+            latitude={elevationCursorPosition.lat}
+          >
+            <div
+              style={{
+                width: "16px",
+                height: "16px",
+                borderRadius: "50%",
+                backgroundColor: "var(--brand)",
+                border: "3px solid white",
+                boxShadow: "0 0 10px rgba(0,0,0,0.5)",
+                opacity: 0.9,
+              }}
+            />
+          </Marker>
+        )}
       </Map>
 
       {/* Menu button - top left */}
@@ -1391,6 +1465,11 @@ export default function MapView() {
           elevationData={elevationData}
           totalDistance={routeInfo.distance}
           sidePanelOpen={sidePanelOpen}
+          onHoverDistance={(distance) => {
+            const position = getPositionAtDistance(distance);
+            setElevationCursorPosition(position);
+          }}
+          onLeave={() => setElevationCursorPosition(null)}
         />
       )}
     </div>
