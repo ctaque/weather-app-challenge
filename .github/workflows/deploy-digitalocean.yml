@@ -213,7 +213,7 @@ jobs:
           else
             echo "❌ Health check failed! HTTP $HTTP_CODE"
             echo "Check application logs on the droplet:"
-            echo "  ssh root@$DROPLET_IP 'sudo -u weatherapp pm2 logs'"
+            echo "  ssh root@$DROPLET_IP 'journalctl -u weather-app -n 50'"
             exit 1
           fi
 
