@@ -137,11 +137,6 @@ write_files:
       # Redis (local)
       REDIS_URL=redis://localhost:6379
 
-      # Backend URL (optional, defaults to relative URLs if not set)
-%{~ if domain_name != "" ~}
-      BACKEND_URL=http://${domain_name}
-%{~ endif ~}
-
   # Systemd service for weather-app
   - path: /tmp/weather-app.service
     owner: root:root
@@ -159,9 +154,13 @@ write_files:
       WorkingDirectory=/home/weatherapp/app
 
       # Variables d'environnement
-      Environment="NODE_ENV=production"
-      Environment="NODE_OPTIONS=--max-old-space-size=16000"
-      Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+      Environment=NODE_ENV=production
+      Environment=NODE_OPTIONS=--max-old-space-size=16000
+      Environment=PATH=/usr/local/bin:/usr/bin:/bin
+      Environment=PORT=3000
+      Environment=WEATHERAPI_KEY=${weatherapi_key}
+      Environment=ANTHROPIC_API_KEY=${anthropic_api_key}
+      Environment=REDIS_URL=redis://localhost:6379
 
       # Commande de démarrage (npm sera trouvé via PATH)
       ExecStart=/usr/bin/npm start
@@ -193,13 +192,17 @@ write_files:
       echo "=> Pulling latest changes..."
       git pull origin main
 
-      # Install dependencies
+      # Install all dependencies (including devDependencies for build)
       echo "=> Installing dependencies..."
-      pnpm install --prod
+      pnpm install
 
       # Build frontend
       echo "=> Building frontend..."
       pnpm run build
+
+      # Remove devDependencies after build to save space
+      echo "=> Cleaning devDependencies..."
+      pnpm prune --prod
 
       # Restart app
       echo "=> Applying restorecon..."
@@ -237,12 +240,15 @@ write_files:
       fi
 
 runcmd:
-  # Configure SSH first to ensure connectivity
-  - echo "==> Configuring SSH..."
+  # Ensure SSH packages are installed and protected FIRST
+  - echo "==> Protecting SSH packages..."
+  - dnf install -y openssh-server openssh-clients
+  - dnf install -y python3-dnf-plugin-versionlock || true
+  - dnf versionlock add openssh-server openssh-clients || echo "Versionlock not available, skipping"
   - systemctl enable sshd
   - systemctl start sshd
   - systemctl status sshd --no-pager
-  - echo "[OK] SSH configured and started"
+  - echo "[OK] SSH packages secured, locked, and started"
 
   # Copy SSH keys to weatherapp user (will be created by cloud-init)
   - echo "==> Setting up SSH keys for weatherapp user..."
@@ -264,15 +270,21 @@ runcmd:
   - dnf install -y epel-release
   - echo "[OK] EPEL installed"
 
-  # Install base packages
+  # Install base packages (removed firewalld since we don't use it)
   - echo "==> Installing base packages..."
-  - dnf install -y git curl wget ca-certificates gnupg firewalld python3-pip
+  - dnf install -y git curl wget ca-certificates gnupg python3-pip
   - echo "[OK] Base packages installed"
 
   # Install development tools
   - echo "==> Installing development tools..."
   - dnf groupinstall -y "Development Tools" || echo "Development Tools partially installed"
   - echo "[OK] Development tools installed"
+
+  # Verify SSH is still installed after Development Tools
+  - echo "==> Verifying SSH packages after Development Tools installation..."
+  - dnf install -y openssh-server openssh-clients
+  - systemctl is-active sshd || systemctl start sshd
+  - echo "[OK] SSH packages verified and running"
 
   # Install PostgreSQL
   - echo "==> Installing PostgreSQL..."
@@ -445,24 +457,42 @@ runcmd:
   - mkdir -p /var/www/html/.well-known/acme-challenge
   - |
     if [ "${domain_name}" != "" ]; then
+      echo "Waiting 30 seconds for DNS propagation..."
+      sleep 30
+
       echo "Obtaining SSL certificate for ${domain_name}..."
-      certbot --nginx -d ${domain_name} --non-interactive --agree-tos --email admin@${domain_name} --redirect || echo "Failed to obtain SSL certificate. Domain may not be pointing to this server yet."
+      certbot --nginx -d ${domain_name} --non-interactive --agree-tos --email admin@${domain_name} --redirect || echo "Failed to obtain SSL certificate. Domain may not be pointing to this server yet. Run manually: certbot --nginx -d ${domain_name}"
 
-      # Test automatic renewal
-      certbot renew --dry-run || echo "Certbot renewal test completed"
+      # Test automatic renewal (if certificate was obtained)
+      if [ -f /etc/letsencrypt/live/${domain_name}/fullchain.pem ]; then
+        echo "Testing automatic renewal..."
+        certbot renew --dry-run || echo "Renewal test failed, but will retry later"
+      fi
 
-      # Ensure certbot timer is enabled for auto-renewal
+      # Ensure certbot timer is enabled for auto-renewal (primary method)
       systemctl enable certbot-renew.timer
       systemctl start certbot-renew.timer
+      systemctl status certbot-renew.timer --no-pager || echo "Timer status check completed"
 
       echo "[OK] SSL certificate configured for ${domain_name}"
     else
       echo "[SKIP] No domain name configured, skipping SSL setup"
     fi
 
-  # Setup cron jobs - Daily database backup at 2 AM
+  # Setup cron jobs
   - echo "==> Setting up cron jobs..."
+  # Daily database backup at 2 AM
   - (crontab -u weatherapp -l 2>/dev/null; echo "0 2 * * * /home/weatherapp/backup-db.sh >> /home/weatherapp/logs/backup.log 2>&1") | crontab -u weatherapp -
+  # Certbot renewal check twice daily at 3:30 AM and 3:30 PM (fallback if systemd timer fails)
+  - (crontab -l 2>/dev/null; echo "30 3,15 * * * certbot renew --quiet --deploy-hook 'systemctl reload nginx' >> /var/log/certbot-cron.log 2>&1") | crontab -
+
+  # Final SSH verification
+  - echo ""
+  - echo "==> Final SSH verification..."
+  - rpm -qa | grep openssh
+  - systemctl is-active sshd || systemctl start sshd
+  - ss -tlnp | grep :22 || echo "Port 22 check complete"
+  - echo "[OK] SSH verified and running"
 
   # Service status
   - echo ""

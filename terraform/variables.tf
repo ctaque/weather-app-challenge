@@ -79,7 +79,7 @@ variable "anthropic_api_key" {
 variable "domain_name" {
   description = "Domain name (optional)"
   type        = string
-  default     = "matambouille.quest"
+  default     = "tackz.fr"
 }
 
 # DigitalOcean API Token

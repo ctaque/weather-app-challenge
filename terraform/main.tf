@@ -47,6 +47,11 @@ resource "digitalocean_droplet" "app" {
   })
 
   tags = [var.environment, var.project_name]
+  # Ignore changes to user_data after initial creation
+  # This prevents the droplet from being destroyed/recreated when cloud-init.yml changes
+  lifecycle {
+    ignore_changes = [user_data]
+  }
 }
 
 # Wait for droplet to be fully ready before assigning IP
@@ -108,6 +113,17 @@ resource "digitalocean_firewall" "app" {
     protocol              = "icmp"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
+}
+
+# DNS Configuration - Automated A record creation
+resource "digitalocean_record" "app_dns" {
+  count = var.domain_name != "" ? 1 : 0
+
+  domain = var.domain_name
+  type   = "A"
+  name   = "@"
+  value  = digitalocean_reserved_ip.app.ip_address
+  ttl    = 300
 }
 
 # Data sources
