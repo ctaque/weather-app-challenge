@@ -1,5 +1,7 @@
 import React, { useEffect, useState, createContext } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import WeatherGrid from "./components/WeatherGrid";
+import MapView from "./components/MapView";
 import { getTranslations, type Language, type Translations } from "./i18n";
 
 type WeatherData = any;
@@ -200,68 +202,79 @@ export default function App() {
     <LanguageContext.Provider value={{ lang, t }}>
       <UnitContext.Provider value={{ units, setUnits }}>
         <ThemeContext.Provider value={theme}>
-          <div className="welcome-wallpaper-background" data-theme={theme} />
-          <div className="welcome-gradient-background" />
-          <header className="app-header">
-            <h1>
-              <SunIcon className="app-title-icon" />
-              Weather App
-            </h1>
-            <div>
-              <button
-                onClick={toggleLanguage}
-                className="theme-toggle"
-                title={t.languageAria}
-                aria-label={t.languageAria}
-              >
-                <span className="theme-icon" aria-hidden>
-                  <LanguageIcon />
-                </span>
-                <span className="theme-label">{lang.toUpperCase()}</span>
-              </button>
-              <button
-                aria-pressed={theme === "dark"}
-                onClick={toggleTheme}
-                className="theme-toggle"
-                title={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
-                aria-label={
-                  theme === "dark" ? t.themeDarkAria : t.themeLightAria
-                }
-              >
-                <span className="theme-icon" aria-hidden>
-                  {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-                </span>
-                <span className="theme-label">
-                  {theme === "dark" ? t.themeDark : t.themeLight}
-                </span>
-              </button>
-              <button
-                onClick={toggleUnits}
-                className="theme-toggle"
-                title={t.unitsAria}
-                aria-label={t.unitsAria}
-              >
-                <span className="theme-label">
-                  {units === "knots-celsius"
-                    ? t.unitsKnotsCelsius
-                    : t.unitsMphFahrenheit}
-                </span>
-              </button>
-            </div>
-          </header>
-          <div className="container">
-            <h2 style={{ marginTop: 0 }}>{t.forecastByCity}</h2>
-
-            {error && (
-              <div className="error">
-                {t.errorPrefix}
-                {error}
+          <BrowserRouter>
+            <div className="welcome-wallpaper-background" data-theme={theme} />
+            <div className="welcome-gradient-background" />
+            <header className="app-header">
+              <h1>
+                <SunIcon className="app-title-icon" />
+                Weather App
+              </h1>
+              <div>
+                <button
+                  onClick={toggleLanguage}
+                  className="theme-toggle"
+                  title={t.languageAria}
+                  aria-label={t.languageAria}
+                >
+                  <span className="theme-icon" aria-hidden>
+                    <LanguageIcon />
+                  </span>
+                  <span className="theme-label">{lang.toUpperCase()}</span>
+                </button>
+                <button
+                  aria-pressed={theme === "dark"}
+                  onClick={toggleTheme}
+                  className="theme-toggle"
+                  title={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
+                  aria-label={
+                    theme === "dark" ? t.themeDarkAria : t.themeLightAria
+                  }
+                >
+                  <span className="theme-icon" aria-hidden>
+                    {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+                  </span>
+                  <span className="theme-label">
+                    {theme === "dark" ? t.themeDark : t.themeLight}
+                  </span>
+                </button>
+                <button
+                  onClick={toggleUnits}
+                  className="theme-toggle"
+                  title={t.unitsAria}
+                  aria-label={t.unitsAria}
+                >
+                  <span className="theme-label">
+                    {units === "knots-celsius"
+                      ? t.unitsKnotsCelsius
+                      : t.unitsMphFahrenheit}
+                  </span>
+                </button>
               </div>
-            )}
+            </header>
+            <Routes>
+              <Route path="/" element={<Navigate to="/weather" replace />} />
+              <Route
+                path="/weather"
+                element={
+                  <div className="container">
+                    <h2 style={{ marginTop: 0 }}>{t.forecastByCity}</h2>
 
-            {/* Composant avec données en dur pour les 5 villes */}
-            <WeatherGrid />
-          </div>
+                    {error && (
+                      <div className="error">
+                        {t.errorPrefix}
+                        {error}
+                      </div>
+                    )}
+
+                    {/* Composant avec données en dur pour les 5 villes */}
+                    <WeatherGrid />
+                  </div>
+                }
+              />
+              <Route path="/plan" element={<MapView />} />
+            </Routes>
+          </BrowserRouter>
         </ThemeContext.Provider>
       </UnitContext.Provider>
     </LanguageContext.Provider>
