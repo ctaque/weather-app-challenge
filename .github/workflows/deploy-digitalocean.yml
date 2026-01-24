@@ -142,6 +142,8 @@ jobs:
             --exclude=.git \
             --exclude=terraform \
             --exclude=.github \
+            --exclude=app.tar.gz \
+            --exclude=dist \
             .
 
           # Upload to droplet
