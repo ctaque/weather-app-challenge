@@ -203,13 +203,13 @@ jobs:
           echo "⏳ Waiting for application to start..."
           sleep 10
 
-          # Test HTTP endpoint
+          # Test HTTPS endpoint (with -k to ignore self-signed cert warnings)
           echo "🏥 Running health check..."
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://$DROPLET_IP)
+          HTTP_CODE=$(curl -k -s -o /dev/null -w "%{http_code}" https://$DROPLET_IP)
 
           if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "304" ]; then
             echo "✅ Deployment successful! HTTP $HTTP_CODE"
-            echo "🌐 Application URL: http://$DROPLET_IP"
+            echo "🌐 Application URL: https://$DROPLET_IP"
           else
             echo "❌ Health check failed! HTTP $HTTP_CODE"
             echo "Check application logs on the droplet:"
