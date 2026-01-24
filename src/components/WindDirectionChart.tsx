@@ -188,7 +188,7 @@ export default function WindDirectionChart({
   };
 
   return (
-    <div style={{ flex: "33%", gap: "1rem" }}>
+    <div style={{ flex: 1, gap: "1rem", minWidth: "250px" }}>
       <h4 style={{ marginBottom: "1rem" }}>{chartTitle}</h4>
       <ResponsiveContainer width="100%" height={300}>
         <RadarChart data={chartData}>
