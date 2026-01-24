@@ -1,5 +1,6 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { ThemeContext } from "../App";
+import RouteSegmentsGraph from "./RouteSegmentsGraph";
 
 interface Location {
   lat: number;
@@ -26,6 +27,7 @@ interface SidePanelProps {
   onReverseRoute: () => void;
   onClearRoute: () => void;
   routeInfo: { distance: number; duration: number } | null;
+  routeSegments: Array<{ type: string; distance: number; name: string }> | null;
   waypointCount: number;
   isCalculating: boolean;
   isPlacingWaypoint: boolean;
@@ -44,13 +46,14 @@ export default function SidePanel({
   onReverseRoute,
   onClearRoute,
   routeInfo,
+  routeSegments,
   waypointCount,
   isCalculating,
   isPlacingWaypoint,
 }: SidePanelProps) {
   const theme = useContext(ThemeContext);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchType, setSearchType] = useState<"start" | "end">("start");
+  const [searchType, setSearchType] = useState<"start" | "end" | null>(null);
   const [searchResults, setSearchResults] = useState<Location[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [draggedWaypointIndex, setDraggedWaypointIndex] = useState<
@@ -60,47 +63,138 @@ export default function SidePanel({
   const [dropPosition, setDropPosition] = useState<"before" | "after">(
     "before",
   );
+  const [draggedPointType, setDraggedPointType] = useState<
+    "start" | "end" | "waypoint" | null
+  >(null);
+  const [isGeolocating, setIsGeolocating] = useState(false);
 
-  const searchAddress = async () => {
-    if (!searchQuery.trim()) return;
+  const handleGeolocation = async (type: "start" | "end") => {
+    setIsGeolocating(true);
 
-    setIsSearching(true);
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          searchQuery,
-        )}&limit=5`,
-      );
-      const data = await response.json();
-      setSearchResults(
-        data.map((item: any) => ({
-          lat: parseFloat(item.lat),
-          lon: parseFloat(item.lon),
-          display_name: item.display_name,
-        })),
-      );
-    } catch (error) {
-      console.error("Erreur de recherche:", error);
-    } finally {
-      setIsSearching(false);
+    if (!navigator.geolocation) {
+      alert("La géolocalisation n'est pas supportée par votre navigateur");
+      setIsGeolocating(false);
+      return;
     }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+
+        try {
+          // Recherche inversée pour obtenir l'adresse
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+          );
+          const data = await response.json();
+
+          const location: Location = {
+            lat: latitude,
+            lon: longitude,
+            display_name:
+              data.display_name ||
+              `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+          };
+
+          if (type === "start") {
+            onSetStartPoint(location);
+          } else {
+            onSetEndPoint(location);
+          }
+
+          setSearchType(null);
+          setSearchQuery("");
+          setSearchResults([]);
+        } catch (error) {
+          console.error("Erreur de géocodage inversé:", error);
+          // Utiliser les coordonnées directement en cas d'erreur
+          const location: Location = {
+            lat: latitude,
+            lon: longitude,
+            display_name: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+          };
+
+          if (type === "start") {
+            onSetStartPoint(location);
+          } else {
+            onSetEndPoint(location);
+          }
+
+          setSearchType(null);
+          setSearchQuery("");
+          setSearchResults([]);
+        } finally {
+          setIsGeolocating(false);
+        }
+      },
+      (error) => {
+        console.error("Erreur de géolocalisation:", error);
+        alert("Impossible d'obtenir votre position");
+        setIsGeolocating(false);
+      },
+    );
   };
+
+  // Recherche automatique avec debounce
+  useEffect(() => {
+    if (!searchType || !searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+            searchQuery,
+          )}&limit=5`,
+        );
+        const data = await response.json();
+        setSearchResults(
+          data.map((item: any) => ({
+            lat: parseFloat(item.lat),
+            lon: parseFloat(item.lon),
+            display_name: item.display_name,
+          })),
+        );
+      } catch (error) {
+        console.error("Erreur de recherche:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 500); // Debounce de 500ms
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, searchType]);
 
   const selectLocation = (location: Location) => {
     if (searchType === "start") {
       onSetStartPoint(location);
-    } else {
+    } else if (searchType === "end") {
       onSetEndPoint(location);
     }
     setSearchResults([]);
+    setSearchType(null);
     setSearchQuery("");
   };
 
-  const handleWaypointDragStart = (index: number) => {
-    setDraggedWaypointIndex(index);
+  // Fonctions unifiées de drag and drop pour tous les points
+  const handlePointDragStart = (
+    type: "start" | "end" | "waypoint",
+    index?: number,
+  ) => {
+    setDraggedPointType(type);
+    if (type === "waypoint" && index !== undefined) {
+      setDraggedWaypointIndex(index);
+    }
   };
 
-  const handleWaypointDragOver = (e: React.DragEvent, index: number) => {
+  const handlePointDragOver = (
+    e: React.DragEvent,
+    type: "start" | "end" | "waypoint",
+    index?: number,
+  ) => {
     e.preventDefault();
 
     // Calculer si le curseur est dans la moitié supérieure ou inférieure
@@ -109,43 +203,153 @@ export default function SidePanel({
     const height = rect.height;
     const position = y < height / 2 ? "before" : "after";
 
-    setDragOverIndex(index);
+    if (type === "waypoint" && index !== undefined) {
+      setDragOverIndex(index);
+    } else if (type === "start") {
+      setDragOverIndex(-1); // Index spécial pour le départ
+    } else if (type === "end") {
+      setDragOverIndex(waypoints.length); // Index spécial pour l'arrivée
+    }
     setDropPosition(position);
   };
 
-  const handleWaypointDragLeave = () => {
+  const handlePointDragLeave = () => {
     setDragOverIndex(null);
   };
 
-  const handleWaypointDrop = (e: React.DragEvent, targetIndex: number) => {
+  const handlePointDrop = (
+    e: React.DragEvent,
+    targetType: "start" | "end" | "waypoint",
+    targetIndex?: number,
+  ) => {
     e.preventDefault();
-    if (draggedWaypointIndex === null) return;
+    if (!draggedPointType) return;
 
-    const newWaypoints = [...waypoints];
-    const draggedWaypoint = newWaypoints[draggedWaypointIndex];
+    // Construction d'une liste ordonnée de tous les points
+    const allPoints: Array<{
+      type: "start" | "end" | "waypoint";
+      data: Location | Waypoint;
+      waypointIndex?: number;
+    }> = [];
+
+    if (startPoint) allPoints.push({ type: "start", data: startPoint });
+    waypoints.forEach((wp, idx) =>
+      allPoints.push({ type: "waypoint", data: wp, waypointIndex: idx }),
+    );
+    if (endPoint) allPoints.push({ type: "end", data: endPoint });
+
+    // Trouver l'index de l'élément déplacé
+    let draggedIndex = -1;
+    if (draggedPointType === "start") {
+      draggedIndex = 0;
+    } else if (draggedPointType === "end") {
+      draggedIndex = allPoints.length - 1;
+    } else if (
+      draggedPointType === "waypoint" &&
+      draggedWaypointIndex !== null
+    ) {
+      draggedIndex = allPoints.findIndex(
+        (p) =>
+          p.type === "waypoint" && p.waypointIndex === draggedWaypointIndex,
+      );
+    }
+
+    // Trouver l'index cible
+    let targetIdx = -1;
+    if (targetType === "start") {
+      targetIdx = 0;
+    } else if (targetType === "end") {
+      targetIdx = allPoints.length - 1;
+    } else if (targetType === "waypoint" && targetIndex !== undefined) {
+      targetIdx = allPoints.findIndex(
+        (p) => p.type === "waypoint" && p.waypointIndex === targetIndex,
+      );
+    }
+
+    if (draggedIndex === -1 || targetIdx === -1) return;
 
     // Retirer l'élément déplacé
-    newWaypoints.splice(draggedWaypointIndex, 1);
+    const draggedPoint = allPoints[draggedIndex];
+    allPoints.splice(draggedIndex, 1);
 
-    // Calculer la nouvelle position en tenant compte de la suppression
-    let insertIndex = targetIndex;
-    if (draggedWaypointIndex < targetIndex) {
-      insertIndex = targetIndex - 1;
+    // Recalculer l'index cible après suppression
+    if (draggedIndex < targetIdx) {
+      targetIdx -= 1;
     }
 
-    // Ajuster selon si on veut placer avant ou après
+    // Ajuster selon la position (avant/après)
     if (dropPosition === "after") {
-      insertIndex += 1;
+      targetIdx += 1;
     }
 
-    newWaypoints.splice(insertIndex, 0, draggedWaypoint);
+    // Insérer l'élément à la nouvelle position
+    allPoints.splice(targetIdx, 0, draggedPoint);
 
+    // Reconstituer les états
+    let newStart: Location | null = null;
+    let newEnd: Location | null = null;
+    const newWaypoints: Waypoint[] = [];
+
+    if (allPoints.length > 0) {
+      // Le premier point devient le départ
+      const firstPoint = allPoints[0];
+      if (firstPoint.type === "start") {
+        newStart = firstPoint.data as Location;
+      } else if (firstPoint.type === "waypoint") {
+        const wp = firstPoint.data as Waypoint;
+        newStart = {
+          lat: wp.lat,
+          lon: wp.lon,
+          display_name: `${wp.lat.toFixed(4)}, ${wp.lon.toFixed(4)}`,
+        };
+      } else if (firstPoint.type === "end") {
+        newStart = firstPoint.data as Location;
+      }
+
+      // Le dernier point devient l'arrivée
+      const lastPoint = allPoints[allPoints.length - 1];
+      if (lastPoint.type === "end") {
+        newEnd = lastPoint.data as Location;
+      } else if (lastPoint.type === "waypoint") {
+        const wp = lastPoint.data as Waypoint;
+        newEnd = {
+          lat: wp.lat,
+          lon: wp.lon,
+          display_name: `${wp.lat.toFixed(4)}, ${wp.lon.toFixed(4)}`,
+        };
+      } else if (lastPoint.type === "start") {
+        newEnd = lastPoint.data as Location;
+      }
+
+      // Les points du milieu deviennent des waypoints
+      for (let i = 1; i < allPoints.length - 1; i++) {
+        const point = allPoints[i];
+        if (point.type === "waypoint") {
+          newWaypoints.push(point.data as Waypoint);
+        } else if (point.type === "start" || point.type === "end") {
+          const loc = point.data as Location;
+          newWaypoints.push({
+            id: `waypoint-${Date.now()}-${i}`,
+            lat: loc.lat,
+            lon: loc.lon,
+          });
+        }
+      }
+    }
+
+    // Mettre à jour les états
+    onSetStartPoint(newStart as Location);
+    onSetEndPoint(newEnd as Location);
     onReorderWaypoints(newWaypoints);
+
+    // Nettoyer
+    setDraggedPointType(null);
     setDraggedWaypointIndex(null);
     setDragOverIndex(null);
   };
 
   const handleDragEnd = () => {
+    setDraggedPointType(null);
     setDraggedWaypointIndex(null);
     setDragOverIndex(null);
   };
@@ -153,7 +357,7 @@ export default function SidePanel({
   const inputStyle: React.CSSProperties = {
     width: "100%",
     padding: "10px",
-    borderRadius: "6px",
+    borderRadius: "3rem",
     border: `1px solid ${theme === "dark" ? "#444" : "#ddd"}`,
     backgroundColor: theme === "dark" ? "#2a2a2a" : "#fff",
     color: theme === "dark" ? "#fff" : "#333",
@@ -205,8 +409,33 @@ export default function SidePanel({
               margin: 0,
               color: theme === "dark" ? "#fff" : "#333",
               fontSize: "20px",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: "1rem",
             }}
           >
+            {searchType && (
+              <button
+                onClick={() => {
+                  setSearchType(null);
+                  setSearchQuery("");
+                  setSearchResults([]);
+                }}
+                style={{
+                  borderRadius: "30rem",
+                  cursor: "pointer",
+                  fontSize: "20px",
+                  border: "none",
+                  fontWeight: "500",
+                  alignItems: "center",
+                  height: "2rem",
+                  width: "2rem",
+                }}
+              >
+                ←
+              </button>
+            )}
             Planifier un itinéraire
           </h2>
           <button
@@ -228,194 +457,247 @@ export default function SidePanel({
         </div>
 
         {/* Point de départ */}
-        <div style={{ marginBottom: "20px" }}>
-          <label
-            style={{
-              display: "block",
-              marginBottom: "8px",
-              color: theme === "dark" ? "#fff" : "#333",
-              fontSize: "14px",
-              fontWeight: "500",
-            }}
-          >
-            Point de départ
-          </label>
-          {startPoint ? (
-            <div
+        {searchType !== "end" && (
+          <div style={{ marginBottom: "20px" }}>
+            <label
               style={{
-                padding: "10px",
-                borderRadius: "6px",
-                backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
+                display: "block",
+                marginBottom: "8px",
                 color: theme === "dark" ? "#fff" : "#333",
-                fontSize: "13px",
-                marginBottom: "10px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
+                fontSize: "14px",
+                fontWeight: "500",
               }}
             >
-              <span style={{ flex: 1, marginRight: "8px" }}>
-                {startPoint.display_name.split(",").slice(0, 2).join(",")}
-              </span>
-              <button
-                onClick={() => onSetStartPoint(null as any)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#ef4444",
-                  cursor: "pointer",
-                  fontSize: "18px",
-                  padding: "0",
-                }}
-              >
-                ×
-              </button>
-            </div>
-          ) : (
-            <>
-              <div
-                style={{ display: "flex", gap: "8px", marginBottom: "10px" }}
-              >
-                <input
-                  type="text"
-                  placeholder="Rechercher une adresse..."
-                  value={searchType === "start" ? searchQuery : ""}
-                  onChange={(e) => {
-                    setSearchType("start");
-                    setSearchQuery(e.target.value);
-                  }}
-                  onKeyDown={(e) => e.key === "Enter" && searchAddress()}
-                  style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
-                />
-                <button
-                  onClick={searchAddress}
-                  disabled={isSearching}
-                  style={{
-                    ...buttonStyle,
-                    width: "auto",
-                    padding: "10px 15px",
-                  }}
+              Point de départ
+            </label>
+            {
+              <>
+                <div
+                  style={{ display: "flex", gap: "8px", marginBottom: "10px" }}
                 >
-                  🔍
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+                  <div
+                    style={{
+                      position: "relative",
+                      flex: 1,
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: "10px",
+                        width: "24px",
+                        height: "24px",
+                        borderRadius: "50%",
+                        backgroundColor: "#10b981",
+                        color: "white",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                        zIndex: 1,
+                      }}
+                    >
+                      A
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Rechercher une adresse..."
+                      value={
+                        searchType === "start"
+                          ? searchQuery
+                          : startPoint?.display_name || ""
+                      }
+                      onFocus={() => {
+                        setSearchType("start");
+                        if (startPoint) {
+                          setSearchQuery(startPoint.display_name);
+                        } else {
+                          setSearchQuery("");
+                        }
+                        setSearchResults([]);
+                      }}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                      }}
+                      style={{
+                        ...inputStyle,
+                        marginBottom: 0,
+                        paddingLeft: "42px",
+                        width: "100%",
+                      }}
+                    />
+                  </div>
+                </div>
+              </>
+            }
+          </div>
+        )}
 
         {/* Point d'arrivée */}
-        <div style={{ marginBottom: "20px" }}>
-          <label
-            style={{
-              display: "block",
-              marginBottom: "8px",
-              color: theme === "dark" ? "#fff" : "#333",
-              fontSize: "14px",
-              fontWeight: "500",
-            }}
-          >
-            Point d'arrivée
-          </label>
-          {endPoint ? (
-            <div
-              style={{
-                padding: "10px",
-                borderRadius: "6px",
-                backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-                color: theme === "dark" ? "#fff" : "#333",
-                fontSize: "13px",
-                marginBottom: "10px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <span style={{ flex: 1, marginRight: "8px" }}>
-                {endPoint.display_name.split(",").slice(0, 2).join(",")}
-              </span>
-              <button
-                onClick={() => onSetEndPoint(null as any)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#ef4444",
-                  cursor: "pointer",
-                  fontSize: "18px",
-                  padding: "0",
-                }}
-              >
-                ×
-              </button>
-            </div>
-          ) : (
-            <>
-              <div
-                style={{ display: "flex", gap: "8px", marginBottom: "10px" }}
-              >
-                <input
-                  type="text"
-                  placeholder="Rechercher une adresse..."
-                  value={searchType === "end" ? searchQuery : ""}
-                  onChange={(e) => {
-                    setSearchType("end");
-                    setSearchQuery(e.target.value);
-                  }}
-                  onKeyDown={(e) => e.key === "Enter" && searchAddress()}
-                  style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
-                />
-                <button
-                  onClick={searchAddress}
-                  disabled={isSearching}
+        {searchType !== "start" && (
+          <div style={{ marginBottom: "20px" }}>
+            {
+              <>
+                <label
                   style={{
-                    ...buttonStyle,
-                    width: "auto",
-                    padding: "10px 15px",
+                    display: "block",
+                    marginBottom: "8px",
+                    color: theme === "dark" ? "#fff" : "#333",
+                    fontSize: "14px",
+                    fontWeight: "500",
                   }}
                 >
-                  🔍
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+                  Point d'arrivée
+                </label>
+                <div
+                  style={{ display: "flex", gap: "8px", marginBottom: "10px" }}
+                >
+                  <div
+                    style={{
+                      position: "relative",
+                      flex: 1,
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: "10px",
+                        width: "24px",
+                        height: "24px",
+                        borderRadius: "50%",
+                        backgroundColor: "#ef4444",
+                        color: "white",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                        zIndex: 1,
+                      }}
+                    >
+                      B
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Rechercher une adresse..."
+                      value={
+                        searchType === "end"
+                          ? searchQuery
+                          : endPoint?.display_name || ""
+                      }
+                      onFocus={() => {
+                        setSearchType("end");
+                        if (endPoint) {
+                          setSearchQuery(endPoint.display_name);
+                        } else {
+                          setSearchQuery("");
+                        }
+                        setSearchResults([]);
+                      }}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                      }}
+                      style={{
+                        ...inputStyle,
+                        marginBottom: 0,
+                        paddingLeft: "42px",
+                        width: "100%",
+                      }}
+                    />
+                  </div>
+                </div>
+              </>
+            }
+          </div>
+        )}
 
         {/* Résultats de recherche */}
-        {searchResults.length > 0 && (
+        {searchType && (
           <div style={{ marginBottom: "20px" }}>
-            <p
+            {/* Bouton retour */}
+
+            {/* Bouton Me localiser */}
+            <button
+              onClick={() =>
+                handleGeolocation(searchType === "start" ? "start" : "end")
+              }
+              disabled={isGeolocating}
               style={{
-                margin: "0 0 10px 0",
-                color: theme === "dark" ? "#aaa" : "#666",
-                fontSize: "13px",
+                ...inputStyle,
               }}
             >
-              Résultats :
-            </p>
-            {searchResults.map((result, index) => (
-              <button
-                key={index}
-                onClick={() => selectLocation(result)}
+              {isGeolocating ? "Géolocalisation..." : "Me localiser"}
+            </button>
+
+            {isSearching && (
+              <p
                 style={{
-                  width: "100%",
-                  padding: "10px",
-                  marginBottom: "8px",
-                  borderRadius: "6px",
-                  border: "none",
-                  backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-                  color: theme === "dark" ? "#fff" : "#333",
-                  textAlign: "left",
-                  cursor: "pointer",
+                  margin: "10px 0",
+                  color: theme === "dark" ? "#aaa" : "#666",
                   fontSize: "13px",
+                  textAlign: "center",
                 }}
               >
-                {result.display_name}
-              </button>
-            ))}
+                🔍 Recherche en cours...
+              </p>
+            )}
+
+            {!isSearching && searchResults.length > 0 && (
+              <>
+                <p
+                  style={{
+                    margin: "0 0 10px 0",
+                    color: theme === "dark" ? "#aaa" : "#666",
+                    fontSize: "13px",
+                  }}
+                >
+                  Adresses :
+                </p>
+                {searchResults.map((result, index) => (
+                  <button
+                    key={index}
+                    onClick={() => selectLocation(result)}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      marginBottom: "8px",
+                      borderRadius: "6px",
+                      border: "none",
+                      backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
+                      color: theme === "dark" ? "#fff" : "#333",
+                      textAlign: "left",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                    }}
+                  >
+                    {result.display_name}
+                  </button>
+                ))}
+              </>
+            )}
+
+            {searchQuery && !isSearching && searchResults.length === 0 && (
+              <p
+                style={{
+                  margin: "10px 0",
+                  color: theme === "dark" ? "#aaa" : "#666",
+                  fontSize: "13px",
+                  textAlign: "center",
+                }}
+              >
+                Aucun résultat trouvé
+              </p>
+            )}
           </div>
         )}
 
         {/* Liste des points de passage */}
-        {startPoint && endPoint && (
+        {!searchType && startPoint && endPoint && (
           <div style={{ marginTop: "20px" }}>
             <div
               style={{
@@ -458,16 +740,54 @@ export default function SidePanel({
             <div
               style={{ display: "flex", flexDirection: "column", gap: "8px" }}
             >
+              {/* Indicateur de drop AVANT le départ */}
+              {dragOverIndex === -1 &&
+                dropPosition === "before" &&
+                draggedPointType !== null &&
+                draggedPointType !== "start" && (
+                  <div
+                    style={{
+                      height: "4px",
+                      backgroundColor: "#f59e0b",
+                      borderRadius: "2px",
+                      margin: "4px 0",
+                      boxShadow: "0 0 8px rgba(245, 158, 11, 0.5)",
+                      animation: "pulse 1s ease-in-out infinite",
+                    }}
+                  />
+                )}
               {/* Point de départ */}
               <div
+                draggable
+                onDragStart={() => handlePointDragStart("start")}
+                onDragOver={(e) => handlePointDragOver(e, "start")}
+                onDragLeave={handlePointDragLeave}
+                onDrop={(e) => handlePointDrop(e, "start")}
+                onDragEnd={handleDragEnd}
                 style={{
                   padding: "10px",
                   borderRadius: "6px",
                   backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-                  border: `2px solid ${theme === "dark" ? "#10b981" : "#10b981"}`,
+                  border: `2px solid ${dragOverIndex === -1 &&
+                      draggedPointType !== null &&
+                      draggedPointType !== "start"
+                      ? "#f59e0b"
+                      : "#10b981"
+                    }`,
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
+                  cursor: "move",
+                  opacity: draggedPointType === "start" ? 0.3 : 1,
+                  transform:
+                    draggedPointType === "start" ? "scale(0.95)" : "scale(1)",
+                  transition: "transform 0.2s ease, opacity 0.2s ease",
+                  boxShadow:
+                    dragOverIndex === -1 &&
+                      draggedPointType !== null &&
+                      draggedPointType !== "start"
+                      ? "0 0 12px rgba(245, 158, 11, 0.4)"
+                      : "none",
                 }}
               >
                 <div
@@ -510,7 +830,47 @@ export default function SidePanel({
                     {startPoint.display_name.split(",").slice(0, 2).join(",")}
                   </p>
                 </div>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  style={{ flexShrink: 0, cursor: "move" }}
+                >
+                  <rect
+                    x="2"
+                    y="5"
+                    width="12"
+                    height="2"
+                    rx="1"
+                    fill={theme === "dark" ? "#aaa" : "#999"}
+                  />
+                  <rect
+                    x="2"
+                    y="9"
+                    width="12"
+                    height="2"
+                    rx="1"
+                    fill={theme === "dark" ? "#aaa" : "#999"}
+                  />
+                </svg>
               </div>
+              {/* Indicateur de drop APRES le départ */}
+              {dragOverIndex === -1 &&
+                dropPosition === "after" &&
+                draggedPointType !== null &&
+                draggedPointType !== "start" && (
+                  <div
+                    style={{
+                      height: "4px",
+                      backgroundColor: "#f59e0b",
+                      borderRadius: "2px",
+                      margin: "4px 0",
+                      boxShadow: "0 0 8px rgba(245, 158, 11, 0.5)",
+                      animation: "pulse 1s ease-in-out infinite",
+                    }}
+                  />
+                )}
 
               {/* Waypoints draggables */}
               {waypoints.map((waypoint, index) => (
@@ -533,24 +893,25 @@ export default function SidePanel({
                     )}
                   <div
                     draggable
-                    onDragStart={() => handleWaypointDragStart(index)}
-                    onDragOver={(e) => handleWaypointDragOver(e, index)}
-                    onDragLeave={handleWaypointDragLeave}
-                    onDrop={(e) => handleWaypointDrop(e, index)}
+                    onDragStart={() => handlePointDragStart("waypoint", index)}
+                    onDragOver={(e) =>
+                      handlePointDragOver(e, "waypoint", index)
+                    }
+                    onDragLeave={handlePointDragLeave}
+                    onDrop={(e) => handlePointDrop(e, "waypoint", index)}
                     onDragEnd={handleDragEnd}
                     style={{
                       padding: "10px",
                       borderRadius: "6px",
                       backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-                      border: `2px solid ${
-                        dragOverIndex === index &&
-                        draggedWaypointIndex !== null &&
-                        draggedWaypointIndex !== index
+                      border: `2px solid ${dragOverIndex === index &&
+                          draggedWaypointIndex !== null &&
+                          draggedWaypointIndex !== index
                           ? "#f59e0b"
                           : theme === "dark"
                             ? "#f59e0b"
                             : "#f59e0b"
-                      }`,
+                        }`,
                       display: "flex",
                       alignItems: "center",
                       gap: "10px",
@@ -563,8 +924,8 @@ export default function SidePanel({
                       transition: "transform 0.2s ease, opacity 0.2s ease",
                       boxShadow:
                         dragOverIndex === index &&
-                        draggedWaypointIndex !== null &&
-                        draggedWaypointIndex !== index
+                          draggedWaypointIndex !== null &&
+                          draggedWaypointIndex !== index
                           ? "0 0 12px rgba(245, 158, 11, 0.4)"
                           : "none",
                     }}
@@ -672,16 +1033,54 @@ export default function SidePanel({
                 </React.Fragment>
               ))}
 
+              {/* Indicateur de drop AVANT l'arrivée */}
+              {dragOverIndex === waypoints.length &&
+                dropPosition === "before" &&
+                draggedPointType !== null &&
+                draggedPointType !== "end" && (
+                  <div
+                    style={{
+                      height: "4px",
+                      backgroundColor: "#f59e0b",
+                      borderRadius: "2px",
+                      margin: "4px 0",
+                      boxShadow: "0 0 8px rgba(245, 158, 11, 0.5)",
+                      animation: "pulse 1s ease-in-out infinite",
+                    }}
+                  />
+                )}
               {/* Point d'arrivée */}
               <div
+                draggable
+                onDragStart={() => handlePointDragStart("end")}
+                onDragOver={(e) => handlePointDragOver(e, "end")}
+                onDragLeave={handlePointDragLeave}
+                onDrop={(e) => handlePointDrop(e, "end")}
+                onDragEnd={handleDragEnd}
                 style={{
                   padding: "10px",
                   borderRadius: "6px",
                   backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-                  border: `2px solid ${theme === "dark" ? "#ef4444" : "#ef4444"}`,
+                  border: `2px solid ${dragOverIndex === waypoints.length &&
+                      draggedPointType !== null &&
+                      draggedPointType !== "end"
+                      ? "#f59e0b"
+                      : "#ef4444"
+                    }`,
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
+                  cursor: "move",
+                  opacity: draggedPointType === "end" ? 0.3 : 1,
+                  transform:
+                    draggedPointType === "end" ? "scale(0.95)" : "scale(1)",
+                  transition: "transform 0.2s ease, opacity 0.2s ease",
+                  boxShadow:
+                    dragOverIndex === waypoints.length &&
+                      draggedPointType !== null &&
+                      draggedPointType !== "end"
+                      ? "0 0 12px rgba(245, 158, 11, 0.4)"
+                      : "none",
                 }}
               >
                 <div
@@ -724,7 +1123,47 @@ export default function SidePanel({
                     {endPoint.display_name.split(",").slice(0, 2).join(",")}
                   </p>
                 </div>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  style={{ flexShrink: 0, cursor: "move" }}
+                >
+                  <rect
+                    x="2"
+                    y="5"
+                    width="12"
+                    height="2"
+                    rx="1"
+                    fill={theme === "dark" ? "#aaa" : "#999"}
+                  />
+                  <rect
+                    x="2"
+                    y="9"
+                    width="12"
+                    height="2"
+                    rx="1"
+                    fill={theme === "dark" ? "#aaa" : "#999"}
+                  />
+                </svg>
               </div>
+              {/* Indicateur de drop APRES l'arrivée */}
+              {dragOverIndex === waypoints.length &&
+                dropPosition === "after" &&
+                draggedPointType !== null &&
+                draggedPointType !== "end" && (
+                  <div
+                    style={{
+                      height: "4px",
+                      backgroundColor: "#f59e0b",
+                      borderRadius: "2px",
+                      margin: "4px 0",
+                      boxShadow: "0 0 8px rgba(245, 158, 11, 0.5)",
+                      animation: "pulse 1s ease-in-out infinite",
+                    }}
+                  />
+                )}
             </div>
           </div>
         )}
@@ -753,26 +1192,30 @@ export default function SidePanel({
         )}
 
         {/* Indicateur de calcul */}
-        {isCalculating && startPoint && endPoint && !isPlacingWaypoint && (
-          <div
-            style={{
-              marginTop: "20px",
-              padding: "15px",
-              borderRadius: "6px",
-              backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-              color: theme === "dark" ? "#fff" : "#333",
-              textAlign: "center",
-            }}
-          >
-            <div style={{ marginBottom: "8px" }}>⏳</div>
-            <p style={{ margin: 0, fontSize: "14px" }}>
-              Calcul de l'itinéraire en cours...
-            </p>
-          </div>
-        )}
+        {!searchType &&
+          isCalculating &&
+          startPoint &&
+          endPoint &&
+          !isPlacingWaypoint && (
+            <div
+              style={{
+                marginTop: "20px",
+                padding: "15px",
+                borderRadius: "6px",
+                backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
+                color: theme === "dark" ? "#fff" : "#333",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ marginBottom: "8px" }}>⏳</div>
+              <p style={{ margin: 0, fontSize: "14px" }}>
+                Calcul de l'itinéraire en cours...
+              </p>
+            </div>
+          )}
 
         {/* Informations sur l'itinéraire */}
-        {routeInfo && !isCalculating && (
+        {!searchType && routeInfo && !isCalculating && (
           <>
             <div
               style={{
@@ -800,40 +1243,37 @@ export default function SidePanel({
                 </p>
               )}
             </div>
-            <button
-              onClick={onClearRoute}
-              style={{
-                ...buttonStyle,
-                marginTop: "10px",
-                backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-                color: theme === "dark" ? "#fff" : "#333",
-                border: `1px solid ${theme === "dark" ? "#444" : "#ddd"}`,
-              }}
-            >
-              Réinitialiser l'itinéraire
-            </button>
+
+            {/* Graphique des segments de route */}
+            {routeSegments && routeSegments.length > 0 && (
+              <RouteSegmentsGraph
+                segments={routeSegments}
+                totalDistance={routeInfo.distance}
+              />
+            )}
           </>
         )}
-
-        <div
-          style={{
-            marginTop: "20px",
-            padding: "12px",
-            borderRadius: "6px",
-            backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-            color: theme === "dark" ? "#aaa" : "#666",
-            fontSize: "12px",
-          }}
-        >
-          💡 Astuces :
-          <br />
-          • Clic droit sur la carte pour choisir un point
-          <br />
-          • Cliquez sur l'itinéraire sans relâcher, déplacez et relâchez
-          <br />
-          • Tous les points (A, B et intermédiaires) sont déplaçables
-          <br />• Cliquez sur un point intermédiaire pour plus d'options
-        </div>
+        {!searchType && (
+          <div
+            style={{
+              marginTop: "20px",
+              padding: "12px",
+              borderRadius: "6px",
+              backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
+              color: theme === "dark" ? "#aaa" : "#666",
+              fontSize: "12px",
+            }}
+          >
+            💡 Astuces :
+            <br />
+            • Clic droit sur la carte pour choisir un point
+            <br />
+            • Cliquez sur l'itinéraire sans relâcher, déplacez et relâchez
+            <br />
+            • Tous les points (A, B et intermédiaires) sont déplaçables
+            <br />• Cliquez sur un point intermédiaire pour plus d'options
+          </div>
+        )}
       </div>
     </>
   );

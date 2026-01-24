@@ -45,6 +45,11 @@ export default function MapView() {
     distance: number;
     duration: number;
   } | null>(null);
+  const [routeSegments, setRouteSegments] = useState<Array<{
+    type: string;
+    distance: number;
+    name: string;
+  }> | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -290,7 +295,7 @@ export default function MapView() {
       ].join(";");
 
       const response = await fetch(
-        `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`,
+        `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=true&annotations=true`,
       );
       const data = await response.json();
 
@@ -301,6 +306,65 @@ export default function MapView() {
           distance: route.distance,
           duration: route.duration,
         });
+
+        // Extraire les informations sur les segments avec enrichissement OSM
+        const segments: Array<{ type: string; distance: number; name: string }> = [];
+
+        route.legs?.forEach((leg: any) => {
+          leg.steps?.forEach((step: any) => {
+            if (step.distance > 0) {
+              // Déterminer le type de surface/terrain
+              let surfaceType = "paved"; // Par défaut : route goudronnée
+              const name = step.name || "";
+              const mode = step.mode || "driving";
+
+              // Analyse du nom et du mode pour détecter le type de surface
+              if (mode === "ferry") {
+                surfaceType = "ferry";
+              } else if (name.match(/chemin|sentier|path|track|footway/i)) {
+                surfaceType = "chemin";
+              } else if (name.match(/piste cyclable|cycleway|bike|vélo/i)) {
+                surfaceType = "cyclable";
+              } else if (name.match(/gravel|gravelle|terre|dirt|unpaved/i)) {
+                surfaceType = "gravel";
+              } else if (name.match(/autoroute|A\d+|highway|motorway/i)) {
+                surfaceType = "autoroute";
+              } else if (name.match(/nationale|N\d+|primary/i)) {
+                surfaceType = "nationale";
+              } else if (name.match(/départementale|D\d+|secondary|tertiary/i)) {
+                surfaceType = "departementale";
+              } else if (name.match(/rue|avenue|boulevard|residential|living_street/i)) {
+                surfaceType = "urbain";
+              } else if (name.match(/service|parking|driveway/i)) {
+                surfaceType = "service";
+              }
+
+              // Utiliser les classes OSRM si disponibles
+              if (step.intersections && step.intersections.length > 0) {
+                const classes = step.intersections[0].classes || [];
+                if (classes.includes("motorway")) surfaceType = "autoroute";
+                else if (classes.includes("trunk")) surfaceType = "nationale";
+                else if (classes.includes("primary")) surfaceType = "nationale";
+                else if (classes.includes("secondary")) surfaceType = "departementale";
+                else if (classes.includes("tertiary")) surfaceType = "departementale";
+                else if (classes.includes("residential")) surfaceType = "urbain";
+                else if (classes.includes("service")) surfaceType = "service";
+                else if (classes.includes("track")) surfaceType = "chemin";
+                else if (classes.includes("path")) surfaceType = "chemin";
+                else if (classes.includes("cycleway")) surfaceType = "cyclable";
+              }
+
+              segments.push({
+                type: surfaceType,
+                distance: step.distance,
+                name: name || "Sans nom",
+              });
+            }
+          });
+        });
+
+        setRouteSegments(segments);
+        console.log("Segments de route avec surfaces:", segments);
 
         // Zoom sur l'itinéraire seulement si demandé
         if (shouldZoom && mapRef.current) {
@@ -680,6 +744,7 @@ export default function MapView() {
     setWaypoints([]);
     setRouteGeometry(null);
     setRouteInfo(null);
+    setRouteSegments(null);
     // Nettoyer aussi le localStorage
     localStorage.removeItem("saved-route");
   }, []);
@@ -705,6 +770,7 @@ export default function MapView() {
       // Si l'un des deux points manque, effacer l'itinéraire
       setRouteGeometry(null);
       setRouteInfo(null);
+      setRouteSegments(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startPoint, endPoint]);
@@ -760,6 +826,7 @@ export default function MapView() {
         onReverseRoute={handleReverseRoute}
         onClearRoute={clearRoute}
         routeInfo={routeInfo}
+        routeSegments={routeSegments}
         waypointCount={waypoints.length}
         isCalculating={isCalculating}
         isPlacingWaypoint={!!isDraggingNewWaypoint}
