@@ -914,3 +914,13 @@ textarea {
     opacity: 1;
   }
 }
+
+/* Pulse animation for waypoint placement */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
