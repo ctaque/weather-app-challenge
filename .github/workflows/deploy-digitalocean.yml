@@ -166,30 +166,31 @@ jobs:
               echo "📦 Extracting new version..."
               tar -xzf /tmp/app.tar.gz
 
-              # Install dependencies
+              # Install all dependencies (including devDependencies for build)
               echo "📥 Installing dependencies..."
-              pnpm install --prod
+              pnpm install
 
               # Build frontend
               echo "🔨 Building frontend..."
               pnpm run build
 
-              # Restart with PM2
-              echo "♻️  Restarting application..."
-              pm2 restart ecosystem.config.js --update-env || pm2 start ecosystem.config.js
+              # Remove devDependencies after build
+              echo "🧹 Cleaning devDependencies..."
+              pnpm prune --prod
 
-              # Save PM2 config
-              pm2 save
-
-              # Wait and check status
-              sleep 3
-              pm2 status
-
-              echo "✅ Deployment successful!"
+              echo "✅ Application files updated!"
           EOF
+
+          # Restart systemd service as root
+          echo "♻️  Restarting application service..."
+          systemctl restart weather-app
+          sleep 3
+          systemctl status weather-app --no-pager
 
           # Cleanup
           rm -f /tmp/app.tar.gz
+
+          echo "✅ Deployment successful!"
           ENDSSH
 
       - name: Health check
