@@ -53,9 +53,13 @@ export default function SidePanel({
   const [searchType, setSearchType] = useState<"start" | "end">("start");
   const [searchResults, setSearchResults] = useState<Location[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [draggedWaypointIndex, setDraggedWaypointIndex] = useState<number | null>(null);
+  const [draggedWaypointIndex, setDraggedWaypointIndex] = useState<
+    number | null
+  >(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [dropPosition, setDropPosition] = useState<'before' | 'after'>('before');
+  const [dropPosition, setDropPosition] = useState<"before" | "after">(
+    "before",
+  );
 
   const searchAddress = async () => {
     if (!searchQuery.trim()) return;
@@ -64,8 +68,8 @@ export default function SidePanel({
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          searchQuery
-        )}&limit=5`
+          searchQuery,
+        )}&limit=5`,
       );
       const data = await response.json();
       setSearchResults(
@@ -73,7 +77,7 @@ export default function SidePanel({
           lat: parseFloat(item.lat),
           lon: parseFloat(item.lon),
           display_name: item.display_name,
-        }))
+        })),
       );
     } catch (error) {
       console.error("Erreur de recherche:", error);
@@ -103,7 +107,7 @@ export default function SidePanel({
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
     const height = rect.height;
-    const position = y < height / 2 ? 'before' : 'after';
+    const position = y < height / 2 ? "before" : "after";
 
     setDragOverIndex(index);
     setDropPosition(position);
@@ -130,7 +134,7 @@ export default function SidePanel({
     }
 
     // Ajuster selon si on veut placer avant ou après
-    if (dropPosition === 'after') {
+    if (dropPosition === "after") {
       insertIndex += 1;
     }
 
@@ -176,7 +180,7 @@ export default function SidePanel({
         style={{
           position: "fixed",
           top: "4rem",
-          left: isOpen ? 0 : "-380px",
+          left: isOpen ? "1rem" : "-380px",
           bottom: "1rem",
           width: "320px",
           backgroundColor: "var(--brand)",
@@ -269,7 +273,9 @@ export default function SidePanel({
             </div>
           ) : (
             <>
-              <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
+              <div
+                style={{ display: "flex", gap: "8px", marginBottom: "10px" }}
+              >
                 <input
                   type="text"
                   placeholder="Rechercher une adresse..."
@@ -343,7 +349,9 @@ export default function SidePanel({
             </div>
           ) : (
             <>
-              <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
+              <div
+                style={{ display: "flex", gap: "8px", marginBottom: "10px" }}
+              >
                 <input
                   type="text"
                   placeholder="Rechercher une adresse..."
@@ -447,7 +455,9 @@ export default function SidePanel({
               </button>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+            >
               {/* Point de départ */}
               <div
                 style={{
@@ -507,20 +517,20 @@ export default function SidePanel({
                 <React.Fragment key={waypoint.id}>
                   {/* Indicateur de drop AVANT */}
                   {dragOverIndex === index &&
-                   dropPosition === 'before' &&
-                   draggedWaypointIndex !== null &&
-                   draggedWaypointIndex !== index && (
-                    <div
-                      style={{
-                        height: "4px",
-                        backgroundColor: "#f59e0b",
-                        borderRadius: "2px",
-                        margin: "4px 0",
-                        boxShadow: "0 0 8px rgba(245, 158, 11, 0.5)",
-                        animation: "pulse 1s ease-in-out infinite",
-                      }}
-                    />
-                  )}
+                    dropPosition === "before" &&
+                    draggedWaypointIndex !== null &&
+                    draggedWaypointIndex !== index && (
+                      <div
+                        style={{
+                          height: "4px",
+                          backgroundColor: "#f59e0b",
+                          borderRadius: "2px",
+                          margin: "4px 0",
+                          boxShadow: "0 0 8px rgba(245, 158, 11, 0.5)",
+                          animation: "pulse 1s ease-in-out infinite",
+                        }}
+                      />
+                    )}
                   <div
                     draggable
                     onDragStart={() => handleWaypointDragStart(index)}
@@ -533,20 +543,30 @@ export default function SidePanel({
                       borderRadius: "6px",
                       backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
                       border: `2px solid ${
-                        dragOverIndex === index && draggedWaypointIndex !== null && draggedWaypointIndex !== index
+                        dragOverIndex === index &&
+                        draggedWaypointIndex !== null &&
+                        draggedWaypointIndex !== index
                           ? "#f59e0b"
-                          : theme === "dark" ? "#f59e0b" : "#f59e0b"
+                          : theme === "dark"
+                            ? "#f59e0b"
+                            : "#f59e0b"
                       }`,
                       display: "flex",
                       alignItems: "center",
                       gap: "10px",
                       cursor: "move",
                       opacity: draggedWaypointIndex === index ? 0.3 : 1,
-                      transform: draggedWaypointIndex === index ? "scale(0.95)" : "scale(1)",
+                      transform:
+                        draggedWaypointIndex === index
+                          ? "scale(0.95)"
+                          : "scale(1)",
                       transition: "transform 0.2s ease, opacity 0.2s ease",
-                      boxShadow: dragOverIndex === index && draggedWaypointIndex !== null && draggedWaypointIndex !== index
-                        ? "0 0 12px rgba(245, 158, 11, 0.4)"
-                        : "none",
+                      boxShadow:
+                        dragOverIndex === index &&
+                        draggedWaypointIndex !== null &&
+                        draggedWaypointIndex !== index
+                          ? "0 0 12px rgba(245, 158, 11, 0.4)"
+                          : "none",
                     }}
                   >
                     <div
@@ -635,20 +655,20 @@ export default function SidePanel({
                   </div>
                   {/* Indicateur de drop APRES */}
                   {dragOverIndex === index &&
-                   dropPosition === 'after' &&
-                   draggedWaypointIndex !== null &&
-                   draggedWaypointIndex !== index && (
-                    <div
-                      style={{
-                        height: "4px",
-                        backgroundColor: "#f59e0b",
-                        borderRadius: "2px",
-                        margin: "4px 0",
-                        boxShadow: "0 0 8px rgba(245, 158, 11, 0.5)",
-                        animation: "pulse 1s ease-in-out infinite",
-                      }}
-                    />
-                  )}
+                    dropPosition === "after" &&
+                    draggedWaypointIndex !== null &&
+                    draggedWaypointIndex !== index && (
+                      <div
+                        style={{
+                          height: "4px",
+                          backgroundColor: "#f59e0b",
+                          borderRadius: "2px",
+                          margin: "4px 0",
+                          boxShadow: "0 0 8px rgba(245, 158, 11, 0.5)",
+                          animation: "pulse 1s ease-in-out infinite",
+                        }}
+                      />
+                    )}
                 </React.Fragment>
               ))}
 
@@ -767,10 +787,12 @@ export default function SidePanel({
                 Informations
               </h3>
               <p style={{ margin: "5px 0", fontSize: "14px" }}>
-                <strong>Distance :</strong> {(routeInfo.distance / 1000).toFixed(2)} km
+                <strong>Distance :</strong>{" "}
+                {(routeInfo.distance / 1000).toFixed(2)} km
               </p>
               <p style={{ margin: "5px 0", fontSize: "14px" }}>
-                <strong>Durée :</strong> {Math.round(routeInfo.duration / 60)} min
+                <strong>Durée :</strong> {Math.round(routeInfo.duration / 60)}{" "}
+                min
               </p>
               {waypointCount > 0 && (
                 <p style={{ margin: "5px 0", fontSize: "14px" }}>
@@ -810,8 +832,7 @@ export default function SidePanel({
           • Cliquez sur l'itinéraire sans relâcher, déplacez et relâchez
           <br />
           • Tous les points (A, B et intermédiaires) sont déplaçables
-          <br />
-          • Cliquez sur un point intermédiaire pour plus d'options
+          <br />• Cliquez sur un point intermédiaire pour plus d'options
         </div>
       </div>
     </>

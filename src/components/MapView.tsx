@@ -106,7 +106,7 @@ export default function MapView() {
 
   // Sauvegarder l'itinéraire à chaque modification
   useEffect(() => {
-    // Ne sauvegarder que si au moins un point existe
+    // Si au moins un point existe, sauvegarder
     if (startPoint || endPoint || waypoints.length > 0) {
       try {
         const routeData = {
@@ -124,6 +124,10 @@ export default function MapView() {
       } catch (error) {
         console.error("Erreur lors de la sauvegarde de l'itinéraire:", error);
       }
+    } else {
+      // Si tous les points sont supprimés, nettoyer le localStorage
+      localStorage.removeItem("saved-route");
+      console.log("Itinéraire supprimé du localStorage");
     }
   }, [startPoint, endPoint, waypoints]);
 
@@ -159,21 +163,37 @@ export default function MapView() {
     (async () => {
       if (!mapRef.current) return;
       const map = mapRef.current.getMap();
-      if (map.loaded()) {
-        const imageBlack = await map.loadImage(arrowIconBlack);
-        const imageLight = await map.loadImage(arrowIconWhite);
-        map.addImage("arrow-icon", imageBlack.data);
-        map.addImage("arrow-icon-white", imageLight.data);
-      } else {
-        map.once("load", async () => {
+
+      const loadImages = async () => {
+        try {
           const imageBlack = await map.loadImage(arrowIconBlack);
           const imageLight = await map.loadImage(arrowIconWhite);
+
+          if (map.hasImage("arrow-icon")) {
+            map.removeImage("arrow-icon");
+          }
+          if (map.hasImage("arrow-icon-white")) {
+            map.removeImage("arrow-icon-white");
+          }
+
           map.addImage("arrow-icon", imageBlack.data);
           map.addImage("arrow-icon-white", imageLight.data);
-        });
+
+          console.log("Images de flèches chargées");
+          setIsArrowIconLoaded(true);
+        } catch (error) {
+          console.error("Erreur chargement des flèches:", error);
+          setIsArrowIconLoaded(false);
+        }
+      };
+
+      if (map.loaded()) {
+        await loadImages();
+      } else {
+        map.once("load", loadImages);
       }
     })();
-  }, [theme, mapRef.current]);
+  }, [theme]);
 
   const recenterMap = () => {
     if ("geolocation" in navigator) {
@@ -681,6 +701,10 @@ export default function MapView() {
   useEffect(() => {
     if (startPoint && endPoint) {
       calculateRoute(true); // Avec zoom lors de la création initiale
+    } else {
+      // Si l'un des deux points manque, effacer l'itinéraire
+      setRouteGeometry(null);
+      setRouteInfo(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startPoint, endPoint]);
