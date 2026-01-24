@@ -51,6 +51,7 @@ html {
   --button-text-dark: #0b1220;
   --selection-border: #2563eb;
   --brand: #89a380;
+  --text-color: #000000;
 }
 
 /* Dark overrides */
@@ -64,6 +65,7 @@ html {
   --card-shadow: rgba(0, 0, 0, 0.5);
   --surface-2: #192e4b;
   --brand: #0b2d00;
+  --text-color: #ffffff;
 }
 
 /* Page */
@@ -330,6 +332,15 @@ textarea {
   color: var(--text);
   font-family: inherit;
   font-size: 1rem;
+}
+
+select::picker(select) {
+  appearance: base-select;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background-color: white;
+  color: var(--text-color);
 }
 
 /* Buttons group (submit + location) */
@@ -917,7 +928,8 @@ textarea {
 
 /* Pulse animation for waypoint placement */
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {

@@ -31,6 +31,8 @@ interface SidePanelProps {
   waypointCount: number;
   isCalculating: boolean;
   isPlacingWaypoint: boolean;
+  transportMode: "car" | "bike" | "foot";
+  onTransportModeChange: (mode: "car" | "bike" | "foot") => void;
 }
 
 export default function SidePanel({
@@ -50,6 +52,8 @@ export default function SidePanel({
   waypointCount,
   isCalculating,
   isPlacingWaypoint,
+  transportMode,
+  onTransportModeChange,
 }: SidePanelProps) {
   const theme = useContext(ThemeContext);
   const [searchQuery, setSearchQuery] = useState("");
@@ -458,18 +462,49 @@ export default function SidePanel({
 
         {/* Point de départ */}
         {searchType !== "end" && (
-          <div style={{ marginBottom: "20px" }}>
-            <label
+          <div>
+            <div
               style={{
-                display: "block",
-                marginBottom: "8px",
-                color: theme === "dark" ? "#fff" : "#333",
-                fontSize: "14px",
-                fontWeight: "500",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
               }}
             >
-              Point de départ
-            </label>
+              {/* Sélecteur de mode de transport */}
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  color: theme === "dark" ? "#fff" : "#333",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Point de départ
+              </label>
+              {!searchType && (
+                <div>
+                  <select
+                    value={transportMode}
+                    onChange={(e) =>
+                      onTransportModeChange(
+                        e.target.value as "car" | "bike" | "foot",
+                      )
+                    }
+                    style={{
+                      backgroundColor: "transparent",
+                      border: "none",
+                      marginBottom: ".5rem",
+                      borderRadius: "10px",
+                    }}
+                  >
+                    <option value="car">Voiture</option>
+                    <option value="bike">Vélo</option>
+                    <option value="foot">À pied</option>
+                  </select>
+                </div>
+              )}
+            </div>
             {
               <>
                 <div
@@ -723,7 +758,7 @@ export default function SidePanel({
                   padding: "6px 10px",
                   borderRadius: "4px",
                   border: "none",
-                  backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
+                  backgroundColor: "transparent",
                   color: theme === "dark" ? "#fff" : "#333",
                   cursor: "pointer",
                   fontSize: "12px",
@@ -733,7 +768,7 @@ export default function SidePanel({
                 }}
                 title="Inverser l'itinéraire"
               >
-                🔄 Inverser
+                Inverser
               </button>
             </div>
 

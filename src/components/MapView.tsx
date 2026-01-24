@@ -69,6 +69,9 @@ export default function MapView() {
   const [hoveredMarker, setHoveredMarker] = useState<string | null>(null);
   const [isDraggingMarker, setIsDraggingMarker] = useState(false);
   const [arrowPoints, setArrowPoints] = useState<any>(null);
+  const [transportMode, setTransportMode] = useState<"car" | "bike" | "foot">(
+    "car",
+  );
   const mapRef = useRef<MapRef>(null);
   const lastRouteCalculationRef = useRef<number>(0);
   const routeCalculationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -98,6 +101,9 @@ export default function MapView() {
         if (parsed.waypoints && Array.isArray(parsed.waypoints)) {
           setWaypoints(parsed.waypoints);
         }
+        if (parsed.transportMode) {
+          setTransportMode(parsed.transportMode);
+        }
         console.log("Itinéraire chargé depuis localStorage:", {
           startPoint: parsed.startPoint,
           endPoint: parsed.endPoint,
@@ -118,6 +124,7 @@ export default function MapView() {
           startPoint,
           endPoint,
           waypoints,
+          transportMode,
           timestamp: new Date().toISOString(),
         };
         localStorage.setItem("saved-route", JSON.stringify(routeData));
@@ -134,7 +141,7 @@ export default function MapView() {
       localStorage.removeItem("saved-route");
       console.log("Itinéraire supprimé du localStorage");
     }
-  }, [startPoint, endPoint, waypoints]);
+  }, [startPoint, endPoint, waypoints, transportMode]);
 
   // Centrer la carte sur la position actuelle au chargement
   useEffect(() => {
@@ -287,80 +294,105 @@ export default function MapView() {
 
     setIsCalculating(true);
     try {
-      // Construire la liste des coordonnées : départ, waypoints, arrivée
-      const coordinates = [
-        `${startPoint.lon},${startPoint.lat}`,
-        ...waypoints.map((wp) => `${wp.lon},${wp.lat}`),
-        `${endPoint.lon},${endPoint.lat}`,
-      ].join(";");
+      // Le mode de transport correspond déjà aux profils GraphHopper
+      const profile = transportMode;
 
-      const response = await fetch(
-        `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=true&annotations=true`,
-      );
+      // Construire les points pour GraphHopper
+      const points = [
+        [startPoint.lat, startPoint.lon],
+        ...waypoints.map((wp) => [wp.lat, wp.lon]),
+        [endPoint.lat, endPoint.lon],
+      ];
+
+      // Construire l'URL GraphHopper
+      const pointsParams = points.map((p) => `point=${p[0]},${p[1]}`).join("&");
+      const apiKey = import.meta.env.VITE_GRAPHHOPPER_TOKEN || "";
+      const keyParam = apiKey ? `&key=${apiKey}` : "";
+      const url = `https://graphhopper.com/api/1/route?${pointsParams}&profile=${profile}&locale=fr&points_encoded=false&instructions=true&details=road_class${keyParam}`;
+
+      const response = await fetch(url);
       const data = await response.json();
 
-      if (data.routes && data.routes.length > 0) {
-        const route = data.routes[0];
-        setRouteGeometry(route.geometry);
+      if (data.paths && data.paths.length > 0) {
+        const path = data.paths[0];
+
+        // Convertir le format GraphHopper en GeoJSON
+        const geometry = {
+          type: "LineString",
+          coordinates: path.points.coordinates, // GraphHopper retourne [lon, lat]
+        };
+
+        setRouteGeometry(geometry);
         setRouteInfo({
-          distance: route.distance,
-          duration: route.duration,
+          distance: path.distance,
+          duration: path.time / 1000, // GraphHopper retourne en millisecondes
         });
 
-        // Extraire les informations sur les segments avec enrichissement OSM
-        const segments: Array<{ type: string; distance: number; name: string }> = [];
+        // Extraire les informations sur les segments avec les instructions GraphHopper
+        const segments: Array<{
+          type: string;
+          distance: number;
+          name: string;
+        }> = [];
 
-        route.legs?.forEach((leg: any) => {
-          leg.steps?.forEach((step: any) => {
-            if (step.distance > 0) {
-              // Déterminer le type de surface/terrain
-              let surfaceType = "paved"; // Par défaut : route goudronnée
-              const name = step.name || "";
-              const mode = step.mode || "driving";
+        path.instructions?.forEach((instruction: any) => {
+          if (instruction.distance > 0) {
+            // Déterminer le type de surface/terrain
+            let surfaceType = "paved"; // Par défaut : route goudronnée
+            const name = instruction.street_name || instruction.text || "";
 
-              // Analyse du nom et du mode pour détecter le type de surface
-              if (mode === "ferry") {
-                surfaceType = "ferry";
-              } else if (name.match(/chemin|sentier|path|track|footway/i)) {
-                surfaceType = "chemin";
-              } else if (name.match(/piste cyclable|cycleway|bike|vélo/i)) {
-                surfaceType = "cyclable";
-              } else if (name.match(/gravel|gravelle|terre|dirt|unpaved/i)) {
-                surfaceType = "gravel";
-              } else if (name.match(/autoroute|A\d+|highway|motorway/i)) {
-                surfaceType = "autoroute";
-              } else if (name.match(/nationale|N\d+|primary/i)) {
-                surfaceType = "nationale";
-              } else if (name.match(/départementale|D\d+|secondary|tertiary/i)) {
-                surfaceType = "departementale";
-              } else if (name.match(/rue|avenue|boulevard|residential|living_street/i)) {
-                surfaceType = "urbain";
-              } else if (name.match(/service|parking|driveway/i)) {
-                surfaceType = "service";
-              }
+            // GraphHopper fournit des détails de road_class
+            const roadClass = instruction.road_class || "";
 
-              // Utiliser les classes OSRM si disponibles
-              if (step.intersections && step.intersections.length > 0) {
-                const classes = step.intersections[0].classes || [];
-                if (classes.includes("motorway")) surfaceType = "autoroute";
-                else if (classes.includes("trunk")) surfaceType = "nationale";
-                else if (classes.includes("primary")) surfaceType = "nationale";
-                else if (classes.includes("secondary")) surfaceType = "departementale";
-                else if (classes.includes("tertiary")) surfaceType = "departementale";
-                else if (classes.includes("residential")) surfaceType = "urbain";
-                else if (classes.includes("service")) surfaceType = "service";
-                else if (classes.includes("track")) surfaceType = "chemin";
-                else if (classes.includes("path")) surfaceType = "chemin";
-                else if (classes.includes("cycleway")) surfaceType = "cyclable";
-              }
-
-              segments.push({
-                type: surfaceType,
-                distance: step.distance,
-                name: name || "Sans nom",
-              });
+            // Analyse basée sur road_class de GraphHopper
+            if (roadClass === "motorway") {
+              surfaceType = "autoroute";
+            } else if (roadClass === "trunk" || roadClass === "primary") {
+              surfaceType = "nationale";
+            } else if (roadClass === "secondary" || roadClass === "tertiary") {
+              surfaceType = "departementale";
+            } else if (
+              roadClass === "residential" ||
+              roadClass === "living_street"
+            ) {
+              surfaceType = "urbain";
+            } else if (roadClass === "service") {
+              surfaceType = "service";
+            } else if (roadClass === "track") {
+              surfaceType = "chemin";
+            } else if (roadClass === "path" || roadClass === "footway") {
+              surfaceType = "chemin";
+            } else if (roadClass === "cycleway") {
+              surfaceType = "cyclable";
             }
-          });
+
+            // Analyse du nom pour affiner
+            if (name.match(/chemin|sentier|path|track|footway/i)) {
+              surfaceType = "chemin";
+            } else if (name.match(/piste cyclable|cycleway|bike|vélo/i)) {
+              surfaceType = "cyclable";
+            } else if (name.match(/gravel|gravelle|terre|dirt|unpaved/i)) {
+              surfaceType = "gravel";
+            } else if (name.match(/autoroute|A\d+|highway|motorway/i)) {
+              surfaceType = "autoroute";
+            } else if (name.match(/nationale|N\d+|primary/i)) {
+              surfaceType = "nationale";
+            } else if (name.match(/départementale|D\d+|secondary|tertiary/i)) {
+              surfaceType = "departementale";
+            } else if (
+              name.match(/rue|avenue|boulevard|residential|living_street/i)
+            ) {
+              surfaceType = "urbain";
+            } else if (name.match(/service|parking|driveway/i)) {
+              surfaceType = "service";
+            }
+
+            segments.push({
+              type: surfaceType,
+              distance: instruction.distance,
+              name: name || "Sans nom",
+            });
+          }
         });
 
         setRouteSegments(segments);
@@ -368,7 +400,7 @@ export default function MapView() {
 
         // Zoom sur l'itinéraire seulement si demandé
         if (shouldZoom && mapRef.current) {
-          const coords = route.geometry.coordinates;
+          const coords = path.points.coordinates;
           const bounds = coords.reduce(
             (bounds: any, coord: number[]) => {
               return [
@@ -775,14 +807,14 @@ export default function MapView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startPoint, endPoint]);
 
-  // Recalculer l'itinéraire quand les waypoints changent (si un itinéraire existe déjà)
+  // Recalculer l'itinéraire quand les waypoints ou le mode de transport changent
   // mais pas pendant le drag d'un nouveau waypoint (géré en temps réel dans le drag handler)
   useEffect(() => {
-    if (startPoint && endPoint && routeInfo && !isDraggingNewWaypoint) {
+    if (startPoint && endPoint && !isDraggingNewWaypoint) {
       calculateRoute(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [waypoints, isDraggingNewWaypoint]);
+  }, [waypoints, isDraggingNewWaypoint, transportMode]);
 
   const controlButtonStyle: React.CSSProperties = {
     position: "absolute",
@@ -830,6 +862,8 @@ export default function MapView() {
         waypointCount={waypoints.length}
         isCalculating={isCalculating}
         isPlacingWaypoint={!!isDraggingNewWaypoint}
+        transportMode={transportMode}
+        onTransportModeChange={setTransportMode}
       />
 
       <Map
