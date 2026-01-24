@@ -23,7 +23,10 @@ export default function ElevationProfile({
 }: ElevationProfileProps) {
   const theme = useContext(ThemeContext);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  const [hoverPosition, setHoverPosition] = useState<{ x: number; distance: number } | null>(null);
+  const [hoverPosition, setHoverPosition] = useState<{
+    x: number;
+    distance: number;
+  } | null>(null);
 
   // Écouter les changements de taille de fenêtre
   useEffect(() => {
@@ -52,7 +55,7 @@ export default function ElevationProfile({
   const containerPadding = 16; // 0.5rem de padding interne du conteneur
   const width = windowWidth - leftPosition - rightMargin - containerPadding * 2;
   const height = 150;
-  const padding = { top: 10, right: 20, bottom: 30, left: 30 };
+  const padding = { top: 10, right: 20, bottom: 15, left: 30 };
   const graphWidth = width - padding.left - padding.right;
   const graphHeight = height - padding.top - padding.bottom;
 
@@ -119,8 +122,8 @@ export default function ElevationProfile({
     <div
       style={{
         borderRadius: "6px",
-        backgroundColor: theme === "dark" ? "#111111" : "#f3f4f6",
-        color: theme === "dark" ? "#fff" : "#222",
+        backgroundColor: theme === "dark" ? "#89a380" : "#f3f4f6",
+        color: "#222",
         position: "fixed",
         bottom: "1rem",
         left: `${leftPosition}px`,
@@ -160,7 +163,7 @@ export default function ElevationProfile({
                 y={padding.top + y + 4}
                 textAnchor="end"
                 fontSize="10"
-                fill={theme === "dark" ? "#aaa" : "#666"}
+                fill={theme === "dark" ? "#222" : "#666"}
               >
                 {elevation}m
               </text>
@@ -180,7 +183,7 @@ export default function ElevationProfile({
                 y1={padding.top}
                 x2={padding.left + x}
                 y2={padding.top + graphHeight}
-                stroke={theme === "dark" ? "#444" : "#ddd"}
+                stroke={theme === "dark" ? "#222" : "#ddd"}
                 strokeWidth="1"
                 strokeDasharray="2,2"
               />
@@ -189,7 +192,7 @@ export default function ElevationProfile({
                 y={padding.top + graphHeight + 15}
                 textAnchor="middle"
                 fontSize="10"
-                fill={theme === "dark" ? "#aaa" : "#666"}
+                fill={theme === "dark" ? "#222" : "#666"}
               >
                 {(distance / 1000).toFixed(1)}km
               </text>
@@ -211,7 +214,7 @@ export default function ElevationProfile({
           <path
             d={pathData}
             fill="none"
-            stroke={"var(--brand)"}
+            stroke={"#89a380"}
             strokeWidth="2"
             strokeLinejoin="round"
             strokeLinecap="round"
@@ -235,17 +238,70 @@ export default function ElevationProfile({
               {(() => {
                 // Trouver le point le plus proche sur la courbe
                 const targetDistance = hoverPosition.distance;
-                const closestPoint = elevationData.reduce((closest, point) => {
-                  const distDiff = Math.abs(point.distance - targetDistance);
-                  const closestDiff = Math.abs(closest.distance - targetDistance);
-                  return distDiff < closestDiff ? point : closest;
-                });
+                const closestPointIndex = elevationData.reduce(
+                  (closestIdx, point, idx) => {
+                    const distDiff = Math.abs(point.distance - targetDistance);
+                    const closestDiff = Math.abs(
+                      elevationData[closestIdx].distance - targetDistance,
+                    );
+                    return distDiff < closestDiff ? idx : closestIdx;
+                  },
+                  0,
+                );
+
+                const closestPoint = elevationData[closestPointIndex];
+
+                // Calculer la pente en utilisant les points voisins
+                let slope = 0;
+                if (
+                  closestPointIndex > 0 &&
+                  closestPointIndex < elevationData.length - 1
+                ) {
+                  const prevPoint = elevationData[closestPointIndex - 1];
+                  const nextPoint = elevationData[closestPointIndex + 1];
+
+                  const elevationDiff =
+                    nextPoint.elevation - prevPoint.elevation;
+                  const distanceDiff = nextPoint.distance - prevPoint.distance;
+
+                  if (distanceDiff > 0) {
+                    slope = (elevationDiff / distanceDiff) * 100;
+                  }
+                } else if (
+                  closestPointIndex === 0 &&
+                  elevationData.length > 1
+                ) {
+                  // Premier point, utiliser le suivant
+                  const nextPoint = elevationData[1];
+                  const elevationDiff =
+                    nextPoint.elevation - closestPoint.elevation;
+                  const distanceDiff =
+                    nextPoint.distance - closestPoint.distance;
+
+                  if (distanceDiff > 0) {
+                    slope = (elevationDiff / distanceDiff) * 100;
+                  }
+                } else if (
+                  closestPointIndex === elevationData.length - 1 &&
+                  elevationData.length > 1
+                ) {
+                  // Dernier point, utiliser le précédent
+                  const prevPoint = elevationData[closestPointIndex - 1];
+                  const elevationDiff =
+                    closestPoint.elevation - prevPoint.elevation;
+                  const distanceDiff =
+                    closestPoint.distance - prevPoint.distance;
+
+                  if (distanceDiff > 0) {
+                    slope = (elevationDiff / distanceDiff) * 100;
+                  }
+                }
 
                 const x = (closestPoint.distance / totalDistance) * graphWidth;
                 const y =
                   graphHeight -
                   ((closestPoint.elevation - minElevation) / elevationRange) *
-                    graphHeight;
+                  graphHeight;
 
                 return (
                   <>
@@ -260,25 +316,51 @@ export default function ElevationProfile({
                     {/* Info bulle */}
                     <g>
                       <rect
-                        x={x - 40}
-                        y={y - 30}
-                        width="80"
-                        height="20"
+                        x={x - 45}
+                        y={y - 50}
+                        width="90"
+                        height="44"
                         rx="3"
                         fill={theme === "dark" ? "#1a1a1a" : "white"}
                         stroke={"var(--brand)"}
                         strokeWidth="1"
                         opacity="0.95"
                       />
+                      {/* Distance */}
                       <text
                         x={x}
-                        y={y - 16}
+                        y={y - 36}
+                        textAnchor="middle"
+                        fontSize="9"
+                        fill={theme == "dark" ? "#aaa" : "#666"}
+                        fontWeight="500"
+                      >
+                        {(closestPoint.distance / 1000).toFixed(2)} km
+                      </text>
+                      {/* Altitude */}
+                      <text
+                        x={x}
+                        y={y - 24}
                         textAnchor="middle"
                         fontSize="10"
-                        fill={theme === "dark" ? "#fff" : "#333"}
+                        fill={theme == "dark" ? "#fff" : "#000"}
                         fontWeight="600"
                       >
                         {Math.round(closestPoint.elevation)}m
+                      </text>
+                      {/* Pente */}
+                      <text
+                        x={x}
+                        y={y - 12}
+                        textAnchor="middle"
+                        fontSize="9"
+                        fill={
+                          slope > 0 ? "#ef4444" : slope < 0 ? "#10b981" : "#aaa"
+                        }
+                        fontWeight="600"
+                      >
+                        {slope > 0 ? "▲" : slope < 0 ? "▼" : "―"}{" "}
+                        {Math.abs(slope).toFixed(1)}%
                       </text>
                     </g>
                   </>
@@ -296,7 +378,7 @@ export default function ElevationProfile({
           marginTop: "10px",
           gap: "1rem",
           fontSize: "12px",
-          color: theme === "dark" ? "#aaa" : "#666",
+          color: theme === "dark" ? "#222" : "#666",
         }}
       >
         <span>Min: {Math.round(minElevation)}m</span>
