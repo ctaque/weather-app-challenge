@@ -135,20 +135,19 @@ jobs:
         env:
           DROPLET_IP: ${{ secrets.DROPLET_IP }}
         run: |
-          # Create deployment archive
+          # Create deployment archive in /tmp to avoid "file changed" error
           echo "📦 Creating deployment archive..."
-          tar -czf app.tar.gz \
+          tar -czf /tmp/app.tar.gz \
             --exclude=node_modules \
             --exclude=.git \
             --exclude=terraform \
             --exclude=.github \
-            --exclude=app.tar.gz \
             --exclude=dist \
             .
 
           # Upload to droplet
           echo "📤 Uploading to droplet..."
-          scp -i ~/.ssh/deploy_key app.tar.gz root@$DROPLET_IP:/tmp/
+          scp -i ~/.ssh/deploy_key /tmp/app.tar.gz root@$DROPLET_IP:/tmp/
 
           # Deploy on droplet
           echo "🚀 Deploying application..."
