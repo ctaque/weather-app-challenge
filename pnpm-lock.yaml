@@ -65,6 +65,9 @@ importers:
       node-fetch:
         specifier: ^2.7.0
         version: 2.7.0
+      openrouteservice-js:
+        specifier: ^0.4.1
+        version: 0.4.1
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -2503,6 +2506,9 @@ packages:
 
   once@1.4.0:
     resolution: {integrity: sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==}
+
+  openrouteservice-js@0.4.1:
+    resolution: {integrity: sha512-Oeb/KgzaYXEtafSHB40KfZvHFfTSPhtt0/oEf0jv5o5Ljw3//+C63CFxbknOqDBrOkYLLQMMCjJGa54rUOBtLg==}
 
   pako@0.2.9:
     resolution: {integrity: sha512-NUcwaKxUxWrZLpDG+z/xZaCgQITkA/Dv4V/T6bw7VON6l1Xz/VnrBqrYjZQ12TamKHzITTfOEIYUj48y2KXImA==}
@@ -6001,6 +6007,8 @@ snapshots:
   once@1.4.0:
     dependencies:
       wrappy: 1.0.2
+
+  openrouteservice-js@0.4.1: {}
 
   pako@0.2.9: {}
 

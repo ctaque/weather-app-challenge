@@ -14,6 +14,7 @@ import SidePanel from "./SidePanel";
 import ElevationProfile from "./ElevationProfile";
 import arrowIconBlack from "../assets/arrow-icon.png";
 import arrowIconWhite from "../assets/arrow-icon-white.png";
+import Openrouteservice from "openrouteservice-js";
 
 interface Location {
   lat: number;
@@ -60,6 +61,14 @@ export default function MapView() {
   const [elevationCursorPosition, setElevationCursorPosition] = useState<{
     lat: number;
     lon: number;
+  } | null>(null);
+  const [restrictedSegments, setRestrictedSegments] = useState<{
+    geometry: any;
+    segments: Array<{
+      name: string;
+      distance: number;
+      reason: string;
+    }>;
   } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -203,10 +212,8 @@ export default function MapView() {
           map.addImage("arrow-icon-white", imageLight.data);
 
           console.log("Images de flèches chargées");
-          setIsArrowIconLoaded(true);
         } catch (error) {
           console.error("Erreur chargement des flèches:", error);
-          setIsArrowIconLoaded(false);
         }
       };
 
@@ -322,9 +329,9 @@ export default function MapView() {
         const a =
           Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
           Math.cos(lat1) *
-            Math.cos(lat2) *
-            Math.sin(deltaLon / 2) *
-            Math.sin(deltaLon / 2);
+          Math.cos(lat2) *
+          Math.sin(deltaLon / 2) *
+          Math.sin(deltaLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const segmentDistance = R * c;
 
@@ -355,192 +362,301 @@ export default function MapView() {
 
     setIsCalculating(true);
     try {
-      // Le mode de transport correspond déjà aux profils GraphHopper
-      const profile = transportMode;
+      // Mapper les modes de transport vers les profils OpenRouteService
+      const getORSProfile = () => {
+        switch (transportMode) {
+          case "car":
+            return "driving-car";
+          case "bike":
+            return "cycling-regular";
+          case "foot":
+            return "foot-walking";
+          default:
+            return "driving-car";
+        }
+      };
 
-      // Construire les points pour GraphHopper
-      const points = [
-        [startPoint.lat, startPoint.lon],
-        ...waypoints.map((wp) => [wp.lat, wp.lon]),
-        [endPoint.lat, endPoint.lon],
+      const profile = getORSProfile();
+
+      // Construire les coordonnées pour OpenRouteService [lon, lat]
+      const coordinates = [
+        [startPoint.lon, startPoint.lat],
+        ...waypoints.map((wp) => [wp.lon, wp.lat]),
+        [endPoint.lon, endPoint.lat],
       ];
 
-      // Construire l'URL GraphHopper
-      const pointsParams = points.map((p) => `point=${p[0]},${p[1]}`).join("&");
-      const apiKey = import.meta.env.VITE_GRAPHHOPPER_TOKEN || "";
-      const keyParam = apiKey ? `&key=${apiKey}` : "";
-      const url = `https://graphhopper.com/api/1/route?${pointsParams}&profile=${profile}&locale=fr&points_encoded=false&instructions=true&details=road_class&elevation=true${keyParam}`;
+      // Initialiser le client OpenRouteService
+      const apiKey = import.meta.env.VITE_OPENROUTESERVICE_TOKEN || "";
 
-      const response = await fetch(url);
-      const data = await response.json();
+      if (!apiKey) {
+        console.error(
+          "❌ VITE_OPENROUTESERVICE_TOKEN n'est pas défini dans .env",
+        );
+        alert(
+          "Clé API OpenRouteService manquante. Veuillez ajouter VITE_OPENROUTESERVICE_TOKEN dans votre fichier .env",
+        );
+        setIsCalculating(false);
+        return;
+      }
 
-      if (data.paths && data.paths.length > 0) {
-        const path = data.paths[0];
+      const Directions = new Openrouteservice.Directions({ api_key: apiKey });
 
-        // Convertir le format GraphHopper en GeoJSON
-        const geometry = {
-          type: "LineString",
-          coordinates: path.points.coordinates, // GraphHopper retourne [lon, lat]
-        };
+      console.log("🔄 Calcul d'itinéraire avec OpenRouteService...");
+      console.log("Profile:", profile);
+      console.log("Coordonnées:", coordinates);
 
-        // Calculer le dénivelé positif et négatif et préparer les données pour le graphique
-        let elevationGain = 0;
-        let elevationLoss = 0;
-        const coords = path.points.coordinates;
-        const elevationPoints: Array<{ distance: number; elevation: number }> =
-          [];
-        let cumulativeDistance = 0;
+      // Appel à l'API OpenRouteService
+      const response = await Directions.calculate({
+        coordinates: coordinates,
+        profile: profile,
+        extra_info: ["surface", "waytype", "steepness"],
+        instructions: true,
+        elevation: true,
+        language: "fr",
+        format: "geojson",
+      });
 
-        for (let i = 0; i < coords.length; i++) {
-          const elevation = coords[i][2] || 0;
+      console.log("Réponse complète OpenRouteService:", response);
 
-          // Calculer la distance cumulée
-          if (i > 0) {
-            const prevCoord = coords[i - 1];
-            const currCoord = coords[i];
+      // Le SDK retourne directement l'objet de réponse
+      const data = response;
 
-            // Formule de Haversine pour calculer la distance entre deux points
-            const R = 6371000; // Rayon de la Terre en mètres
-            const lat1 = (prevCoord[1] * Math.PI) / 180;
-            const lat2 = (currCoord[1] * Math.PI) / 180;
-            const deltaLat = ((currCoord[1] - prevCoord[1]) * Math.PI) / 180;
-            const deltaLon = ((currCoord[0] - prevCoord[0]) * Math.PI) / 180;
+      // Vérifier différentes structures possibles
+      let route;
+      if (data.routes && data.routes.length > 0) {
+        route = data.routes[0];
+      } else if (data.features && data.features.length > 0) {
+        // Format GeoJSON Feature Collection
+        route = data.features[0];
+      } else {
+        console.error("Format de réponse inattendu:", data);
+        setIsCalculating(false);
+        return;
+      }
 
-            const a =
-              Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-              Math.cos(lat1) *
-              Math.cos(lat2) *
-              Math.sin(deltaLon / 2) *
-              Math.sin(deltaLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            const segmentDistance = R * c;
+      // Extraire la géométrie selon le format
+      let geometry;
+      let summary;
 
-            cumulativeDistance += segmentDistance;
+      if (route.geometry) {
+        // Format GeoJSON Feature (quand format: "geojson")
+        geometry = route.geometry;
+        // Le summary peut être dans properties pour GeoJSON ou à la racine pour routes
+        summary = route.properties?.summary || route.summary;
+      } else {
+        console.error("Pas de géométrie dans la route:", route);
+        setIsCalculating(false);
+        return;
+      }
 
-            // Calculer le dénivelé
-            const prevElevation = coords[i - 1][2] || 0;
-            const currElevation = elevation;
-            const diff = currElevation - prevElevation;
+      console.log("Géométrie extraite:", geometry);
+      console.log("Summary:", summary);
+      console.log("Route properties:", route.properties);
 
-            if (diff > 0) {
-              elevationGain += diff;
-            } else {
-              elevationLoss += Math.abs(diff);
-            }
+      if (!geometry || !geometry.coordinates) {
+        console.error("Géométrie invalide ou pas de coordonnées");
+        setIsCalculating(false);
+        return;
+      }
+
+      // Calculer le dénivelé positif et négatif et préparer les données pour le graphique
+      let elevationGain = 0;
+      let elevationLoss = 0;
+      const coords = geometry.coordinates;
+      const elevationPoints: Array<{ distance: number; elevation: number }> =
+        [];
+      let cumulativeDistance = 0;
+
+      for (let i = 0; i < coords.length; i++) {
+        const elevation = coords[i][2] || 0;
+
+        // Calculer la distance cumulée
+        if (i > 0) {
+          const prevCoord = coords[i - 1];
+          const currCoord = coords[i];
+
+          // Formule de Haversine pour calculer la distance entre deux points
+          const R = 6371000; // Rayon de la Terre en mètres
+          const lat1 = (prevCoord[1] * Math.PI) / 180;
+          const lat2 = (currCoord[1] * Math.PI) / 180;
+          const deltaLat = ((currCoord[1] - prevCoord[1]) * Math.PI) / 180;
+          const deltaLon = ((currCoord[0] - prevCoord[0]) * Math.PI) / 180;
+
+          const a =
+            Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+            Math.cos(lat1) *
+            Math.cos(lat2) *
+            Math.sin(deltaLon / 2) *
+            Math.sin(deltaLon / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const segmentDistance = R * c;
+
+          cumulativeDistance += segmentDistance;
+
+          // Calculer le dénivelé
+          const prevElevation = coords[i - 1][2] || 0;
+          const currElevation = elevation;
+          const diff = currElevation - prevElevation;
+
+          if (diff > 0) {
+            elevationGain += diff;
+          } else {
+            elevationLoss += Math.abs(diff);
           }
-
-          elevationPoints.push({
-            distance: cumulativeDistance,
-            elevation: elevation,
-          });
         }
 
-        setRouteGeometry(geometry);
-        setRouteInfo({
-          distance: path.distance,
-          duration: path.time / 1000, // GraphHopper retourne en millisecondes
-          elevationGain: Math.round(elevationGain),
-          elevationLoss: Math.round(elevationLoss),
+        elevationPoints.push({
+          distance: cumulativeDistance,
+          elevation: elevation,
         });
-        setElevationData(elevationPoints);
+      }
 
-        // Extraire les informations sur les segments avec les instructions GraphHopper
-        const segments: Array<{
-          type: string;
-          distance: number;
-          name: string;
-        }> = [];
+      setRouteGeometry(geometry);
+      setRouteInfo({
+        distance: summary?.distance || 0,
+        duration: summary?.duration || 0, // ORS retourne déjà en secondes
+        elevationGain: Math.round(elevationGain),
+        elevationLoss: Math.round(elevationLoss),
+      });
+      setElevationData(elevationPoints);
 
-        path.instructions?.forEach((instruction: any) => {
-          if (instruction.distance > 0) {
+      // Extraire les informations sur les segments avec OpenRouteService
+      const segments: Array<{
+        type: string;
+        distance: number;
+        name: string;
+      }> = [];
+
+      // Segments interdits aux vélos pour la mise en évidence sur la carte
+      const bikeRestrictedSegments: Array<{
+        name: string;
+        distance: number;
+        reason: string;
+      }> = [];
+      const restrictedCoordinates: number[][] = [];
+
+      // Les segments peuvent être dans properties pour GeoJSON
+      const routeSegments = route.segments || route.properties?.segments || [];
+      console.log("Segments trouvés:", routeSegments);
+
+      // Compteur cumulatif de distance pour suivre la position dans les coordonnées
+      let cumulativeStepDistance = 0;
+      let coordIndex = 0;
+
+      routeSegments.forEach((segment: any) => {
+        segment.steps?.forEach((step: any) => {
+          if (step.distance > 0) {
             // Déterminer le type de surface/terrain
             let surfaceType = "paved"; // Par défaut : route goudronnée
-            const name = instruction.street_name || instruction.text || "";
+            const name = step.name || "";
+            let isBikeRestricted = false;
+            let restrictionReason = "";
 
-            // GraphHopper fournit des détails de road_class
-            const roadClass = instruction.road_class || "";
-
-            // Analyse basée sur road_class de GraphHopper
-            if (roadClass === "motorway") {
+            // Détecter les interdictions pour vélos
+            if (name.match(/autoroute|A\d+|motorway/i)) {
+              isBikeRestricted = true;
+              restrictionReason = "Autoroute interdite aux vélos";
               surfaceType = "autoroute";
-            } else if (roadClass === "trunk" || roadClass === "primary") {
-              surfaceType = "nationale";
-            } else if (roadClass === "secondary" || roadClass === "tertiary") {
-              surfaceType = "departementale";
-            } else if (
-              roadClass === "residential" ||
-              roadClass === "living_street"
-            ) {
-              surfaceType = "urbain";
-            } else if (roadClass === "service") {
-              surfaceType = "service";
-            } else if (roadClass === "track") {
-              surfaceType = "chemin";
-            } else if (roadClass === "path" || roadClass === "footway") {
-              surfaceType = "chemin";
-            } else if (roadClass === "cycleway") {
-              surfaceType = "cyclable";
+            } else if (name.match(/voie rapide|expressway|trunk/i)) {
+              isBikeRestricted = true;
+              restrictionReason = "Voie rapide interdite aux vélos";
+              surfaceType = "autoroute";
             }
 
-            // Analyse du nom pour affiner
-            if (name.match(/chemin|sentier|path|track|footway/i)) {
-              surfaceType = "chemin";
-            } else if (name.match(/piste cyclable|cycleway|bike|vélo/i)) {
-              surfaceType = "cyclable";
-            } else if (name.match(/gravel|gravelle|terre|dirt|unpaved/i)) {
-              surfaceType = "gravel";
-            } else if (name.match(/autoroute|A\d+|highway|motorway/i)) {
-              surfaceType = "autoroute";
-            } else if (name.match(/nationale|N\d+|primary/i)) {
-              surfaceType = "nationale";
-            } else if (name.match(/départementale|D\d+|secondary|tertiary/i)) {
-              surfaceType = "departementale";
-            } else if (
-              name.match(/rue|avenue|boulevard|residential|living_street/i)
-            ) {
-              surfaceType = "urbain";
-            } else if (name.match(/service|parking|driveway/i)) {
-              surfaceType = "service";
+            // Analyse du nom pour déterminer le type
+            if (!isBikeRestricted) {
+              if (name.match(/chemin|sentier|path|track|footway/i)) {
+                surfaceType = "chemin";
+              } else if (name.match(/piste cyclable|cycleway|bike|vélo/i)) {
+                surfaceType = "cyclable";
+              } else if (name.match(/gravel|gravelle|terre|dirt|unpaved/i)) {
+                surfaceType = "gravel";
+              } else if (name.match(/nationale|N\d+|primary/i)) {
+                surfaceType = "nationale";
+              } else if (name.match(/départementale|D\d+|secondary|tertiary/i)) {
+                surfaceType = "departementale";
+              } else if (
+                name.match(/rue|avenue|boulevard|residential|living_street/i)
+              ) {
+                surfaceType = "urbain";
+              } else if (name.match(/service|parking|driveway/i)) {
+                surfaceType = "service";
+              }
             }
 
             segments.push({
               type: surfaceType,
-              distance: instruction.distance,
+              distance: step.distance,
               name: name || "Sans nom",
             });
+
+            // Si le segment est interdit aux vélos, stocker ses informations et coordonnées
+            if (isBikeRestricted && transportMode === "bike") {
+              bikeRestrictedSegments.push({
+                name: name || "Sans nom",
+                distance: step.distance,
+                reason: restrictionReason,
+              });
+
+              // Extraire les coordonnées correspondant à ce step
+              // On utilise way_points qui donne les indices de début et fin dans les coordonnées
+              const stepStartIdx = step.way_points?.[0] || coordIndex;
+              const stepEndIdx = step.way_points?.[1] || coordIndex + 1;
+
+              for (let i = stepStartIdx; i <= stepEndIdx && i < coords.length; i++) {
+                restrictedCoordinates.push(coords[i]);
+              }
+            }
+
+            cumulativeStepDistance += step.distance;
+            coordIndex++;
           }
         });
+      });
 
-        setRouteSegments(segments);
-        console.log("Segments de route avec surfaces:", segments);
+      setRouteSegments(segments);
+      console.log("Segments de route avec surfaces:", segments);
 
-        // Zoom sur l'itinéraire seulement si demandé
-        if (shouldZoom && mapRef.current) {
-          const coords = path.points.coordinates;
-          const bounds = coords.reduce(
-            (bounds: any, coord: number[]) => {
-              return [
-                [
-                  Math.min(bounds[0][0], coord[0]),
-                  Math.min(bounds[0][1], coord[1]),
-                ],
-                [
-                  Math.max(bounds[1][0], coord[0]),
-                  Math.max(bounds[1][1], coord[1]),
-                ],
-              ];
-            },
-            [
-              [coords[0][0], coords[0][1]],
-              [coords[0][0], coords[0][1]],
-            ],
-          );
+      // Mettre à jour les segments interdits
+      if (bikeRestrictedSegments.length > 0 && transportMode === "bike") {
+        setRestrictedSegments({
+          geometry: {
+            type: "LineString",
+            coordinates: restrictedCoordinates,
+          },
+          segments: bikeRestrictedSegments,
+        });
+        console.log("⚠️ Segments interdits aux vélos:", bikeRestrictedSegments);
+      } else {
+        setRestrictedSegments(null);
+      }
 
-          mapRef.current.fitBounds(bounds as any, {
-            padding: 50,
-            duration: 1000,
-          });
-        }
+      // Zoom sur l'itinéraire seulement si demandé
+      if (shouldZoom && mapRef.current) {
+        const coords = geometry.coordinates;
+        const bounds = coords.reduce(
+          (bounds: any, coord: number[]) => {
+            return [
+              [
+                Math.min(bounds[0][0], coord[0]),
+                Math.min(bounds[0][1], coord[1]),
+              ],
+              [
+                Math.max(bounds[1][0], coord[0]),
+                Math.max(bounds[1][1], coord[1]),
+              ],
+            ];
+          },
+          [
+            [coords[0][0], coords[0][1]],
+            [coords[0][0], coords[0][1]],
+          ],
+        );
+
+        mapRef.current.fitBounds(bounds as any, {
+          padding: 50,
+          duration: 1000,
+        });
       }
     } catch (error) {
       console.error("Erreur de calcul d'itinéraire:", error);
@@ -983,6 +1099,7 @@ export default function MapView() {
         isPlacingWaypoint={!!isDraggingNewWaypoint}
         transportMode={transportMode}
         onTransportModeChange={setTransportMode}
+        restrictedSegments={restrictedSegments}
       />
 
       <Map
@@ -1038,6 +1155,29 @@ export default function MapView() {
                       : "#555555",
                 "line-width": isHoveringRoute ? 6 : 4,
                 "line-opacity": isHoveringRoute ? 1 : 0.9,
+              }}
+            />
+          </Source>
+        )}
+
+        {/* Segments interdits aux vélos en rouge */}
+        {restrictedSegments && restrictedSegments.geometry.coordinates.length > 0 && (
+          <Source
+            id="restricted-route"
+            type="geojson"
+            data={{
+              type: "Feature",
+              properties: {},
+              geometry: restrictedSegments.geometry,
+            }}
+          >
+            <Layer
+              id="restricted-route-layer"
+              type="line"
+              paint={{
+                "line-color": "#ef4444",
+                "line-width": 6,
+                "line-opacity": 0.8,
               }}
             />
           </Source>
@@ -1246,6 +1386,8 @@ export default function MapView() {
           right: "auto",
           fontSize: "24px",
           fontWeight: "300",
+          backgroundColor: "#89a480",
+          color: "#fff",
         }}
         title="Menu"
         aria-label="Ouvrir le menu"

@@ -39,6 +39,14 @@ interface SidePanelProps {
   isPlacingWaypoint: boolean;
   transportMode: "car" | "bike" | "foot";
   onTransportModeChange: (mode: "car" | "bike" | "foot") => void;
+  restrictedSegments: {
+    geometry: any;
+    segments: Array<{
+      name: string;
+      distance: number;
+      reason: string;
+    }>;
+  } | null;
 }
 
 export default function SidePanel({
@@ -61,6 +69,7 @@ export default function SidePanel({
   isPlacingWaypoint,
   transportMode,
   onTransportModeChange,
+  restrictedSegments,
 }: SidePanelProps) {
   const theme = useContext(ThemeContext);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1312,6 +1321,85 @@ export default function SidePanel({
                 totalDistance={routeInfo.distance}
               />
             )}
+
+            {/* Interdictions de passage à vélo */}
+            {restrictedSegments &&
+              restrictedSegments.segments.length > 0 &&
+              transportMode === "bike" && (
+                <div
+                  style={{
+                    marginTop: "20px",
+                    padding: "15px",
+                    borderRadius: "6px",
+                    backgroundColor: "#fef2f2",
+                    border: "2px solid #ef4444",
+                    color: "#991b1b",
+                  }}
+                >
+                  <h3
+                    style={{
+                      margin: "0 0 10px 0",
+                      fontSize: "16px",
+                      color: "#ef4444",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    ⚠️ Interdictions de passage à vélo
+                  </h3>
+                  <p
+                    style={{
+                      margin: "0 0 12px 0",
+                      fontSize: "13px",
+                      color: "#7f1d1d",
+                    }}
+                  >
+                    Cet itinéraire contient {restrictedSegments.segments.length}{" "}
+                    segment{restrictedSegments.segments.length > 1 ? "s" : ""}{" "}
+                    interdit{restrictedSegments.segments.length > 1 ? "s" : ""}{" "}
+                    aux vélos (mis en évidence en rouge sur la carte).
+                  </p>
+                  <div style={{ marginTop: "10px" }}>
+                    {restrictedSegments.segments.map((seg, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: "8px",
+                          marginBottom: "8px",
+                          borderRadius: "4px",
+                          backgroundColor: "#fee2e2",
+                          fontSize: "12px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontWeight: "600",
+                            color: "#991b1b",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          {seg.name}
+                        </div>
+                        <div style={{ color: "#7f1d1d", fontSize: "11px" }}>
+                          {seg.reason} • {(seg.distance / 1000).toFixed(2)} km
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p
+                    style={{
+                      margin: "12px 0 0 0",
+                      fontSize: "12px",
+                      color: "#7f1d1d",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    💡 Conseil : Modifiez votre itinéraire pour éviter ces
+                    sections interdites.
+                  </p>
+                </div>
+              )}
           </>
         )}
         {!searchType && (
