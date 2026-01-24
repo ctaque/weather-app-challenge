@@ -50,6 +50,7 @@ html {
   --button-text-light: #ffffff;
   --button-text-dark: #0b1220;
   --selection-border: #2563eb;
+  --brand: #89a380;
 }
 
 /* Dark overrides */
@@ -62,6 +63,7 @@ html {
   --accent-600: #333333;
   --card-shadow: rgba(0, 0, 0, 0.5);
   --surface-2: #192e4b;
+  --brand: #0b2d00;
 }
 
 /* Page */
@@ -900,5 +902,15 @@ textarea {
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Overlay fade animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }

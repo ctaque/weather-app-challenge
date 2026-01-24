@@ -2,6 +2,7 @@ import React, { useContext, useMemo, useState } from "react";
 import { Map } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { LanguageContext, ThemeContext } from "../App";
+import SidePanel from "./SidePanel";
 
 export default function MapView() {
   const initialViewState = {
@@ -13,6 +14,7 @@ export default function MapView() {
   };
 
   const [viewState, setViewState] = useState(initialViewState);
+  const [sidePanelOpen, setSidePanelOpen] = useState(false);
 
   const theme = useContext(ThemeContext);
   const { t } = useContext(LanguageContext);
@@ -46,7 +48,7 @@ export default function MapView() {
           enableHighAccuracy: true,
           timeout: 5000,
           maximumAge: 0,
-        }
+        },
       );
     } else {
       // Si la géolocalisation n'est pas disponible, revenir à la position par défaut
@@ -77,13 +79,48 @@ export default function MapView() {
   };
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "calc(100vh - 85px)" }}>
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "calc(100vh - 85px)",
+      }}
+    >
+      <SidePanel
+        isOpen={sidePanelOpen}
+        onClose={() => setSidePanelOpen(false)}
+      />
+
       <Map
         {...viewState}
         onMove={(evt) => setViewState(evt.viewState)}
-        style={{ width: "100%", height: "100%", display: "block" }}
+        style={{
+          position: "fixed",
+          width: "100%",
+          height: "100%",
+          display: "block",
+          bottom: 0,
+          top: "3rem",
+        }}
         mapStyle={mapStyle}
       />
+
+      {/* Menu button - top left */}
+      <button
+        onClick={() => setSidePanelOpen(true)}
+        style={{
+          ...controlButtonStyle,
+          left: "10px",
+          top: "10px",
+          right: "auto",
+          fontSize: "24px",
+          fontWeight: "300",
+        }}
+        title="Menu"
+        aria-label="Ouvrir le menu"
+      >
+        <span>+</span>
+      </button>
 
       <button
         onClick={recenterMap}

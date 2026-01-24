@@ -21,7 +21,7 @@ export const UnitContext = createContext<{
   setUnits: (units: UnitSystem) => void;
 }>({
   units: "knots-celsius",
-  setUnits: () => { },
+  setUnits: () => {},
 });
 
 function SunIcon(props: { className?: string }) {
