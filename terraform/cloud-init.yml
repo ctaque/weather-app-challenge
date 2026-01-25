@@ -171,7 +171,7 @@ write_files:
       echo "=> Updating .env configuration..."
       cd /home/planmytrip/planMyTrip
       git pull origin main
-      cp .env /home/planmytrip/app/.env
+      cp .env /etc/planmytrip/.env
       echo "=> .env updated"
 
       # Pull latest application code
