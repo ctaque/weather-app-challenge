@@ -2,3 +2,4 @@ target/
 .envrc
 frontend/node_modules
 graphql/node_modules
+creds/
