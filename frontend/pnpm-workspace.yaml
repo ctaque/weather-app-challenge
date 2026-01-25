@@ -3,3 +3,6 @@ ignoredBuiltDependencies:
   - '@vaadin/vaadin-usage-statistics'
   - canvas
   - esbuild
+
+onlyBuiltDependencies:
+  - '@parcel/watcher'
