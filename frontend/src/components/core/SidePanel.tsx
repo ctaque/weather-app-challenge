@@ -14,7 +14,7 @@ interface Waypoint {
   lon: number;
 }
 
-type TransportMode =
+export type TransportMode =
   | "driving-car"
   | "cycling-regular"
   | "cycling-road"
@@ -1321,7 +1321,9 @@ export default function SidePanel({
             {/* Interdictions de passage à vélo */}
             {restrictedSegments &&
               restrictedSegments.segments.length > 0 &&
-              transportMode === "bike" && (
+              ["cycling-mountain", "cycling-electric"].includes(
+                transportMode,
+              ) && (
                 <div
                   style={{
                     marginTop: "20px",

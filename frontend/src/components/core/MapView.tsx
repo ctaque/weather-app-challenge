@@ -15,6 +15,7 @@ import SidePanel from "./SidePanel";
 import ElevationProfile from "./ElevationProfile";
 import arrowIconBlack from "../../assets/arrow-icon.png";
 import arrowIconWhite from "../../assets/arrow-icon-white.png";
+import { TransportMode } from "./SidePanel";
 
 interface Location {
   lat: number;
@@ -106,9 +107,8 @@ export default function MapView() {
   const [hoveredMarker, setHoveredMarker] = useState<string | null>(null);
   const [isDraggingMarker, setIsDraggingMarker] = useState(false);
   const [arrowPoints, setArrowPoints] = useState<any>(null);
-  const [transportMode, setTransportMode] = useState<"car" | "bike" | "foot">(
-    "car",
-  );
+  const [transportMode, setTransportMode] =
+    useState<TransportMode>("driving-car");
   const mapRef = useRef<MapRef>(null);
   const lastRouteCalculationRef = useRef<number>(0);
   const routeCalculationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -346,9 +346,9 @@ export default function MapView() {
         const a =
           Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
           Math.cos(lat1) *
-            Math.cos(lat2) *
-            Math.sin(deltaLon / 2) *
-            Math.sin(deltaLon / 2);
+          Math.cos(lat2) *
+          Math.sin(deltaLon / 2) *
+          Math.sin(deltaLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const segmentDistance = R * c;
 
@@ -382,12 +382,22 @@ export default function MapView() {
       // Mapper les modes de transport vers les profils OpenRouteService
       const getORSProfile = () => {
         switch (transportMode) {
-          case "car":
+          case "driving-car":
             return "driving-car";
-          case "bike":
+          case "cycling-regular":
             return "cycling-regular";
-          case "foot":
+          case "cycling-electric":
+            return "cycling-electric";
+          case "cycling-road":
+            return "cycling-electric";
+          case "cycling-mountain":
+            return "cycling-mountain";
+          case "wheelchair":
+            return "wheelchair";
+          case "foot-walking":
             return "foot-walking";
+          case "foot-hiking":
+            return "foot-hiking";
           default:
             return "driving-car";
         }
@@ -500,9 +510,9 @@ export default function MapView() {
           const a =
             Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
             Math.cos(lat1) *
-              Math.cos(lat2) *
-              Math.sin(deltaLon / 2) *
-              Math.sin(deltaLon / 2);
+            Math.cos(lat2) *
+            Math.sin(deltaLon / 2) *
+            Math.sin(deltaLon / 2);
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           const segmentDistance = R * c;
 
@@ -608,7 +618,15 @@ export default function MapView() {
             });
 
             // Si le segment est interdit aux vélos, stocker ses informations et coordonnées
-            if (isBikeRestricted && transportMode === "bike") {
+            if (
+              [
+                "cycling-regular",
+                "cycling-electric",
+                "cycling-road",
+                "cycling-mountain",
+              ].includes(transportMode) &&
+              isBikeRestricted
+            ) {
               bikeRestrictedSegments.push({
                 name: name || "Sans nom",
                 distance: step.distance,
@@ -639,7 +657,15 @@ export default function MapView() {
       console.log("Segments de route avec surfaces:", segments);
 
       // Mettre à jour les segments interdits
-      if (bikeRestrictedSegments.length > 0 && transportMode === "bike") {
+      if (
+        bikeRestrictedSegments.length > 0 &&
+        [
+          "cycling-regular",
+          "cycling-electric",
+          "cycling-road",
+          "cycling-mountain",
+        ].includes(transportMode)
+      ) {
         setRestrictedSegments({
           geometry: {
             type: "LineString",
@@ -853,9 +879,9 @@ export default function MapView() {
         const a =
           Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
           Math.cos(lat1) *
-            Math.cos(lat2) *
-            Math.sin(deltaLon / 2) *
-            Math.sin(deltaLon / 2);
+          Math.cos(lat2) *
+          Math.sin(deltaLon / 2) *
+          Math.sin(deltaLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const segmentDistance = R * c;
 
