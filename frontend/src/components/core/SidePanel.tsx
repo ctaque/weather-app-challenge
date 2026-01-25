@@ -14,6 +14,16 @@ interface Waypoint {
   lon: number;
 }
 
+type TransportMode =
+  | "driving-car"
+  | "cycling-regular"
+  | "cycling-road"
+  | "cycling-mountain"
+  | "cycling-electric"
+  | "foot-walking"
+  | "foot-hiking"
+  | "wheelchair";
+
 interface SidePanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -37,8 +47,8 @@ interface SidePanelProps {
   waypointCount: number;
   isCalculating: boolean;
   isPlacingWaypoint: boolean;
-  transportMode: "car" | "bike" | "foot";
-  onTransportModeChange: (mode: "car" | "bike" | "foot") => void;
+  transportMode: TransportMode;
+  onTransportModeChange: (mode: TransportMode) => void;
   restrictedSegments: {
     geometry: any;
     segments: Array<{
@@ -503,9 +513,7 @@ export default function SidePanel({
                   <select
                     value={transportMode}
                     onChange={(e) =>
-                      onTransportModeChange(
-                        e.target.value as "car" | "bike" | "foot",
-                      )
+                      onTransportModeChange(e.target.value as TransportMode)
                     }
                     style={{
                       backgroundColor: "transparent",
@@ -514,14 +522,26 @@ export default function SidePanel({
                       borderRadius: "10px",
                     }}
                   >
-                    <option value="car" style={{ color: "#000" }}>
+                    <option value="driving-car" style={{ color: "#000" }}>
                       Voiture
                     </option>
-                    <option value="bike" style={{ color: "#000" }}>
-                      Vélo
+                    <option value="cycling-road" style={{ color: "#000" }}>
+                      Vélo de route
                     </option>
-                    <option value="foot" style={{ color: "#000" }}>
-                      À pied
+                    <option value="cycling-mountain" style={{ color: "#000" }}>
+                      VTT
+                    </option>
+                    <option value="cycling-electric" style={{ color: "#000" }}>
+                      Vélo Electrique
+                    </option>
+                    <option value="foot-walking" style={{ color: "#000" }}>
+                      Marche
+                    </option>
+                    <option value="foot-hiking" style={{ color: "#000" }}>
+                      Randonnée
+                    </option>
+                    <option value="wheelchair" style={{ color: "#000" }}>
+                      Fauteuil roulant
                     </option>
                   </select>
                 </div>

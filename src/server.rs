@@ -68,8 +68,6 @@ pub async fn run(pool: PgPool, app_env: Env) -> std::io::Result<()> {
     };
     let server = HttpServer::new(move || {
         let cors = if is_prod {
-            Cors::permissive()
-        } else {
             Cors::default()
                 .allowed_origin(&env_clone.http_domain)
                 .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
@@ -80,6 +78,8 @@ pub async fn run(pool: PgPool, app_env: Env) -> std::io::Result<()> {
                 ])
                 .supports_credentials()
                 .max_age(3600)
+        } else {
+            Cors::permissive()
         };
 
         App::new()
