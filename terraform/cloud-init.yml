@@ -140,16 +140,10 @@ write_files:
       WorkingDirectory=/home/planmytrip/app
 
       # Variables d'environnement
-      Environment=NODE_ENV=production
-      Environment=NODE_OPTIONS=--max-old-space-size=16000
-      Environment=PATH=/usr/local/bin:/usr/bin:/bin
-      Environment=WEATHERAPI_KEY=${weatherapi_key}
-      Environment=ANTHROPIC_API_KEY=${anthropic_api_key}
-      Environment=OPENROUTESERVICE_TOKEN=${openrouteservice_token}
-      Environment=REDIS_URL=redis://localhost:6379
+      EnvironmentFile="/etc/planmytrip/.env"
 
       # Commande de démarrage (npm sera trouvé via PATH)
-      ExecStart=/usr/bin/npm start
+      ExecStart=./actix_sqlx_template
 
       # Redémarrage automatique
       Restart=always
