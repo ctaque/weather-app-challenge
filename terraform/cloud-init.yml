@@ -114,29 +114,14 @@ write_files:
           }
       }
 
-  # Application .env file
-  - path: /tmp/weatherapp.env
+  # Git credentials helper script for cloning private repos
+  - path: /tmp/git-credential-helper.sh
     owner: root:root
-    permissions: "0600"
+    permissions: "0700"
     content: |
-      NODE_ENV=production
-      PORT=3000
-
-      # API Keys
-      WEATHERAPI_KEY=${weatherapi_key}
-      ANTHROPIC_API_KEY=${anthropic_api_key}
-      OPENROUTESERVICE_TOKEN=${openrouteservice_token}
-
-      # Database (PostgreSQL local)
-      DATABASE_URL=postgresql://${db_username}:${db_password}@localhost:5432/${db_name}
-      DB_HOST=localhost
-      DB_PORT=5432
-      DB_NAME=${db_name}
-      DB_USER=${db_username}
-      DB_PASSWORD=${db_password}
-
-      # Redis (local)
-      REDIS_URL=redis://localhost:6379
+      #!/bin/bash
+      echo "username=git"
+      echo "password=${github_token}"
 
   # Systemd service for weather-app
   - path: /tmp/weather-app.service
@@ -188,9 +173,16 @@ write_files:
       set -e
 
       echo "=> Starting deployment..."
-      cd /home/weatherapp/app
 
-      # Pull latest code
+      # Update .env from planMyTrip repository
+      echo "=> Updating .env configuration..."
+      cd /home/weatherapp/planMyTrip
+      git pull origin main
+      cp .env /home/weatherapp/app/.env
+      echo "=> .env updated"
+
+      # Pull latest application code
+      cd /home/weatherapp/app
       echo "=> Pulling latest changes..."
       git pull origin main
 
@@ -416,12 +408,6 @@ runcmd:
         cd /home/weatherapp
     fi
 
-    # Move .env file into app directory
-    if [ -f /tmp/weatherapp.env ]; then
-        mv /tmp/weatherapp.env app/.env
-        echo ".env file configured"
-    fi
-
     cd app
 
     # Install dependencies
@@ -434,6 +420,46 @@ runcmd:
 
     echo "Application built successfully!"
     APP_SETUP_EOF
+
+  # Clone private .env repository and configure environment
+  - echo "==> Cloning .env repository..."
+  - |
+    sudo -u weatherapp bash << 'ENV_SETUP_EOF'
+    cd /home/weatherapp
+
+    # Configure git credential helper
+    git config --global credential.helper "store --file ~/.git-credentials"
+    echo "https://git:${github_token}@github.com" > ~/.git-credentials
+    chmod 600 ~/.git-credentials
+
+    # Clone .env repository
+    if [ ! -d planMyTrip/.git ]; then
+        echo "Cloning planMyTrip repository..."
+        rm -rf planMyTrip
+        git clone https://github.com/ctaque/planMyTrip.git planMyTrip
+        echo ".env repository cloned successfully"
+    else
+        echo ".env repository already exists, pulling latest changes..."
+        cd planMyTrip
+        git pull origin main
+        cd /home/weatherapp
+    fi
+
+    # Copy .env file to app directory
+    if [ -f planMyTrip/.env ]; then
+        cp planMyTrip/.env app/.env
+        echo ".env file configured from planMyTrip repository"
+    else
+        echo "WARNING: .env file not found in planMyTrip repository!"
+        exit 1
+    fi
+
+    # Clean up credentials
+    rm -f ~/.git-credentials
+    git config --global --unset credential.helper
+
+    echo ".env configuration complete!"
+    ENV_SETUP_EOF
 
   # Set proper permissions for application files
   - echo "==> Setting application permissions..."

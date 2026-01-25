@@ -94,3 +94,10 @@ variable "do_token" {
   type        = string
   sensitive   = true
 }
+
+# GitHub Token for private repo access
+variable "github_token" {
+  description = "GitHub personal access token or deploy key for accessing private planMyTrip repo"
+  type        = string
+  sensitive   = true
+}

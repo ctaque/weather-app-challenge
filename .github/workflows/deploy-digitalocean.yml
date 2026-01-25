@@ -7,6 +7,7 @@
 #    - WEATHERAPI_KEY: Clé API WeatherAPI
 #    - ANTHROPIC_API_KEY: Clé API Anthropic
 #    - OPENROUTESERVICE_TOKEN: Clé API OpenRouteService
+#    - ENV_GITHUB_TOKEN: GitHub token pour cloner le dépôt privé planMyTrip (.env)
 #
 # 2. S'assurer que la clé SSH publique correspondante est sur le droplet
 #
@@ -117,6 +118,25 @@ jobs:
           name: backend
           path: backend/
 
+      - name: Clone .env repository
+        env:
+          ENV_GITHUB_TOKEN: ${{ secrets.ENV_GITHUB_TOKEN }}
+        run: |
+          echo "📦 Cloning .env repository..."
+          if [ -z "$ENV_GITHUB_TOKEN" ]; then
+            echo "⚠️  ENV_GITHUB_TOKEN not configured, skipping .env deployment"
+            echo "To enable .env deployment, add ENV_GITHUB_TOKEN secret in GitHub Settings"
+            mkdir -p env-repo
+            echo "# Placeholder .env file" > env-repo/.env
+          else
+            git clone https://git:$ENV_GITHUB_TOKEN@github.com/ctaque/planMyTrip.git env-repo
+            if [ ! -f env-repo/.env ]; then
+              echo "❌ .env file not found in planMyTrip repository!"
+              exit 1
+            fi
+            echo "✅ .env file retrieved from planMyTrip repository"
+          fi
+
       - name: Check droplet configuration
         id: check-secrets
         run: |
@@ -189,6 +209,10 @@ jobs:
           chmod +x backend/actix_sqlx_template
           scp -i ~/.ssh/deploy_key backend/actix_sqlx_template root@$DROPLET_IP:/tmp/backend_binary
 
+          # Upload .env file
+          echo "📤 Uploading .env file..."
+          scp -i ~/.ssh/deploy_key env-repo/.env root@$DROPLET_IP:/tmp/app.env
+
           # Deploy on droplet
           echo "🚀 Deploying application..."
           ssh -i ~/.ssh/deploy_key root@$DROPLET_IP << 'ENDSSH'
@@ -206,6 +230,16 @@ jobs:
               # Extract new version
               echo "📦 Extracting new version..."
               tar -xzf /tmp/app.tar.gz
+
+              # Update .env file from uploaded file
+              if [ -f /tmp/app.env ]; then
+                echo "🔐 Updating .env file..."
+                cp /tmp/app.env .env
+                chmod 600 .env
+                echo "✅ .env file updated"
+              else
+                echo "⚠️  No .env file to update"
+              fi
 
               # Install all dependencies (including devDependencies for build)
               echo "📥 Installing frontend dependencies..."
@@ -237,7 +271,7 @@ jobs:
           systemctl status weather-app --no-pager
 
           # Cleanup
-          rm -f /tmp/app.tar.gz /tmp/backend_binary
+          rm -f /tmp/app.tar.gz /tmp/backend_binary /tmp/app.env
 
           echo "✅ Deployment successful!"
           ENDSSH

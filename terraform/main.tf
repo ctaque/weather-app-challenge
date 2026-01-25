@@ -45,6 +45,7 @@ resource "digitalocean_droplet" "app" {
     anthropic_api_key     = var.anthropic_api_key
     openrouteservice_token = var.openrouteservice_token
     domain_name           = var.domain_name
+    github_token          = var.github_token
   })
 
   tags = [var.environment, var.project_name]
