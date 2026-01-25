@@ -54,14 +54,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('frontend/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
+        working-directory: ./frontend
         run: pnpm install --frozen-lockfile
 
       - name: Build frontend
+        working-directory: ./frontend
         run: pnpm run build
 
       - name: Setup Rust
@@ -81,7 +83,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dist
-          path: dist/
+          path: frontend/dist/
           retention-days: 1
 
       - name: Upload backend artifacts
@@ -204,7 +206,8 @@ jobs:
               tar -xzf /tmp/app.tar.gz
 
               # Install all dependencies (including devDependencies for build)
-              echo "📥 Installing dependencies..."
+              echo "📥 Installing frontend dependencies..."
+              cd frontend
               pnpm install
 
               # Build frontend
@@ -214,6 +217,7 @@ jobs:
               # Remove devDependencies after build
               echo "🧹 Cleaning devDependencies..."
               pnpm prune --prod
+              cd ..
 
               echo "✅ Application files updated!"
           EOF
