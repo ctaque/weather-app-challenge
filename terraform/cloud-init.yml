@@ -1,0 +1,540 @@
+#cloud-config
+# Weather App droplet cloud-init configuration for Rocky Linux 9
+# Installs and configures: PostgreSQL, Redis, nginx, Node.js
+# Variables interpolated by Terraform templatefile
+# Updated: 2026-01-23 - Fixed character encoding issues
+
+package_update: true
+package_upgrade: false
+
+users:
+  - name: weatherapp
+    shell: /bin/bash
+    groups: wheel
+    sudo: ALL=(ALL) NOPASSWD:ALL
+
+write_files:
+  # PostgreSQL init script
+  - path: /tmp/init-postgres.sql
+    owner: root:root
+    permissions: "0644"
+    content: |
+      -- Create user
+      CREATE USER ${db_username} WITH PASSWORD '${db_password}';
+
+      -- Create database
+      CREATE DATABASE ${db_name} OWNER ${db_username};
+
+      -- Grant privileges
+      GRANT ALL PRIVILEGES ON DATABASE ${db_name} TO ${db_username};
+      ALTER USER ${db_username} CREATEDB;
+
+      -- Show result
+      \l
+      \du
+
+  # Redis configuration
+  - path: /etc/redis/weatherapp.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      # Custom configuration for Weather App
+      bind 127.0.0.1
+      protected-mode yes
+      port 6379
+      timeout 0
+      tcp-keepalive 300
+
+      # Memory management
+      maxmemory 512mb
+      maxmemory-policy allkeys-lru
+
+      # Persistence
+      save 900 1
+      save 300 10
+      save 60 10000
+      appendonly yes
+      appendfsync everysec
+
+      # Logging
+      loglevel notice
+      logfile /var/log/redis/redis.log
+
+      # Working directory
+      dir /var/lib/redis
+
+  # nginx configuration (initial HTTP only, HTTPS configured after certbot)
+  - path: /etc/nginx/conf.d/weatherapp.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      upstream backend {
+          server 127.0.0.1:3000;
+      }
+
+      server {
+          listen 80 default_server;
+          listen [::]:80 default_server;
+          server_name ${domain_name};
+
+          client_max_body_size 10M;
+
+          # Logs
+          access_log /var/log/nginx/weatherapp-access.log;
+          error_log /var/log/nginx/weatherapp-error.log;
+
+          # Let's Encrypt ACME challenge
+          location /.well-known/acme-challenge/ {
+              root /var/www/html;
+          }
+
+          # Proxy vers Node.js backend
+          location / {
+              proxy_pass http://backend;
+              proxy_http_version 1.1;
+              proxy_set_header Upgrade $http_upgrade;
+              proxy_set_header Connection 'upgrade';
+              proxy_set_header Host $host;
+              proxy_cache_bypass $http_upgrade;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+
+              # Timeouts
+              proxy_connect_timeout 60s;
+              proxy_send_timeout 60s;
+              proxy_read_timeout 60s;
+          }
+
+          # Cache pour assets statiques
+          location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+              proxy_pass http://backend;
+              expires 1y;
+              add_header Cache-Control "public, immutable";
+          }
+      }
+
+  # Application .env file
+  - path: /tmp/weatherapp.env
+    owner: root:root
+    permissions: "0600"
+    content: |
+      NODE_ENV=production
+      PORT=3000
+
+      # API Keys
+      WEATHERAPI_KEY=${weatherapi_key}
+      ANTHROPIC_API_KEY=${anthropic_api_key}
+      OPENROUTESERVICE_TOKEN=${openrouteservice_token}
+
+      # Database (PostgreSQL local)
+      DATABASE_URL=postgresql://${db_username}:${db_password}@localhost:5432/${db_name}
+      DB_HOST=localhost
+      DB_PORT=5432
+      DB_NAME=${db_name}
+      DB_USER=${db_username}
+      DB_PASSWORD=${db_password}
+
+      # Redis (local)
+      REDIS_URL=redis://localhost:6379
+
+  # Systemd service for weather-app
+  - path: /tmp/weather-app.service
+    owner: root:root
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Weather App Node.js Application
+      After=network.target postgresql.service redis.service
+      Wants=postgresql.service redis.service
+
+      [Service]
+      Type=simple
+      User=weatherapp
+      Group=weatherapp
+      WorkingDirectory=/home/weatherapp/app
+
+      # Variables d'environnement
+      Environment=NODE_ENV=production
+      Environment=NODE_OPTIONS=--max-old-space-size=16000
+      Environment=PATH=/usr/local/bin:/usr/bin:/bin
+      Environment=PORT=3000
+      Environment=WEATHERAPI_KEY=${weatherapi_key}
+      Environment=ANTHROPIC_API_KEY=${anthropic_api_key}
+      Environment=OPENROUTESERVICE_TOKEN=${openrouteservice_token}
+      Environment=REDIS_URL=redis://localhost:6379
+
+      # Commande de démarrage (npm sera trouvé via PATH)
+      ExecStart=/usr/bin/npm start
+
+      # Redémarrage automatique
+      Restart=always
+      RestartSec=10
+
+      # Logs vers journald (consultables avec journalctl -u weather-app)
+      StandardOutput=journal
+      StandardError=journal
+      SyslogIdentifier=weather-app
+
+      [Install]
+      WantedBy=multi-user.target
+
+  # Deployment script
+  - path: /tmp/deploy.sh
+    owner: root:root
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -e
+
+      echo "=> Starting deployment..."
+      cd /home/weatherapp/app
+
+      # Pull latest code
+      echo "=> Pulling latest changes..."
+      git pull origin main
+
+      # Install all dependencies (including devDependencies for build)
+      echo "=> Installing dependencies..."
+      pnpm install
+
+      # Build frontend
+      echo "=> Building frontend..."
+      pnpm run build
+
+      # Remove devDependencies after build to save space
+      echo "=> Cleaning devDependencies..."
+      pnpm prune --prod
+
+      # Restart app
+      echo "=> Applying restorecon..."
+      /sbin/restorecon -v /etc/systemd/system/weather-app.service
+      echo "=> Restarting application..."
+      sudo systemctl restart weather-app
+
+      # Show status
+      sudo systemctl status weather-app --no-pager
+
+      echo "=> Deployment complete!"
+
+  # Database backup script
+  - path: /tmp/backup-db.sh
+    owner: root:root
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      BACKUP_DIR="/home/weatherapp/backups"
+      TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+      mkdir -p $BACKUP_DIR
+
+      echo "Starting PostgreSQL backup..."
+      PGPASSWORD="${db_password}" pg_dump -h localhost -U ${db_username} ${db_name} > $BACKUP_DIR/db-backup-$TIMESTAMP.sql
+
+      if [ $? -eq 0 ]; then
+          echo "[OK] Backup saved to $BACKUP_DIR/db-backup-$TIMESTAMP.sql"
+
+          # Keep only last 7 backups
+          ls -t $BACKUP_DIR/db-backup-*.sql 2>/dev/null | tail -n +8 | xargs -r rm
+          echo "[OK] Old backups cleaned (keeping last 7)"
+      else
+          echo "[ERROR] Backup failed!"
+          exit 1
+      fi
+
+runcmd:
+  # Ensure SSH packages are installed and protected FIRST
+  - echo "==> Protecting SSH packages..."
+  - dnf install -y openssh-server openssh-clients
+  - dnf install -y python3-dnf-plugin-versionlock || true
+  - dnf versionlock add openssh-server openssh-clients || echo "Versionlock not available, skipping"
+  - systemctl enable sshd
+  - systemctl start sshd
+  - systemctl status sshd --no-pager
+  - echo "[OK] SSH packages secured, locked, and started"
+
+  # Copy SSH keys to weatherapp user (will be created by cloud-init)
+  - echo "==> Setting up SSH keys for weatherapp user..."
+  - mkdir -p /home/weatherapp/.ssh
+  - cp /root/.ssh/authorized_keys /home/weatherapp/.ssh/authorized_keys || echo "No root authorized_keys to copy"
+  - chown -R weatherapp:weatherapp /home/weatherapp/.ssh
+  - chmod 700 /home/weatherapp/.ssh
+  - chmod 600 /home/weatherapp/.ssh/authorized_keys || true
+  - echo "[OK] SSH keys copied to weatherapp user"
+
+  # Disable firewalld to avoid conflicts with DigitalOcean firewall
+  - echo "==> Disabling firewalld (using DigitalOcean firewall instead)..."
+  - systemctl stop firewalld || true
+  - systemctl disable firewalld || true
+  - echo "[OK] firewalld disabled"
+
+  # Install EPEL and packages
+  - echo "==> Installing EPEL repository..."
+  - dnf install -y epel-release
+  - echo "[OK] EPEL installed"
+
+  # Install base packages (removed firewalld since we don't use it)
+  - echo "==> Installing base packages..."
+  - dnf install -y git curl wget ca-certificates gnupg python3-pip
+  - echo "[OK] Base packages installed"
+
+  # Install development tools
+  - echo "==> Installing development tools..."
+  - dnf groupinstall -y "Development Tools" || echo "Development Tools partially installed"
+  - echo "[OK] Development tools installed"
+
+  # Verify SSH is still installed after Development Tools
+  - echo "==> Verifying SSH packages after Development Tools installation..."
+  - dnf install -y openssh-server openssh-clients
+  - systemctl is-active sshd || systemctl start sshd
+  - echo "[OK] SSH packages verified and running"
+
+  # Install PostgreSQL
+  - echo "==> Installing PostgreSQL..."
+  - dnf install -y postgresql-server postgresql-contrib
+  - echo "[OK] PostgreSQL installed"
+
+  # Install nginx
+  - echo "==> Installing nginx..."
+  - dnf install -y nginx
+  - echo "[OK] nginx installed"
+
+  # Install certbot for Let's Encrypt
+  - echo "==> Installing certbot..."
+  - dnf install -y certbot python3-certbot-nginx
+  - echo "[OK] certbot installed"
+
+  # Install Redis from EPEL
+  - echo "==> Installing Redis from EPEL..."
+  - dnf install -y redis
+  - echo "[OK] Redis installed"
+
+  # Configure SELinux for nginx proxy
+  - echo "==> Configuring SELinux..."
+  - setsebool -P httpd_can_network_connect 1
+  - echo "[OK] SELinux configured for nginx proxy"
+
+  # Initialize and configure PostgreSQL
+  - echo "==> Initializing PostgreSQL..."
+  - /usr/bin/postgresql-setup --initdb --unit postgresql || echo "PostgreSQL already initialized"
+  - systemctl enable postgresql
+  - systemctl start postgresql
+  - sleep 5
+  - systemctl status postgresql --no-pager
+
+  # Configure PostgreSQL authentication
+  - echo "==> Configuring PostgreSQL authentication..."
+  - sed -i 's/ident$/md5/' /var/lib/pgsql/data/pg_hba.conf
+  - sed -i 's/peer$/md5/' /var/lib/pgsql/data/pg_hba.conf
+  - systemctl restart postgresql
+  - sleep 3
+
+  # Create PostgreSQL user and database
+  - echo "==> Creating PostgreSQL database and user..."
+  - sudo -u postgres psql -f /tmp/init-postgres.sql
+  - echo "[OK] PostgreSQL configured"
+
+  # Configure Redis
+  - echo "==> Configuring Redis..."
+  - mkdir -p /var/log/redis /var/lib/redis
+  - cp /etc/redis/weatherapp.conf /etc/redis/redis.conf
+  - chown -R redis:redis /var/log/redis /var/lib/redis /etc/redis
+  - systemctl enable redis
+  - systemctl start redis
+  - sleep 2
+  - systemctl status redis --no-pager
+  - echo "[OK] Redis configured"
+
+  # Configure nginx
+  - echo "==> Configuring nginx..."
+  - rm -f /etc/nginx/conf.d/default.conf
+  - /usr/sbin/nginx -t || echo "nginx config test failed"
+  - systemctl enable nginx
+  - systemctl start nginx
+  - sleep 2
+  - systemctl status nginx --no-pager
+  - echo "[OK] nginx configured"
+
+  # Firewall is managed by DigitalOcean (see main.tf)
+  # firewalld is disabled to avoid conflicts
+
+  # Install Node.js 20.x from NodeSource
+  - echo "==> Installing Node.js 20.x..."
+  - curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+  - dnf install -y nodejs
+  - node --version
+  - npm --version
+  - echo "[OK] Node.js installed"
+
+  # Install pnpm globally
+  - echo "==> Installing pnpm..."
+  - npm install -g pnpm
+  - echo "[OK] pnpm installed"
+
+  # Verify npm path and create symlink if needed
+  - echo "==> Verifying npm installation..."
+  - which npm
+  - npm --version
+  - |
+    if [ ! -f /usr/bin/npm ]; then
+      NPM_PATH=$(which npm)
+      if [ -n "$NPM_PATH" ]; then
+        ln -sf $NPM_PATH /usr/bin/npm
+        echo "Created symlink: /usr/bin/npm -> $NPM_PATH"
+      fi
+    fi
+  - echo "[OK] npm path verified"
+  # Create directories and move temp files
+  - echo "==> Creating application directories..."
+  - mkdir -p /home/weatherapp/logs
+  - mkdir -p /home/weatherapp/backups
+  - mv /tmp/deploy.sh /home/weatherapp/deploy.sh
+  - mv /tmp/backup-db.sh /home/weatherapp/backup-db.sh
+
+  # Move and verify service file
+  - echo "==> Installing systemd service..."
+  - mv /tmp/weather-app.service /etc/systemd/system/weather-app.service
+  - chmod 644 /etc/systemd/system/weather-app.service
+  - ls -lh /etc/systemd/system/weather-app.service
+  - echo "[OK] Service file installed"
+
+  # Clone and setup application
+  - echo "==> Cloning application repository..."
+  - |
+    sudo -u weatherapp bash << 'APP_SETUP_EOF'
+    cd /home/weatherapp
+
+    # Clone repository if not exists
+    if [ ! -d app/.git ]; then
+        echo "Cloning repository..."
+        rm -rf app
+        git clone https://github.com/ctaque/weather-app-challenge.git app
+        echo "Repository cloned successfully"
+    else
+        echo "Repository already exists, pulling latest changes..."
+        cd app
+        git pull origin main
+        cd /home/weatherapp
+    fi
+
+    # Move .env file into app directory
+    if [ -f /tmp/weatherapp.env ]; then
+        mv /tmp/weatherapp.env app/.env
+        echo ".env file configured"
+    fi
+
+    cd app
+
+    # Install dependencies
+    echo "Installing dependencies..."
+    pnpm install --prod
+
+    # Build frontend
+    echo "Building frontend..."
+    pnpm run build
+
+    echo "Application built successfully!"
+    APP_SETUP_EOF
+
+  # Set proper permissions for application files
+  - echo "==> Setting application permissions..."
+  - chown -R weatherapp:weatherapp /home/weatherapp
+
+  # Enable and start the weather-app service
+  - echo "==> Starting weather-app service..."
+  - echo "Reloading systemd daemon..."
+  - systemctl daemon-reload
+  - echo "Checking if service is recognized..."
+  - 'systemctl list-unit-files | grep weather-app || echo "WARNING: Service not found"'
+  - echo "Enabling service..."
+  - systemctl enable weather-app.service
+  - echo "Starting service..."
+  - 'systemctl start weather-app.service || echo "WARNING: Failed to start"'
+  - sleep 3
+  - echo "Service status:"
+  - "systemctl status weather-app.service --no-pager || journalctl -u weather-app.service -n 50 --no-pager"
+  - echo "[OK] Service configuration complete"
+
+  # Configure Let's Encrypt SSL certificate
+  - echo "==> Configuring Let's Encrypt SSL..."
+  - mkdir -p /var/www/html/.well-known/acme-challenge
+  - |
+    if [ "${domain_name}" != "" ]; then
+      echo "Waiting 30 seconds for DNS propagation..."
+      sleep 30
+
+      echo "Obtaining SSL certificate for ${domain_name}..."
+      certbot --nginx -d ${domain_name} --non-interactive --agree-tos --email admin@${domain_name} --redirect || echo "Failed to obtain SSL certificate. Domain may not be pointing to this server yet. Run manually: certbot --nginx -d ${domain_name}"
+
+      # Test automatic renewal (if certificate was obtained)
+      if [ -f /etc/letsencrypt/live/${domain_name}/fullchain.pem ]; then
+        echo "Testing automatic renewal..."
+        certbot renew --dry-run || echo "Renewal test failed, but will retry later"
+      fi
+
+      # Ensure certbot timer is enabled for auto-renewal (primary method)
+      systemctl enable certbot-renew.timer
+      systemctl start certbot-renew.timer
+      systemctl status certbot-renew.timer --no-pager || echo "Timer status check completed"
+
+      echo "[OK] SSL certificate configured for ${domain_name}"
+    else
+      echo "[SKIP] No domain name configured, skipping SSL setup"
+    fi
+
+  # Setup cron jobs
+  - echo "==> Setting up cron jobs..."
+  # Daily database backup at 2 AM
+  - (crontab -u weatherapp -l 2>/dev/null; echo "0 2 * * * /home/weatherapp/backup-db.sh >> /home/weatherapp/logs/backup.log 2>&1") | crontab -u weatherapp -
+  # Certbot renewal check twice daily at 3:30 AM and 3:30 PM (fallback if systemd timer fails)
+  - (crontab -l 2>/dev/null; echo "30 3,15 * * * certbot renew --quiet --deploy-hook 'systemctl reload nginx' >> /var/log/certbot-cron.log 2>&1") | crontab -
+
+  # Final SSH verification
+  - echo ""
+  - echo "==> Final SSH verification..."
+  - rpm -qa | grep openssh
+  - systemctl is-active sshd || systemctl start sshd
+  - ss -tlnp | grep :22 || echo "Port 22 check complete"
+  - echo "[OK] SSH verified and running"
+
+  # Service status
+  - echo ""
+  - echo "==> Service Status:"
+  - echo "SSH:" $(systemctl is-active sshd)
+  - echo "PostgreSQL:" $(systemctl is-active postgresql)
+  - echo "Redis:" $(systemctl is-active redis)
+  - echo "nginx:" $(systemctl is-active nginx)
+  - echo "Weather App:" $(systemctl is-active weather-app)
+  - 'echo "Firewall: Managed by DigitalOcean"'
+  - echo ""
+
+  # Write completion marker
+  - echo "$(date) - Weather App provisioning completed successfully" >> /var/log/cloud-init-complete.log
+  - echo "[OK] Weather App droplet provisioning complete!"
+
+final_message: |
+  ==========================================
+  Weather App droplet is ready! (Rocky Linux 9)
+  ==========================================
+  Services running:
+    - SSH (port 22)
+    - PostgreSQL (localhost:5432)
+    - Redis (localhost:6379)
+    - nginx (ports 80/443 with SSL)
+    - Node.js app (port 3000, systemd service: weather-app)
+    - Firewall: Managed by DigitalOcean
+    - Let's Encrypt SSL (auto-renewal enabled)
+
+  SSH Access:
+    - ssh root@YOUR_DROPLET_IP
+    - ssh weatherapp@YOUR_DROPLET_IP
+
+  Useful commands:
+    - Check app status: systemctl status weather-app
+    - View logs: journalctl -u weather-app -f
+    - Restart app: systemctl restart weather-app
+    - Deploy updates: /home/weatherapp/deploy.sh
+    - Backup database: /home/weatherapp/backup-db.sh
+    - Check SSL certificate: certbot certificates
+    - Renew SSL manually: certbot renew
+    - Check cloud-init logs: tail -f /var/log/cloud-init-output.log
+  ==========================================
