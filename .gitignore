@@ -1,0 +1,3 @@
+target/
+.envrc
+frontend/node_modules
