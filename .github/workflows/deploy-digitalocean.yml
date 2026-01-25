@@ -77,6 +77,8 @@ jobs:
           cache-on-failure: true
 
       - name: Build backend (Rust)
+        env:
+          SQLX_OFFLINE: true
         run: cargo build --release
 
       - name: Upload frontend artifacts
