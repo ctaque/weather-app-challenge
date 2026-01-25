@@ -1,5 +1,11 @@
-import { useState, JSX, useEffect } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
+import { useState, JSX, useEffect, createContext } from "react";
+import {
+  Link,
+  Navigate,
+  useLocation,
+  useNavigate,
+  BrowserRouter,
+} from "react-router";
 import "./App.css";
 import VerificationInput from "react-verification-input";
 import { Route } from "react-router";
@@ -9,6 +15,9 @@ import { Formik, Field, Form } from "formik";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "./components/ui/input";
+import { getTranslations, Language, Translations } from "./i18n";
+import MapView from "./components/core/MapView";
+import WeatherGrid from "./components/core/WeatherGrid";
 
 type User = {
   email: string;
@@ -39,9 +48,187 @@ const useAuth = (): (User | null)[] => {
   return [me];
 };
 
+export type UnitSystem = "knots-celsius" | "mph-fahrenheit";
+
+export const ThemeContext = createContext<"light" | "dark">("light");
+export const LanguageContext = createContext<{
+  lang: Language;
+  t: Translations;
+}>({
+  lang: "fr",
+  t: getTranslations("fr"),
+});
+export const UnitContext = createContext<{
+  units: UnitSystem;
+  setUnits: (units: UnitSystem) => void;
+}>({
+  units: "knots-celsius",
+  setUnits: () => { },
+});
+
+function SunIcon(props: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={props.className}
+    >
+      <circle cx="12" cy="12" r="4" />
+      <g>
+        <line x1="12" y1="2" x2="12" y2="4" />
+        <line x1="12" y1="20" x2="12" y2="22" />
+        <line x1="4.93" y1="4.93" x2="6.34" y2="6.34" />
+        <line x1="17.66" y1="17.66" x2="19.07" y2="19.07" />
+        <line x1="2" y1="12" x2="4" y2="12" />
+        <line x1="20" y1="12" x2="22" y2="12" />
+        <line x1="4.93" y1="19.07" x2="6.34" y2="17.66" />
+        <line x1="17.66" y1="6.34" x2="19.07" y2="4.93" />
+      </g>
+    </svg>
+  );
+}
+
+function MoonIcon(props: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={props.className}
+    >
+      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+    </svg>
+  );
+}
+
+function LanguageIcon(props: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={props.className}
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  );
+}
+
+function AppHeader({
+  theme,
+  toggleTheme,
+  toggleLanguage,
+  toggleUnits,
+  lang,
+  t,
+  units,
+}: {
+  theme: "light" | "dark";
+  toggleTheme: () => void;
+  toggleLanguage: () => void;
+  toggleUnits: () => void;
+  lang: Language;
+  t: Translations;
+  units: UnitSystem;
+}) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleCreateClick = () => {
+    navigate("/plan?create=true");
+  };
+
+  return (
+    <header className="app-header">
+      <h1>
+        <SunIcon className="app-title-icon" />
+        Weather App
+      </h1>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <button
+          onClick={handleCreateClick}
+          className="theme-toggle"
+          style={{
+            backgroundColor: "var(--brand)",
+            color: "white",
+            fontWeight: "600",
+          }}
+          title="Créer un itinéraire"
+          aria-label="Créer un itinéraire"
+        >
+          <span className="theme-label">+ Créer</span>
+        </button>
+        <button
+          onClick={toggleLanguage}
+          className="theme-toggle"
+          title={t.languageAria}
+          aria-label={t.languageAria}
+        >
+          <span className="theme-icon" aria-hidden>
+            <LanguageIcon />
+          </span>
+          <span className="theme-label">{lang.toUpperCase()}</span>
+        </button>
+        <button
+          aria-pressed={theme === "dark"}
+          onClick={toggleTheme}
+          className="theme-toggle"
+          title={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
+          aria-label={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
+        >
+          <span className="theme-icon" aria-hidden>
+            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+          </span>
+          <span className="theme-label">
+            {theme === "dark" ? t.themeDark : t.themeLight}
+          </span>
+        </button>
+        <button
+          onClick={toggleUnits}
+          className="theme-toggle"
+          title={t.unitsAria}
+          aria-label={t.unitsAria}
+        >
+          <span className="theme-label">
+            {units === "knots-celsius"
+              ? t.unitsKnotsCelsius
+              : t.unitsMphFahrenheit}
+          </span>
+        </button>
+      </div>
+    </header>
+  );
+}
+
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [error, setError] = useState<string | null>(null);
+
+  // Theme: 'light' | 'dark'
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  // Language: 'fr' | 'en'
+  const [lang, setLang] = useState<Language>("fr");
+  const t = getTranslations(lang);
+
+  // Units: 'knots-celsius' | 'mph-fahrenheit'
+  const [units, setUnits] = useState<UnitSystem>("knots-celsius");
 
   const [me] = useAuth();
 
@@ -51,17 +238,122 @@ function App() {
         navigate("/auth/login");
       }
     } else {
-      navigate("/office");
+      navigate("/plan?create=true");
     }
   }, [me, navigate, location.pathname]);
 
+  useEffect(() => {
+    const saved = localStorage.getItem("theme") as "light" | "dark" | null;
+    if (saved === "light" || saved === "dark") {
+      setTheme(saved);
+      document.documentElement.setAttribute("data-theme", saved);
+    } else {
+      const prefersDark =
+        window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const initial = prefersDark ? "dark" : "light";
+      setTheme(initial);
+      document.documentElement.setAttribute("data-theme", initial);
+    }
+  }, []);
+
+  // Initialize language from localStorage or browser preference
+  useEffect(() => {
+    const saved = localStorage.getItem("language") as Language | null;
+    if (saved === "fr" || saved === "en") {
+      setLang(saved);
+    } else {
+      const browserLang = navigator.language.toLowerCase();
+      const initial: Language = browserLang.startsWith("fr") ? "fr" : "en";
+      setLang(initial);
+    }
+  }, []);
+
+  // Keep document attribute and localStorage in sync when theme changes
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  // Keep localStorage in sync when language changes
+  useEffect(() => {
+    localStorage.setItem("language", lang);
+    document.documentElement.setAttribute("lang", lang);
+  }, [lang]);
+
+  // Initialize units from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("units") as UnitSystem | null;
+    if (saved === "knots-celsius" || saved === "mph-fahrenheit") {
+      setUnits(saved);
+    }
+  }, []);
+
+  // Keep localStorage in sync when units change
+  useEffect(() => {
+    localStorage.setItem("units", units);
+  }, [units]);
+
+  function toggleTheme() {
+    setTheme((t) => (t === "light" ? "dark" : "light"));
+  }
+
+  function toggleLanguage() {
+    setLang((l) => (l === "fr" ? "en" : "fr"));
+  }
+
+  function toggleUnits() {
+    setUnits((u) =>
+      u === "knots-celsius" ? "mph-fahrenheit" : "knots-celsius",
+    );
+  }
+
   return (
     <>
-      <ToastContainer />
-      <Routes>
-        <Route path="/office" element={<BackOffice />} />
-        <Route path="/auth/:form" element={<Auth />} />
-      </Routes>
+      <LanguageContext.Provider value={{ lang, t }}>
+        <UnitContext.Provider value={{ units, setUnits }}>
+          <ThemeContext.Provider value={theme}>
+            <div className="welcome-wallpaper-background" data-theme={theme} />
+            <div className="welcome-gradient-background" />
+            <ToastContainer />
+            <AppHeader
+              theme={theme}
+              toggleTheme={toggleTheme}
+              toggleLanguage={toggleLanguage}
+              toggleUnits={toggleUnits}
+              lang={lang}
+              t={t}
+              units={units}
+            />
+            <Routes>
+              <Route path="/auth/:form" element={<Auth />} />
+              <Route
+                path="/"
+                element={<Navigate to="/auth/register" replace />}
+              />
+              <Route
+                path="/weather"
+                element={
+                  <div className="container">
+                    <h2 style={{ marginTop: 0 }}>{t.forecastByCity}</h2>
+
+                    {error && (
+                      <div className="error">
+                        {t.errorPrefix}
+                        {error}
+                      </div>
+                    )}
+
+                    {/* Composant avec données en dur pour les 5 villes */}
+                    <WeatherGrid />
+                  </div>
+                }
+              />
+              <Route path="/plan" element={<MapView />} />
+            </Routes>
+          </ThemeContext.Provider>
+        </UnitContext.Provider>
+      </LanguageContext.Provider>
     </>
   );
 }
@@ -178,7 +470,7 @@ export function Auth() {
             >
               <Form>
                 <Label htmlFor="email" className="text-md text-indigo-100 pb-2">
-                  Addresse email
+                  Adresse email
                 </Label>
                 <Field
                   as={Input}
@@ -272,13 +564,11 @@ export function Auth() {
               </div>
             </div>
             <div className="block">
-              <div className="mt-12 text-center text-lg">
-                <span className="text-gray-300">
-                  Code non reçu ? &nbsp;&nbsp;
-                </span>
+              <div className="mt-12 flex flex-col text-center text-lg">
+                <span className="text-gray-300">Code non reçu ?</span>
                 <Link
                   to="/auth/login"
-                  className="font-semibold text-indigo-400 text-center hover:text-indigo-300"
+                  className="block font-semibold text-indigo-400 text-center hover:text-indigo-300"
                 >
                   Demander un nouveau code
                 </Link>
@@ -393,40 +683,6 @@ const FormWrapper = ({ children }: { children: JSX.Element }) => {
       }}
     >
       <div>{children}</div>
-    </div>
-  );
-};
-
-const BackOffice = () => {
-  const [loading, setLoading] = useState(false);
-
-  const handleLogout = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch("/api/logout", {
-        method: "post",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw response;
-      }
-
-      window.location.reload();
-    } catch (error) {
-      setLoading(false);
-      handleErrorMessage(error as Response);
-    }
-  };
-
-  return (
-    <div>
-      <p>Back office</p>
-      <button onClick={handleLogout}>logout</button>
-      {loading && <Loader />}
     </div>
   );
 };

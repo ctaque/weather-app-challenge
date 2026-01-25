@@ -1,16 +1,15 @@
 use dotenvy::dotenv;
-use misc::{get_env, Env};
-use queries::migrate_db;
+use crate::utils::misc::{get_env, Env};
+use crate::utils::queries::migrate_db;
 use sqlx::PgPool;
 use tokio;
 
-mod mail;
-mod misc;
 mod models;
-mod queries;
 mod routes;
 mod server;
+mod services;
 mod tests;
+mod utils;
 
 #[tokio::main]
 async fn main() {

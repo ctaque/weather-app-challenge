@@ -13,7 +13,7 @@ use serde;
 use sqlx::FromRow;
 use sqlx::PgPool;
 
-use crate::misc::Env;
+use crate::utils::misc::Env;
 
 pub struct AppData {
     pub db: PgPool,

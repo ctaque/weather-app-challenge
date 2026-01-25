@@ -1,5 +1,4 @@
-use crate::misc::Asset;
-use crate::Env;
+use crate::utils::misc::{Asset, Env};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::transport::smtp::response::Response;
 use lettre::transport::smtp::Error;

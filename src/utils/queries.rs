@@ -1,4 +1,4 @@
-use crate::models::{AppData, OneTimeCode, User};
+use crate::models::auth::{AppData, OneTimeCode, User};
 use actix_web::App;
 use sqlx::{self, migrate::Migrator, postgres::types::PgInterval, PgPool};
 

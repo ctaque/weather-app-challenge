@@ -1,0 +1,942 @@
+/* Custom font */
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("/src/font/SF-Pro-Display-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("/src/font/SF-Pro-Display-Regular.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("/src/font/SF-Pro-Display-Regular.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Empêche #root de dépasser la largeur disponible */
+#root {
+  max-width: 100%;
+  box-sizing: border-box;
+  padding-bottom: 1rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Base scaling */
+html {
+  font-size: 120%;
+}
+
+/* Theme variables */
+:root {
+  --bg: #f3f4f6;
+  --card: rgba(255, 255, 255, 0.4);
+  --text: #0f172a;
+  --muted: #6b7280;
+  --accent: #888888;
+  --accent-600: #999999;
+  --card-shadow: rgba(0, 0, 0, 0.06);
+  --surface-2: #cfd4da;
+  --radius: 8px;
+  --focus: 3px;
+  --button-text-light: #ffffff;
+  --button-text-dark: #0b1220;
+  --selection-border: #2563eb;
+  --brand: #89a380;
+  --text-color: #000000;
+}
+
+/* Dark overrides */
+[data-theme="dark"] {
+  --bg: #0b1220;
+  --card: rgb(7 16 36 / 40%);
+  --text: #e6eef8;
+  --muted: #9aa6bb;
+  --accent: #444444;
+  --accent-600: #333333;
+  --card-shadow: rgba(0, 0, 0, 0.5);
+  --surface-2: #192e4b;
+  --brand: #0b2d00;
+  --text-color: #ffffff;
+}
+
+/* Page */
+body {
+  margin: 0;
+  font-family:
+    "SF Pro Display",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  color: var(--text);
+  min-height: 100vh;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+  position: relative;
+  display: flex;
+}
+
+@media (prefers-color-scheme: "dark") {
+  .welcome-gradient-background:after {
+    background: linear-gradient(64deg, #032700, #0b3300 45%, #0d2a00);
+  }
+}
+
+.welcome-gradient-background:after {
+  background: linear-gradient(64deg, #032700, #0b3300 45%, #0d2a00);
+}
+
+.welcome-gradient-background:after {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  content: "";
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: hard-light;
+}
+
+/* Wallpaper background layer */
+.welcome-wallpaper-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("/src/img/wallpaper.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: -2;
+}
+
+/* Dark theme wallpaper */
+.welcome-wallpaper-background[data-theme="dark"] {
+  background-image: url("/src/img/wallpaper_dark.svg");
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* Ensure form elements inherit font */
+input,
+select,
+button,
+textarea {
+  font-family: inherit;
+}
+
+/* Container - lateral padding removed */
+.container {
+  position: relative;
+  width: 100%;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  padding-top: 1rem;
+  box-sizing: border-box;
+  z-index: 1;
+  background: var(--card);
+  backdrop-filter: blur(5px);
+}
+
+/* Ensure vertical gap between weather components */
+.multi-grid-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem; /* vertical spacing between each .multi-item-vertical */
+}
+
+/* Location buttons list (new) */
+.location-list {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+  align-items: center;
+  white-space: nowrap;
+  min-width: fit-content;
+}
+.location-button {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--card);
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 6px var(--card-shadow);
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    background 160ms ease;
+}
+.location-button .loc-name {
+  font-weight: 600;
+}
+.location-button .loc-country {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* active location */
+.location-button.active {
+  background: linear-gradient(180deg, var(--accent), var(--accent-600));
+  color: #fff;
+  transform: translateY(-3px);
+  border: 2px solid var(--selection-border);
+}
+
+/* App header */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.5rem;
+  background: rgba(255, 255, 255, 0.5);
+
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  transition: background 160ms ease;
+}
+
+/* Dark mode header */
+[data-theme="dark"] .app-header {
+  background: rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* --------- THEME TOGGLE (restyled) --------- */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+  font-family: inherit;
+  background: rgb(178 178 178 / 50%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: var(--text);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    background 160ms ease;
+}
+.theme-toggle:hover {
+  transform: translateY(-2px);
+}
+.theme-toggle:active {
+  transform: translateY(0);
+}
+
+/* Icon inside toggle */
+.theme-toggle .theme-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--text);
+  display: block;
+}
+
+/* Label */
+.theme-toggle .theme-label {
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+/* Focus visible for keyboard users */
+.theme-toggle:focus {
+  outline: none;
+  box-shadow:
+    0 0 0 var(--focus) rgba(37, 99, 235, 0.12),
+    0 2px 6px var(--card-shadow);
+  border-color: var(--accent-600);
+}
+
+/* In dark mode keep contrast */
+[data-theme="dark"] .theme-toggle {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* --------- SEARCH FORM (restyled) --------- */
+.search-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0.5rem;
+  border-radius: 10px;
+  background: var(--card);
+  box-shadow: 0 6px 18px var(--card-shadow);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  margin-bottom: 1rem;
+}
+
+/* Input */
+.search-form input[type="text"],
+.search-form input {
+  flex: 1 1 320px;
+  min-width: 160px;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 1rem;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+.search-form input:focus {
+  outline: none;
+  border-color: var(--accent-600);
+  box-shadow: 0 0 0 var(--focus) rgba(37, 99, 235, 0.08);
+}
+
+/* Select */
+.search-form select {
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+select::picker(select) {
+  appearance: base-select;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background-color: white;
+  color: var(--text-color);
+}
+
+/* Buttons group (submit + location) */
+.search-form button {
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition:
+    transform 100ms ease,
+    box-shadow 120ms ease,
+    opacity 120ms ease;
+}
+
+/* Primary action (Search) */
+.search-form button[type="submit"] {
+  background: linear-gradient(180deg, var(--accent), var(--accent-600));
+  color: var(--button-text-light);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.16);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+.search-form button[type="submit"]:hover {
+  transform: translateY(-2px);
+}
+.search-form button[type="submit"]:active {
+  transform: translateY(0);
+}
+.search-form button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Secondary action (Use my location) */
+.search-form button[type="button"] {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: none;
+}
+.search-form button[type="button"]:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* Ensure buttons don't shrink too much on small screens */
+.search-form button {
+  flex: 0 0 auto;
+}
+
+/* Make form responsive: stack actions on very small screens */
+@media (max-width: 520px) {
+  .search-form {
+    gap: 0.5rem;
+  }
+
+  /* keep flex behavior for input/select on small screens (no width:100%) */
+  .search-form input,
+  .search-form select {
+    flex: none;
+  }
+
+  .search-form button {
+    width: 100%;
+    padding: 0.8rem 0.9rem;
+    border-radius: 8px;
+    font-size: 1rem;
+  }
+
+  .search-form button[type="submit"] {
+    order: 1;
+  }
+  .search-form button[type="button"] {
+    order: 2;
+    background: transparent;
+  }
+}
+
+/* --------- REST OF LAYOUT (kept from previous) --------- */
+/* Card styles */
+
+.weather-card {
+  margin-top: 1rem;
+}
+
+.weather-card,
+.multi-item-vertical {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: 0 6px 18px var(--card-shadow);
+}
+
+/* City header */
+.city-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.city-header-left {
+  flex: 1 1 auto;
+}
+.city-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+}
+
+.trend-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 64px;
+}
+.trend-emoji {
+  font-size: 2rem;
+  line-height: 1;
+}
+.trend-block .temp {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+/* small map */
+.header-map {
+  flex: 0 0 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.map-embed-small {
+  width: 160px;
+  height: 110px;
+  border: 0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 720px) {
+  .city-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .map-embed-small {
+    width: 100%;
+    height: 160px;
+  }
+}
+
+/* Forecast horizontal list (mobile-first: always horizontal/scrollable) */
+/* We force horizontal scrolling, adjust item sizes and snap behavior */
+.forecast {
+  z-index: 10;
+  background: transparent;
+  transition: background 0.3s ease;
+}
+
+/* When sticky, add background */
+.forecast.is-sticky {
+  background: var(--card);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 8px var(--card-shadow);
+  padding: 0.5rem 0;
+}
+
+.forecast-list-horizontal {
+  position: sticky;
+  top: 0;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory; /* mandatory snap for better swipe UX */
+  white-space: nowrap;
+  align-items: flex-start;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+  padding-top: 1rem;
+  z-index: 100;
+}
+
+/* Day card (default small screens) */
+.forecast-item-horizontal {
+  flex: 0 0 150px; /* fixed basis keeps consistent swipe targets */
+  display: inline-block;
+  vertical-align: top;
+  background: var(--surface-2);
+  padding: 0.5rem;
+  border-radius: 8px;
+  text-align: center;
+  scroll-snap-align: start;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  font-size: 0.95rem;
+  color: var(--text);
+  min-height: 120px;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+/* Default hover */
+.forecast-item-horizontal:hover {
+  transform: translateY(-2px);
+}
+
+/* active (selected) day visual */
+.forecast-item-horizontal.active {
+  background: linear-gradient(180deg, var(--accent), var(--accent-600));
+  color: #ffffff;
+  transform: translateY(-4px);
+  border: 2px solid rgb(16, 185, 129);
+}
+
+.forecast-item-horizontal.active .date,
+.forecast-item-horizontal.active .muted,
+.forecast-item-horizontal.active .small {
+  color: rgba(255, 255, 255, 0.95);
+  opacity: 0.95;
+}
+
+/* focus visible for accessibility */
+.forecast-item-horizontal:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+  border-radius: 6px;
+}
+
+/* Date style inside day card */
+.forecast-item-horizontal .date {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+/* When sticky, show only the date in forecast items */
+.forecast.is-sticky .forecast-item-horizontal {
+  min-height: auto;
+  padding: 0.4rem 0.5rem;
+  flex: 0 0 auto;
+}
+
+.forecast.is-sticky .forecast-item-horizontal > *:not(.date) {
+  display: none;
+}
+
+.forecast.is-sticky .forecast-item-horizontal .date {
+  margin-bottom: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Keep active state visible when sticky */
+.forecast.is-sticky .forecast-item-horizontal.active .date {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* Scrollbar styling (desktop) */
+.forecast-list-horizontal::-webkit-scrollbar {
+  height: 8px;
+  display: none;
+}
+.forecast-list-horizontal::-webkit-scrollbar-thumb {
+  background: rgba(17, 24, 39, 0.12);
+  border-radius: 999px;
+}
+
+/* Hourly list (horizontal) — réutilise la logique des forecast */
+.hour-list-horizontal {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  white-space: nowrap;
+  align-items: center;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+  margin-top: 8px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.hour-list-horizontal::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Each hour item */
+.hour-item {
+  flex: 0 0 88px;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  padding: 8px;
+  border-radius: 8px;
+  text-align: center;
+  scroll-snap-align: start;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  min-height: 96px;
+}
+
+.hour-item .hour-time {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+/* Slightly larger hour items on medium screens */
+@media (min-width: 520px) {
+  .hour-item {
+    flex: 0 0 100px;
+    padding: 10px;
+    min-height: 104px;
+  }
+}
+
+/* Larger on wide screens */
+@media (min-width: 1000px) {
+  .hour-item {
+    flex: 0 0 110px;
+    padding: 12px;
+    min-height: 112px;
+  }
+}
+
+/* Ensure focus outlines are visible */
+.hour-item:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+  border-radius: 8px;
+}
+
+/* If selected day has images, subtle drop shadow */
+.forecast-item-horizontal.active img,
+.hour-item img {
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.08));
+}
+
+/* Adjust card sizes for medium devices */
+@media (min-width: 520px) {
+  .forecast-item-horizontal {
+    flex: 0 0 160px;
+    min-height: 140px;
+    padding: 0.6rem;
+  }
+}
+
+/* Adjust card sizes for large devices but KEEP horizontal scrolling */
+@media (min-width: 1000px) {
+  .forecast-item-horizontal {
+    flex: 0 0 180px;
+    min-height: 150px;
+    padding: 0.75rem;
+  }
+  .forecast-list-horizontal {
+    gap: 0.75rem;
+  }
+}
+
+/* Accessibility: ensure focusable items are visible in scroll mode */
+.forecast-list-horizontal a:focus,
+.forecast-item-horizontal:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+  border-radius: 6px;
+}
+
+/* On very small screens, slightly reduce width so 1.5 cards visible */
+@media (max-width: 360px) {
+  .forecast-item-horizontal {
+    flex: 0 0 140px;
+  }
+  .hour-item {
+    flex: 0 0 78px;
+    min-height: 88px;
+    padding: 6px;
+  }
+}
+
+/* Optional: add left/right fade to hint horizontal scroll on larger screens */
+.forecast-list-horizontal::before,
+.forecast-list-horizontal::after {
+  content: "";
+  position: sticky;
+  top: 0;
+  height: 100%;
+  width: 32px;
+  pointer-events: none;
+  z-index: 2;
+}
+.forecast-list-horizontal::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--bg), rgba(255, 255, 255, 0));
+}
+.forecast-list-horizontal::after {
+  right: 0;
+  background: linear-gradient(-90deg, var(--bg), rgba(255, 255, 255, 0));
+}
+[data-theme="dark"] .forecast-list-horizontal::before,
+[data-theme="dark"] .forecast-list-horizontal::after {
+  background: linear-gradient(90deg, var(--bg), rgba(255, 255, 255, 0));
+}
+
+/* Misc */
+.city-title {
+  font-size: 1.05rem;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pin-wrap svg {
+  color: var(--accent);
+}
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.small {
+  font-size: 0.85rem;
+}
+.error {
+  color: #f87171;
+  margin-bottom: 1rem;
+}
+
+/* Responsive improvements for header + form */
+
+/* Ensure title can shrink without overflowing */
+.app-header h1 {
+  flex: 1 1 auto;
+  min-width: 0; /* allow flex children to shrink */
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.02em;
+}
+
+/* Toggles container in header */
+.app-header > div {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+/* SEARCH FORM: layout adjustments at breakpoints */
+@media (max-width: 720px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .app-header {
+    padding: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .app-header h1 {
+    text-align: left;
+    white-space: normal;
+    font-size: 1.2rem;
+    flex: 1 1 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  .app-header > div {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+}
+
+.app-header h1 {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.app-title-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Very small devices: form elements full width and buttons stacked */
+@media (max-width: 520px) {
+  .search-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+    padding: 0.6rem;
+  }
+
+  /* keep flex behavior for input/select on very small screens (no width:100%) */
+  .search-form input,
+  .search-form select {
+    flex: none;
+  }
+
+  .search-form button {
+    width: 100%;
+    padding: 0.8rem 0.9rem;
+    border-radius: 8px;
+    font-size: 1rem;
+  }
+
+  .search-form button[type="submit"] {
+    order: 1;
+  }
+  .search-form button[type="button"] {
+    order: 2;
+    background: transparent;
+  }
+
+  /* location buttons stack better on tiny screens */
+  .location-list {
+    gap: 0.4rem;
+    padding: 0.15rem;
+  }
+  .location-button {
+    min-width: 90px;
+    padding: 8px 10px;
+    border-radius: 8px;
+  }
+}
+
+/* Medium screens: keep form inline but adapt sizes */
+@media (min-width: 521px) and (max-width: 1000px) {
+  .search-form input {
+    flex: 1 1 60%;
+    min-width: 180px;
+  }
+  .search-form select {
+    flex: 0 0 110px;
+  }
+  .search-form button {
+    flex: 0 0 auto;
+  }
+}
+
+/* Focus outlines */
+@media (prefers-reduced-motion: no-preference) {
+  .search-form input:focus,
+  .search-form select:focus,
+  .theme-toggle:focus,
+  .search-form button:focus,
+  .location-button:focus,
+  .forecast-item-horizontal:focus,
+  .hour-item:focus {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+  }
+}
+
+/* Loader spinner animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Overlay fade animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Pulse animation for waypoint placement */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}

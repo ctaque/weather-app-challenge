@@ -19,10 +19,10 @@ use serde::Deserialize;
 use serde_json::Value;
 use sqlx::Error;
 
-use crate::mail::send_one_time_code_mail;
-use crate::misc::{generate_one_time_code, generate_random_string};
-use crate::models::{ActualResponse, AppData, Response, User};
-use crate::queries::{
+use crate::utils::mail::send_one_time_code_mail;
+use crate::utils::misc::{generate_one_time_code, generate_random_string};
+use crate::models::auth::{ActualResponse, AppData, Response, User};
+use crate::utils::queries::{
     get_user_from_api_token, insert_one_time_code, insert_user, select_user_from_email,
     select_user_from_unused_one_time_code, update_one_time_code_to_used,
 };
