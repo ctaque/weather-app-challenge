@@ -218,14 +218,14 @@ jobs:
           ssh -i ~/.ssh/deploy_key root@$DROPLET_IP << 'ENDSSH'
             set -e
 
-            # Switch to weatherapp user
-            sudo -u weatherapp bash << 'EOF'
-              cd /home/weatherapp/app
+            # Switch to planmytrip user
+            sudo -u planmytrip bash << 'EOF'
+              cd /home/planmytrip/app
 
               # Backup current version
               echo "💾 Creating backup..."
-              mkdir -p /home/weatherapp/backups
-              tar -czf /home/weatherapp/backups/app-$(date +%Y%m%d-%H%M%S).tar.gz . || true
+              mkdir -p /home/planmytrip/backups
+              tar -czf /home/planmytrip/backups/app-$(date +%Y%m%d-%H%M%S).tar.gz . || true
 
               # Extract new version
               echo "📦 Extracting new version..."
@@ -258,17 +258,17 @@ jobs:
               echo "✅ Application files updated!"
           EOF
 
-          # Deploy backend binary as root (needs permission to write to /home/weatherapp/app)
+          # Deploy backend binary as root (needs permission to write to /home/planmytrip/app)
           echo "🦀 Deploying Rust backend..."
-          cp /tmp/backend_binary /home/weatherapp/app/actix_sqlx_template
-          chown weatherapp:weatherapp /home/weatherapp/app/actix_sqlx_template
-          chmod +x /home/weatherapp/app/actix_sqlx_template
+          cp /tmp/backend_binary /home/planmytrip/app/actix_sqlx_template
+          chown planmytrip:planmytrip /home/planmytrip/app/actix_sqlx_template
+          chmod +x /home/planmytrip/app/actix_sqlx_template
 
           # Restart systemd service as root
           echo "♻️  Restarting application service..."
-          systemctl restart weather-app
+          systemctl restart planmytrip
           sleep 3
-          systemctl status weather-app --no-pager
+          systemctl status planmytrip --no-pager
 
           # Cleanup
           rm -f /tmp/app.tar.gz /tmp/backend_binary /tmp/app.env
@@ -295,7 +295,7 @@ jobs:
           else
             echo "❌ Health check failed! HTTP $HTTP_CODE"
             echo "Check application logs on the droplet:"
-            echo "  ssh root@$DROPLET_IP 'journalctl -u weather-app -n 50'"
+            echo "  ssh root@$DROPLET_IP 'journalctl -u planmytrip -n 50'"
             exit 1
           fi
 

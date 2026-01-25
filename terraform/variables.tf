@@ -15,7 +15,7 @@ variable "environment" {
 variable "project_name" {
   description = "Project name"
   type        = string
-  default     = "weather-app"
+  default     = "planmytrip"
 }
 
 # Droplet
@@ -34,7 +34,7 @@ variable "droplet_image" {
 variable "ssh_key_name" {
   description = "Name of the SSH key in DigitalOcean (must already exist in your DO account)"
   type        = string
-  default     = "weather-app-key"
+  default     = "tf-planmytrip"
 }
 
 variable "ssh_allowed_ips" {

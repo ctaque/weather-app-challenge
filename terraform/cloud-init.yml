@@ -1,5 +1,5 @@
 #cloud-config
-# Weather App droplet cloud-init configuration for Rocky Linux 9
+# PlanMyTrip Tpp droplet cloud-init configuration for Rocky Linux 9
 # Installs and configures: PostgreSQL, Redis, nginx, Node.js
 # Variables interpolated by Terraform templatefile
 # Updated: 2026-01-23 - Fixed character encoding issues
@@ -8,7 +8,7 @@ package_update: true
 package_upgrade: false
 
 users:
-  - name: weatherapp
+  - name: planmytrip
     shell: /bin/bash
     groups: wheel
     sudo: ALL=(ALL) NOPASSWD:ALL
@@ -34,11 +34,11 @@ write_files:
       \du
 
   # Redis configuration
-  - path: /etc/redis/weatherapp.conf
+  - path: /etc/redis/planmytrip.conf
     owner: root:root
     permissions: "0644"
     content: |
-      # Custom configuration for Weather App
+      # Custom configuration for Planmytrip App
       bind 127.0.0.1
       protected-mode yes
       port 6379
@@ -64,7 +64,7 @@ write_files:
       dir /var/lib/redis
 
   # nginx configuration (initial HTTP only, HTTPS configured after certbot)
-  - path: /etc/nginx/conf.d/weatherapp.conf
+  - path: /etc/nginx/conf.d/planmytrip.conf
     owner: root:root
     permissions: "0644"
     content: |
@@ -80,8 +80,8 @@ write_files:
           client_max_body_size 10M;
 
           # Logs
-          access_log /var/log/nginx/weatherapp-access.log;
-          error_log /var/log/nginx/weatherapp-error.log;
+          access_log /var/log/nginx/planmytrip-access.log;
+          error_log /var/log/nginx/planmytrip-error.log;
 
           # Let's Encrypt ACME challenge
           location /.well-known/acme-challenge/ {
@@ -123,27 +123,26 @@ write_files:
       echo "username=git"
       echo "password=${github_token}"
 
-  # Systemd service for weather-app
-  - path: /tmp/weather-app.service
+  # Systemd service for planmytrip
+  - path: /tmp/planmytrip.service
     owner: root:root
     permissions: "0644"
     content: |
       [Unit]
-      Description=Weather App Node.js Application
+      Description=Trip plannning App Rust Application
       After=network.target postgresql.service redis.service
       Wants=postgresql.service redis.service
 
       [Service]
       Type=simple
-      User=weatherapp
-      Group=weatherapp
-      WorkingDirectory=/home/weatherapp/app
+      User=planmytrip
+      Group=planmytrip
+      WorkingDirectory=/home/planmytrip/app
 
       # Variables d'environnement
       Environment=NODE_ENV=production
       Environment=NODE_OPTIONS=--max-old-space-size=16000
       Environment=PATH=/usr/local/bin:/usr/bin:/bin
-      Environment=PORT=3000
       Environment=WEATHERAPI_KEY=${weatherapi_key}
       Environment=ANTHROPIC_API_KEY=${anthropic_api_key}
       Environment=OPENROUTESERVICE_TOKEN=${openrouteservice_token}
@@ -156,10 +155,10 @@ write_files:
       Restart=always
       RestartSec=10
 
-      # Logs vers journald (consultables avec journalctl -u weather-app)
+      # Logs vers journald (consultables avec journalctl -u planmytrip)
       StandardOutput=journal
       StandardError=journal
-      SyslogIdentifier=weather-app
+      SyslogIdentifier=planmytrip
 
       [Install]
       WantedBy=multi-user.target
@@ -176,13 +175,13 @@ write_files:
 
       # Update .env from planMyTrip repository
       echo "=> Updating .env configuration..."
-      cd /home/weatherapp/planMyTrip
+      cd /home/planmytrip/planMyTrip
       git pull origin main
-      cp .env /home/weatherapp/app/.env
+      cp .env /home/planmytrip/app/.env
       echo "=> .env updated"
 
       # Pull latest application code
-      cd /home/weatherapp/app
+      cd /home/planmytrip/app
       echo "=> Pulling latest changes..."
       git pull origin main
 
@@ -200,12 +199,12 @@ write_files:
 
       # Restart app
       echo "=> Applying restorecon..."
-      /sbin/restorecon -v /etc/systemd/system/weather-app.service
+      /sbin/restorecon -v /etc/systemd/system/planmytrip.service
       echo "=> Restarting application..."
-      sudo systemctl restart weather-app
+      sudo systemctl restart planmytrip
 
       # Show status
-      sudo systemctl status weather-app --no-pager
+      sudo systemctl status planmytrip --no-pager
 
       echo "=> Deployment complete!"
 
@@ -215,7 +214,7 @@ write_files:
     permissions: "0755"
     content: |
       #!/bin/bash
-      BACKUP_DIR="/home/weatherapp/backups"
+      BACKUP_DIR="/home/planmytrip/backups"
       TIMESTAMP=$(date +%Y%m%d-%H%M%S)
       mkdir -p $BACKUP_DIR
 
@@ -244,14 +243,14 @@ runcmd:
   - systemctl status sshd --no-pager
   - echo "[OK] SSH packages secured, locked, and started"
 
-  # Copy SSH keys to weatherapp user (will be created by cloud-init)
-  - echo "==> Setting up SSH keys for weatherapp user..."
-  - mkdir -p /home/weatherapp/.ssh
-  - cp /root/.ssh/authorized_keys /home/weatherapp/.ssh/authorized_keys || echo "No root authorized_keys to copy"
-  - chown -R weatherapp:weatherapp /home/weatherapp/.ssh
-  - chmod 700 /home/weatherapp/.ssh
-  - chmod 600 /home/weatherapp/.ssh/authorized_keys || true
-  - echo "[OK] SSH keys copied to weatherapp user"
+  # Copy SSH keys to planmytrip (will be created by cloud-init)
+  - echo "==> Setting up SSH keys for planmytrip user..."
+  - mkdir -p /home/planmytrip/.ssh
+  - cp /root/.ssh/authorized_keys /home/planmytrip/.ssh/authorized_keys || echo "No root authorized_keys to copy"
+  - chown -R planmytrip:planmytrip /home/planmytrip/.ssh
+  - chmod 700 /home/planmytrip/.ssh
+  - chmod 600 /home/planmytrip/.ssh/authorized_keys || true
+  - echo "[OK] SSH keys copied to planmytrip user"
 
   # Disable firewalld to avoid conflicts with DigitalOcean firewall
   - echo "==> Disabling firewalld (using DigitalOcean firewall instead)..."
@@ -328,7 +327,7 @@ runcmd:
   # Configure Redis
   - echo "==> Configuring Redis..."
   - mkdir -p /var/log/redis /var/lib/redis
-  - cp /etc/redis/weatherapp.conf /etc/redis/redis.conf
+  - cp /etc/redis/planmytrip.conf /etc/redis/redis.conf
   - chown -R redis:redis /var/log/redis /var/lib/redis /etc/redis
   - systemctl enable redis
   - systemctl start redis
@@ -377,23 +376,23 @@ runcmd:
   - echo "[OK] npm path verified"
   # Create directories and move temp files
   - echo "==> Creating application directories..."
-  - mkdir -p /home/weatherapp/logs
-  - mkdir -p /home/weatherapp/backups
-  - mv /tmp/deploy.sh /home/weatherapp/deploy.sh
-  - mv /tmp/backup-db.sh /home/weatherapp/backup-db.sh
+  - mkdir -p /home/planmytrip/logs
+  - mkdir -p /home/planmytrip/backups
+  - mv /tmp/deploy.sh /home/planmytrip/deploy.sh
+  - mv /tmp/backup-db.sh /home/planmytrip/backup-db.sh
 
   # Move and verify service file
   - echo "==> Installing systemd service..."
-  - mv /tmp/weather-app.service /etc/systemd/system/weather-app.service
-  - chmod 644 /etc/systemd/system/weather-app.service
-  - ls -lh /etc/systemd/system/weather-app.service
+  - mv /tmp/planmytrip.service /etc/systemd/system/planmytrip.service
+  - chmod 644 /etc/systemd/system/planmytrip.service
+  - ls -lh /etc/systemd/system/planmytrip.service
   - echo "[OK] Service file installed"
 
   # Clone and setup application
   - echo "==> Cloning application repository..."
   - |
-    sudo -u weatherapp bash << 'APP_SETUP_EOF'
-    cd /home/weatherapp
+    sudo -u planmytrip bash << 'APP_SETUP_EOF'
+    cd /home/planmytrip
 
     # Clone repository if not exists
     if [ ! -d app/.git ]; then
@@ -405,7 +404,7 @@ runcmd:
         echo "Repository already exists, pulling latest changes..."
         cd app
         git pull origin main
-        cd /home/weatherapp
+        cd /home/planmytrip
     fi
 
     cd app
@@ -424,8 +423,8 @@ runcmd:
   # Clone private .env repository and configure environment
   - echo "==> Cloning .env repository..."
   - |
-    sudo -u weatherapp bash << 'ENV_SETUP_EOF'
-    cd /home/weatherapp
+    sudo -u planmytrip bash << 'ENV_SETUP_EOF'
+    cd /home/planmytrip
 
     # Configure git credential helper
     git config --global credential.helper "store --file ~/.git-credentials"
@@ -442,7 +441,7 @@ runcmd:
         echo ".env repository already exists, pulling latest changes..."
         cd planMyTrip
         git pull origin main
-        cd /home/weatherapp
+        cd /home/planmytrip
     fi
 
     # Copy .env file to app directory
@@ -463,21 +462,21 @@ runcmd:
 
   # Set proper permissions for application files
   - echo "==> Setting application permissions..."
-  - chown -R weatherapp:weatherapp /home/weatherapp
+  - chown -R planmytrip:planmytrip /home/planmytrip
 
-  # Enable and start the weather-app service
-  - echo "==> Starting weather-app service..."
+  # Enable and start the planmytrip service
+  - echo "==> Starting planmytrip service..."
   - echo "Reloading systemd daemon..."
   - systemctl daemon-reload
   - echo "Checking if service is recognized..."
-  - 'systemctl list-unit-files | grep weather-app || echo "WARNING: Service not found"'
+  - 'systemctl list-unit-files | grep planmytrip || echo "WARNING: Service not found"'
   - echo "Enabling service..."
-  - systemctl enable weather-app.service
+  - systemctl enable planmytrip.service
   - echo "Starting service..."
-  - 'systemctl start weather-app.service || echo "WARNING: Failed to start"'
+  - 'systemctl start planmytrip.service || echo "WARNING: Failed to start"'
   - sleep 3
   - echo "Service status:"
-  - "systemctl status weather-app.service --no-pager || journalctl -u weather-app.service -n 50 --no-pager"
+  - "systemctl status planmytrip.service --no-pager || journalctl -u planmytrip.service -n 50 --no-pager"
   - echo "[OK] Service configuration complete"
 
   # Configure Let's Encrypt SSL certificate
@@ -510,7 +509,7 @@ runcmd:
   # Setup cron jobs
   - echo "==> Setting up cron jobs..."
   # Daily database backup at 2 AM
-  - (crontab -u weatherapp -l 2>/dev/null; echo "0 2 * * * /home/weatherapp/backup-db.sh >> /home/weatherapp/logs/backup.log 2>&1") | crontab -u weatherapp -
+  - (crontab -u planmytrip -l 2>/dev/null; echo "0 2 * * * /home/planmytrip/backup-db.sh >> /home/planmytrip/logs/backup.log 2>&1") | crontab -u planmytrip -
   # Certbot renewal check twice daily at 3:30 AM and 3:30 PM (fallback if systemd timer fails)
   - (crontab -l 2>/dev/null; echo "30 3,15 * * * certbot renew --quiet --deploy-hook 'systemctl reload nginx' >> /var/log/certbot-cron.log 2>&1") | crontab -
 
@@ -529,37 +528,36 @@ runcmd:
   - echo "PostgreSQL:" $(systemctl is-active postgresql)
   - echo "Redis:" $(systemctl is-active redis)
   - echo "nginx:" $(systemctl is-active nginx)
-  - echo "Weather App:" $(systemctl is-active weather-app)
+  - echo "Planmytrip:" $(systemctl is-active planmytrip)
   - 'echo "Firewall: Managed by DigitalOcean"'
   - echo ""
 
   # Write completion marker
-  - echo "$(date) - Weather App provisioning completed successfully" >> /var/log/cloud-init-complete.log
-  - echo "[OK] Weather App droplet provisioning complete!"
+  - echo "$(date) - PlanMyTrip App provisioning completed successfully" >> /var/log/cloud-init-complete.log
+  - echo "[OK] PlanMyTrip App droplet provisioning complete!"
 
 final_message: |
   ==========================================
-  Weather App droplet is ready! (Rocky Linux 9)
+  PlanMyTrip App droplet is ready! (Rocky Linux 9)
   ==========================================
   Services running:
     - SSH (port 22)
     - PostgreSQL (localhost:5432)
     - Redis (localhost:6379)
     - nginx (ports 80/443 with SSL)
-    - Node.js app (port 3000, systemd service: weather-app)
     - Firewall: Managed by DigitalOcean
     - Let's Encrypt SSL (auto-renewal enabled)
 
   SSH Access:
     - ssh root@YOUR_DROPLET_IP
-    - ssh weatherapp@YOUR_DROPLET_IP
+    - ssh planmytrip@YOUR_DROPLET_IP
 
   Useful commands:
-    - Check app status: systemctl status weather-app
-    - View logs: journalctl -u weather-app -f
-    - Restart app: systemctl restart weather-app
-    - Deploy updates: /home/weatherapp/deploy.sh
-    - Backup database: /home/weatherapp/backup-db.sh
+    - Check app status: systemctl status planmytrip
+    - View logs: journalctl -u planmytrip -f
+    - Restart app: systemctl restart planmytrip
+    - Deploy updates: /home/planmytrip/deploy.sh
+    - Backup database: /home/planmytrip/backup-db.sh
     - Check SSL certificate: certbot certificates
     - Renew SSL manually: certbot renew
     - Check cloud-init logs: tail -f /var/log/cloud-init-output.log
