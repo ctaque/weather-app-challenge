@@ -260,13 +260,23 @@ jobs:
 
           # Deploy backend binary as root (needs permission to write to /home/planmytrip/app)
           echo "🦀 Deploying Rust backend..."
+          echo "⏸️  Stopping service to replace binary..."
+          systemctl stop planmytrip
+
+          chmod +x /tmp/backend_binary
           cp /tmp/backend_binary /home/planmytrip/app/actix_sqlx_template
           chown planmytrip:planmytrip /home/planmytrip/app/actix_sqlx_template
           chmod +x /home/planmytrip/app/actix_sqlx_template
 
-          # Restart systemd service as root
-          echo "♻️  Restarting application service..."
-          systemctl restart planmytrip
+          # Fix SELinux context if SELinux is enabled
+          if command -v getenforce &> /dev/null && [ "$(getenforce)" != "Disabled" ]; then
+            echo "🔒 Restoring SELinux context..."
+            restorecon -v /home/planmytrip/app/actix_sqlx_template || chcon -t bin_t /home/planmytrip/app/actix_sqlx_template
+          fi
+
+          # Start systemd service as root
+          echo "▶️  Starting application service..."
+          systemctl start planmytrip
           sleep 3
           systemctl status planmytrip --no-pager
 
