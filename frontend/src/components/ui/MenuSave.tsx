@@ -1,12 +1,13 @@
 import { MyEventContext } from "@/App";
 import { useState, useRef, useEffect, useContext } from "react";
-import { Save, Download, Plus } from "lucide-react";
+import { Save, Download, Plus, ShieldUser } from "lucide-react";
+import { Link, useLocation } from "react-router";
 
 export default function ExportMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { declencherEvenement } = useContext(MyEventContext);
-
+  const location = useLocation();
   // Fermer au clic extérieur
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -33,27 +34,60 @@ export default function ExportMenu() {
         </div>
       </button>
 
-      <div className={`dropdown ${open ? "open" : ""}`} style={{ zIndex: 50 }}>
-        <button
+      <div
+        className={`dropdown ${open ? "open" : ""}`}
+        style={{ zIndex: 50, width: "13rem" }}
+      >
+        {location.pathname.startsWith("/plan") && (
+          <>
+            <button
+              onClick={() => {
+                declencherEvenement({ type: "save_route", value: null });
+                setOpen(false);
+              }}
+            >
+              <div style={innerButtonStyle}>
+                <Save /> Enregistrer
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                declencherEvenement({ type: "export_gpx", value: null });
+                setOpen(false);
+              }}
+            >
+              <div style={innerButtonStyle}>
+                <Download /> Exporter .gpx
+              </div>
+            </button>
+          </>
+        )}
+        {!location.pathname.startsWith("/plan") && (
+          <Link
+            to="/plan"
+            className="hover"
+            style={{ ...innerButtonStyle, padding: ".75rem" }}
+            onClick={() => {
+              setOpen(false);
+            }}
+          >
+            <div style={innerButtonStyle}>
+              <Plus /> Planifier
+            </div>
+          </Link>
+        )}
+        <Link
+          to="/profile"
+          className="hover"
+          style={{ ...innerButtonStyle, padding: ".75rem" }}
           onClick={() => {
-            declencherEvenement({ type: "save_route", value: null });
             setOpen(false);
           }}
         >
           <div style={innerButtonStyle}>
-            <Save /> Enregistrer
+            <ShieldUser /> Itinéraires enregistrés
           </div>
-        </button>
-        <button
-          onClick={() => {
-            declencherEvenement({ type: "export_gpx", value: null });
-            setOpen(false);
-          }}
-        >
-          <div style={innerButtonStyle}>
-            <Download /> Exporter .gpx
-          </div>
-        </button>
+        </Link>
       </div>
     </div>
   );

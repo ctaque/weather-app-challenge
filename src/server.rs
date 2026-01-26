@@ -107,6 +107,7 @@ pub async fn run(pool: PgPool, app_env: Env) -> std::io::Result<()> {
                     .route("/route", web::post().to(routes::routes::post_routing))
                     .route("/route/{uuid}", web::get().to(routes::routes::get_routing))
                     .route("/route/{uuid}", web::put().to(routes::routes::put_routing))
+                    .route("/routes", web::get().to(routes::routes::get_routes_paginated))
                     // Weather routes
                     .service(routes::weather::get_weather)
                     // Wind routes

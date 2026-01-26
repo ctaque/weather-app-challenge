@@ -215,7 +215,8 @@
   pointer-events: auto;
 }
 
-.dropdown button {
+.dropdown button,
+a {
   width: 100%;
   padding: 10px 12px;
   background: transparent;
@@ -226,6 +227,184 @@
   cursor: pointer;
 }
 
-.dropdown button:hover {
+.dropdown button:hover,
+a:hover {
   background: rgba(255, 255, 255, 0.08);
+}
+
+/* Profile Page Styles */
+.profile-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  z-index: 1;
+  @media screen and (min-width: 1000px) {
+    width: 80%;
+  }
+}
+
+.profile-container h1 {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 2rem;
+  color: var(--color-foreground);
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: var(--color-muted-foreground);
+}
+
+.no-routes {
+  text-align: center;
+  padding: 3rem;
+}
+
+.no-routes p {
+  color: var(--color-muted-foreground);
+  margin-bottom: 1.5rem;
+  font-size: 1.125rem;
+}
+
+.routes-grid {
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.route-card {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.route-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.dark .route-card:hover {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+.route-map {
+  width: 100%;
+  height: 400px;
+  background: var(--color-muted);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.route-map img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.route-map > div {
+  width: 100%;
+  height: 100%;
+}
+
+.route-info {
+  padding: 1rem;
+}
+
+.route-info h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--color-foreground);
+}
+
+.route-date {
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+  margin: 0;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem 0;
+}
+
+.pagination .btn {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  color: var(--color-foreground);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.pagination .btn:hover:not(:disabled) {
+  background: var(--color-muted);
+}
+
+.pagination .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination .page-info {
+  color: var(--color-muted-foreground);
+  font-size: 0.875rem;
+}
+
+.btn-primary {
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  text-decoration: none;
+  display: inline-block;
+  font-weight: 500;
+  transition: opacity 0.2s ease;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn-secondary {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-secondary);
+  color: var(--color-secondary-foreground);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-muted);
+}
+
+@media (max-width: 768px) {
+  .profile-container {
+    padding: 1rem;
+  }
+
+  .routes-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pagination {
+    flex-direction: column;
+  }
 }

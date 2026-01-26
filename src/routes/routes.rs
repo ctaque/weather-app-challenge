@@ -1,5 +1,5 @@
 use actix_web::{web, HttpRequest, HttpResponse, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
@@ -144,6 +144,105 @@ pub async fn put_routing(
                         Ok(route) => Ok(HttpResponse::Ok().json(route)),
                         Err(e) => Ok(HttpResponse::InternalServerError().json(serde_json::json!({
                             "error": format!("Failed to save route: {}", e)
+                        }))),
+                    }
+                }
+                Err(_) => Ok(HttpResponse::NotFound().json(serde_json::json!({
+                    "error": "User not found"
+                }))),
+            }
+        }
+        None => Ok(HttpResponse::Unauthorized().json(serde_json::json!({
+            "error": "Not Authenticated"
+        }))),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct PaginationQuery {
+    #[serde(default = "default_page")]
+    page: i64,
+    #[serde(default = "default_limit")]
+    limit: i64,
+}
+
+fn default_page() -> i64 {
+    1
+}
+
+fn default_limit() -> i64 {
+    10
+}
+
+#[derive(Serialize)]
+pub struct PaginatedRoutesResponse {
+    routes: Vec<SavedRoute>,
+    total: i64,
+    page: i64,
+    limit: i64,
+    total_pages: i64,
+}
+
+pub async fn get_routes_paginated(
+    req: HttpRequest,
+    data: web::Data<AppData>,
+    query: web::Query<PaginationQuery>,
+) -> Result<HttpResponse> {
+    let maybe_cookie = req.cookie("auth");
+
+    match maybe_cookie {
+        Some(cook) => {
+            let user = get_user_from_api_token(cook.value().to_string(), &data).await;
+
+            match user {
+                Ok(u) => {
+                    let page = query.page.max(1);
+                    let limit = query.limit.clamp(1, 100);
+                    let offset = (page - 1) * limit;
+
+                    // Get total count
+                    let total_result = sqlx::query_scalar!(
+                        "SELECT COUNT(*) FROM saved_routes WHERE user_id = $1 AND deleted_at IS NULL",
+                        u.id
+                    )
+                    .fetch_one(&data.db)
+                    .await;
+
+                    let total = match total_result {
+                        Ok(Some(count)) => count,
+                        Ok(None) => 0,
+                        Err(e) => {
+                            return Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+                                "error": format!("Failed to count routes: {}", e)
+                            })))
+                        }
+                    };
+
+                    // Get paginated routes
+                    let routes_result = sqlx::query_as!(
+                        SavedRoute,
+                        "SELECT * FROM saved_routes WHERE user_id = $1 AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT $2 OFFSET $3",
+                        u.id,
+                        limit,
+                        offset
+                    )
+                    .fetch_all(&data.db)
+                    .await;
+
+                    match routes_result {
+                        Ok(routes) => {
+                            let total_pages = (total as f64 / limit as f64).ceil() as i64;
+                            let response = PaginatedRoutesResponse {
+                                routes,
+                                total,
+                                page,
+                                limit,
+                                total_pages,
+                            };
+                            Ok(HttpResponse::Ok().json(response))
+                        }
+                        Err(e) => Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+                            "error": format!("Failed to fetch routes: {}", e)
                         }))),
                     }
                 }

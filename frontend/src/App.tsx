@@ -20,6 +20,7 @@ import { getTranslations, Language, Translations } from "./i18n";
 import MapView from "./components/core/MapView";
 import WeatherGrid from "./components/core/WeatherGrid";
 import ExportMenu from "./components/ui/MenuSave";
+import Profile from "./components/core/Profile";
 import { generateGPXFromGeoJSON, downloadGPX } from "./utils/gpxExport";
 import type { RouteType } from "./types";
 
@@ -543,16 +544,22 @@ function App() {
 
       // Vérifier si on a la réponse API complète
       if (!parsedRoute.apiResponse) {
-        toast.error("Données d'itinéraire incomplètes. Veuillez recalculer l'itinéraire.", {
-          theme: theme === "dark" ? "dark" : "light",
-        });
+        toast.error(
+          "Données d'itinéraire incomplètes. Veuillez recalculer l'itinéraire.",
+          {
+            theme: theme === "dark" ? "dark" : "light",
+          },
+        );
         return;
       }
 
       const routeName = localStorage.getItem("saved-route-name") || "route";
 
       // Utiliser la nouvelle fonction pour générer le GPX avec le tracé complet
-      const gpxContent = generateGPXFromGeoJSON(parsedRoute.apiResponse, routeName);
+      const gpxContent = generateGPXFromGeoJSON(
+        parsedRoute.apiResponse,
+        routeName,
+      );
       downloadGPX(gpxContent, routeName);
 
       toast.success("Itinéraire exporté en GPX", {
@@ -693,6 +700,7 @@ function App() {
                     </div>
                   }
                 />
+                <Route path="/profile" element={<Profile />} />
                 <Route
                   path="/plan/:uuid"
                   element={<MapView routeData={routeData} />}
