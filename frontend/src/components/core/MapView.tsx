@@ -10,7 +10,7 @@ import { Map, Marker, Source, Layer } from "react-map-gl/maplibre";
 import type { MapRef } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { LanguageContext, ThemeContext } from "../../App";
-import { useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import SidePanel from "./SidePanel";
 import ElevationProfile from "./ElevationProfile";
 import arrowIconBlack from "../../assets/arrow-icon.png";
@@ -31,6 +31,7 @@ interface Waypoint {
 
 export default function MapView() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const params = useParams();
 
   const initialViewState = {
     longitude: 2.3522,
@@ -126,31 +127,79 @@ export default function MapView() {
     [theme],
   );
 
-  // Charger l'itinéraire sauvegardé au démarrage
+  // Charger l'itinéraire depuis l'API si un UUID est présent dans l'URL
   useEffect(() => {
-    try {
-      const savedRoute = localStorage.getItem("saved-route");
-      if (savedRoute) {
-        const parsed = JSON.parse(savedRoute);
-        // Charger tous les points en même temps
-        if (parsed.startPoint) setStartPoint(parsed.startPoint);
-        if (parsed.endPoint) setEndPoint(parsed.endPoint);
-        if (parsed.waypoints && Array.isArray(parsed.waypoints)) {
-          setWaypoints(parsed.waypoints);
+    const loadRouteFromApi = async () => {
+      if (params.uuid) {
+        try {
+          console.log("Chargement de l'itinéraire depuis l'API:", params.uuid);
+          const response = await fetch(`/api/route/${params.uuid}`, {
+            credentials: "include",
+          });
+
+          if (!response.ok) {
+            throw new Error("Échec du chargement de l'itinéraire");
+          }
+
+          const savedRoute = await response.json();
+          console.log("Itinéraire chargé depuis l'API:", savedRoute);
+
+          // Stocker le nom et l'UUID pour les mises à jour futures
+          if (savedRoute.name) {
+            localStorage.setItem("saved-route-name", savedRoute.name);
+          }
+
+          // Charger les données de l'itinéraire
+          if (savedRoute.route) {
+            const routeData = savedRoute.route;
+            if (routeData.startPoint) setStartPoint(routeData.startPoint);
+            if (routeData.endPoint) setEndPoint(routeData.endPoint);
+            if (routeData.waypoints && Array.isArray(routeData.waypoints)) {
+              setWaypoints(routeData.waypoints);
+            }
+            if (routeData.transportMode) {
+              setTransportMode(routeData.transportMode);
+            }
+
+            // Sauvegarder aussi dans localStorage
+            localStorage.setItem("saved-route", JSON.stringify(routeData));
+          }
+        } catch (error) {
+          console.error("Erreur lors du chargement de l'itinéraire:", error);
         }
-        if (parsed.transportMode) {
-          setTransportMode(parsed.transportMode);
-        }
-        console.log("Itinéraire chargé depuis localStorage:", {
-          startPoint: parsed.startPoint,
-          endPoint: parsed.endPoint,
-          waypointsCount: parsed.waypoints?.length || 0,
-        });
       }
-    } catch (error) {
-      console.error("Erreur lors du chargement de l'itinéraire:", error);
+    };
+
+    loadRouteFromApi();
+  }, [params.uuid]);
+
+  // Charger l'itinéraire sauvegardé au démarrage depuis localStorage (uniquement si pas d'UUID dans l'URL)
+  useEffect(() => {
+    if (!params.uuid) {
+      try {
+        const savedRoute = localStorage.getItem("saved-route");
+        if (savedRoute) {
+          const parsed = JSON.parse(savedRoute);
+          // Charger tous les points en même temps
+          if (parsed.startPoint) setStartPoint(parsed.startPoint);
+          if (parsed.endPoint) setEndPoint(parsed.endPoint);
+          if (parsed.waypoints && Array.isArray(parsed.waypoints)) {
+            setWaypoints(parsed.waypoints);
+          }
+          if (parsed.transportMode) {
+            setTransportMode(parsed.transportMode);
+          }
+          console.log("Itinéraire chargé depuis localStorage:", {
+            startPoint: parsed.startPoint,
+            endPoint: parsed.endPoint,
+            waypointsCount: parsed.waypoints?.length || 0,
+          });
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement de l'itinéraire:", error);
+      }
     }
-  }, []);
+  }, [params.uuid]);
 
   // Sauvegarder l'itinéraire à chaque modification
   useEffect(() => {
@@ -176,6 +225,8 @@ export default function MapView() {
     } else {
       // Si tous les points sont supprimés, nettoyer le localStorage
       localStorage.removeItem("saved-route");
+      localStorage.removeItem("saved-route-uuid");
+      localStorage.removeItem("saved-route-name");
       console.log("Itinéraire supprimé du localStorage");
     }
   }, [startPoint, endPoint, waypoints, transportMode]);
@@ -346,9 +397,9 @@ export default function MapView() {
         const a =
           Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
           Math.cos(lat1) *
-          Math.cos(lat2) *
-          Math.sin(deltaLon / 2) *
-          Math.sin(deltaLon / 2);
+            Math.cos(lat2) *
+            Math.sin(deltaLon / 2) *
+            Math.sin(deltaLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const segmentDistance = R * c;
 
@@ -444,7 +495,10 @@ export default function MapView() {
       }
 
       const data = await response.json();
-      console.log("🔍 Réponse complète OpenRouteService:", JSON.stringify(data, null, 2));
+      console.log(
+        "🔍 Réponse complète OpenRouteService:",
+        JSON.stringify(data, null, 2),
+      );
       console.log("🔍 Type de data:", typeof data);
       console.log("🔍 Clés de data:", Object.keys(data));
       console.log("🔍 data.routes existe?", !!data.routes);
@@ -507,7 +561,11 @@ export default function MapView() {
         return;
       }
 
-      console.log("✅ Géométrie valide avec", geometry.coordinates.length, "points");
+      console.log(
+        "✅ Géométrie valide avec",
+        geometry.coordinates.length,
+        "points",
+      );
 
       // Calculer le dénivelé positif et négatif et préparer les données pour le graphique
       let elevationGain = 0;
@@ -535,9 +593,9 @@ export default function MapView() {
           const a =
             Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
             Math.cos(lat1) *
-            Math.cos(lat2) *
-            Math.sin(deltaLon / 2) *
-            Math.sin(deltaLon / 2);
+              Math.cos(lat2) *
+              Math.sin(deltaLon / 2) *
+              Math.sin(deltaLon / 2);
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           const segmentDistance = R * c;
 
@@ -904,9 +962,9 @@ export default function MapView() {
         const a =
           Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
           Math.cos(lat1) *
-          Math.cos(lat2) *
-          Math.sin(deltaLon / 2) *
-          Math.sin(deltaLon / 2);
+            Math.cos(lat2) *
+            Math.sin(deltaLon / 2) *
+            Math.sin(deltaLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const segmentDistance = R * c;
 
@@ -1150,6 +1208,8 @@ export default function MapView() {
     setElevationData(null);
     // Nettoyer aussi le localStorage
     localStorage.removeItem("saved-route");
+    localStorage.removeItem("saved-route-uuid");
+    localStorage.removeItem("saved-route-name");
   }, []);
 
   const handleReorderWaypoints = useCallback((newWaypoints: Waypoint[]) => {

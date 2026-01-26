@@ -1,10 +1,11 @@
-import { useState, JSX, useEffect, createContext } from "react";
+import { useState, JSX, useEffect, createContext, useContext } from "react";
 import {
   Link,
   Navigate,
   useLocation,
   useNavigate,
   BrowserRouter,
+  useParams,
 } from "react-router";
 import "./App.css";
 import VerificationInput from "react-verification-input";
@@ -23,12 +24,14 @@ type User = {
   email: string;
 };
 
-const useAuth = (): (User | null)[] => {
+const useAuth = (): [User | null, boolean] => {
   const [me, setMe] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
+        setLoading(true);
         const resp = await fetch("/api/me", {
           credentials: "include",
         });
@@ -39,13 +42,15 @@ const useAuth = (): (User | null)[] => {
 
         const me = await resp.json();
         setMe(me);
+        setLoading(false);
       } catch {
+        setLoading(false);
         setMe(null);
       }
     })();
   }, []);
 
-  return [me];
+  return [me, loading];
 };
 
 export type UnitSystem = "knots-celsius" | "mph-fahrenheit";
@@ -63,7 +68,7 @@ export const UnitContext = createContext<{
   setUnits: (units: UnitSystem) => void;
 }>({
   units: "knots-celsius",
-  setUnits: () => { },
+  setUnits: () => {},
 });
 
 function SunIcon(props: { className?: string }) {
@@ -148,70 +153,307 @@ function AppHeader({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [showSaveModal, setShowSaveModal] = useState(false);
 
   const handleCreateClick = () => {
     navigate("/plan?create=true");
   };
 
+  const isOnPlanPage = location.pathname.startsWith("/plan");
+
   return (
-    <header className="app-header">
-      <h1>
-        <SunIcon className="app-title-icon" />
-        Weather App
-      </h1>
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-        <button
-          onClick={handleCreateClick}
-          className="theme-toggle"
-          style={{
-            backgroundColor: "var(--brand)",
-            color: "white",
-            fontWeight: "600",
+    <>
+      <header className="app-header">
+        <h1>
+          <SunIcon className="app-title-icon" />
+          Weather App
+        </h1>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          {isOnPlanPage ? (
+            <button
+              onClick={() => setShowSaveModal(true)}
+              className="theme-toggle"
+              style={{
+                backgroundColor: "var(--brand)",
+                color: "white",
+                fontWeight: "600",
+              }}
+              title="Enregistrer l'itinéraire"
+              aria-label="Enregistrer l'itinéraire"
+            >
+              <span className="theme-label">Enregistrer</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleCreateClick}
+              className="theme-toggle"
+              style={{
+                backgroundColor: "var(--brand)",
+                color: "white",
+                fontWeight: "600",
+              }}
+              title="Créer un itinéraire"
+              aria-label="Créer un itinéraire"
+            >
+              <span className="theme-label">+ Créer</span>
+            </button>
+          )}
+          <button
+            onClick={toggleLanguage}
+            className="theme-toggle"
+            title={t.languageAria}
+            aria-label={t.languageAria}
+          >
+            <span className="theme-icon" aria-hidden>
+              <LanguageIcon />
+            </span>
+            <span className="theme-label">{lang.toUpperCase()}</span>
+          </button>
+          <button
+            aria-pressed={theme === "dark"}
+            onClick={toggleTheme}
+            className="theme-toggle"
+            title={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
+            aria-label={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
+          >
+            <span className="theme-icon" aria-hidden>
+              {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+            </span>
+            <span className="theme-label">
+              {theme === "dark" ? t.themeDark : t.themeLight}
+            </span>
+          </button>
+          <button
+            onClick={toggleUnits}
+            className="theme-toggle"
+            title={t.unitsAria}
+            aria-label={t.unitsAria}
+          >
+            <span className="theme-label">
+              {units === "knots-celsius"
+                ? t.unitsKnotsCelsius
+                : t.unitsMphFahrenheit}
+            </span>
+          </button>
+        </div>
+      </header>
+      {showSaveModal && (
+        <SaveRouteModal
+          onClose={() => setShowSaveModal(false)}
+          onSave={async (name: string, savedUuid?: string) => {
+            try {
+              // Récupérer les données de l'itinéraire depuis localStorage
+              const savedRoute = localStorage.getItem("saved-route");
+              if (!savedRoute) {
+                toast.error("Aucun itinéraire à enregistrer", {
+                  theme: theme === "dark" ? "dark" : "light",
+                });
+                return;
+              }
+
+              const routeData = JSON.parse(savedRoute);
+              console.log(savedUuid);
+              let response;
+              if (savedUuid) {
+                // Mettre à jour l'itinéraire existant
+                response = await fetch(`/api/route/${savedUuid}`, {
+                  method: "PUT",
+                  credentials: "include",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    name,
+                    route: routeData,
+                  }),
+                });
+              } else {
+                // Créer un nouvel itinéraire
+                response = await fetch("/api/route", {
+                  method: "POST",
+                  credentials: "include",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    name,
+                    route: routeData,
+                  }),
+                });
+              }
+
+              if (!response.ok) {
+                throw response;
+              }
+
+              const result = await response.json();
+              console.log("Résultat de la sauvegarde:", result);
+
+              // Sauvegarder l'UUID et le nom pour les prochaines mises à jour
+              if (result.name) {
+                localStorage.setItem("saved-route-name", result.name);
+              }
+
+              if (result.uuid) {
+                console.log("Navigation vers /plan/" + result.uuid);
+                navigate("/plan/" + result.uuid);
+              }
+
+              toast.success(
+                savedUuid
+                  ? "Itinéraire mis à jour avec succès"
+                  : "Itinéraire enregistré avec succès",
+                {
+                  theme: theme === "dark" ? "dark" : "light",
+                },
+              );
+              setShowSaveModal(false);
+            } catch (error) {
+              handleErrorMessage(error as Response);
+            }
           }}
-          title="Créer un itinéraire"
-          aria-label="Créer un itinéraire"
+        />
+      )}
+    </>
+  );
+}
+
+function SaveRouteModal({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void;
+  onSave: (name: string, uuid?: string) => Promise<void>;
+}) {
+  const params = useParams();
+  const [name, setName] = useState(() => {
+    // Charger le nom depuis localStorage s'il existe
+    return localStorage.getItem("saved-route-name") || "";
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const theme = useContext(ThemeContext);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    setIsLoading(true);
+    console.log(params);
+    try {
+      await onSave(name, params.uuid);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "10px",
+    borderRadius: "3rem",
+    border: `1px solid ${theme === "dark" ? "#444" : "#ddd"}`,
+    backgroundColor: theme === "dark" ? "#2a2a2a" : "#fff",
+    color: theme === "dark" ? "#fff" : "#333",
+    fontSize: "14px",
+    marginBottom: "10px",
+  };
+
+  const buttonStyle: React.CSSProperties = {
+    padding: "10px",
+    borderRadius: "6px",
+    border: "none",
+    backgroundColor: theme === "dark" ? "#4a5568" : "#2563eb",
+    color: "#fff",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "500",
+  };
+
+  return (
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+      }}
+    >
+      <div
+        className="modal-content"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          backgroundColor: "rgb(137, 163, 128)",
+          borderRadius: "12px",
+          padding: "2rem",
+          maxWidth: "400px",
+          width: "90%",
+          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+        }}
+      >
+        <h2
+          style={{
+            marginTop: 0,
+            marginBottom: "1.5rem",
+            color: "var(--text-primary)",
+          }}
         >
-          <span className="theme-label">+ Créer</span>
-        </button>
-        <button
-          onClick={toggleLanguage}
-          className="theme-toggle"
-          title={t.languageAria}
-          aria-label={t.languageAria}
-        >
-          <span className="theme-icon" aria-hidden>
-            <LanguageIcon />
-          </span>
-          <span className="theme-label">{lang.toUpperCase()}</span>
-        </button>
-        <button
-          aria-pressed={theme === "dark"}
-          onClick={toggleTheme}
-          className="theme-toggle"
-          title={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
-          aria-label={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
-        >
-          <span className="theme-icon" aria-hidden>
-            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-          </span>
-          <span className="theme-label">
-            {theme === "dark" ? t.themeDark : t.themeLight}
-          </span>
-        </button>
-        <button
-          onClick={toggleUnits}
-          className="theme-toggle"
-          title={t.unitsAria}
-          aria-label={t.unitsAria}
-        >
-          <span className="theme-label">
-            {units === "knots-celsius"
-              ? t.unitsKnotsCelsius
-              : t.unitsMphFahrenheit}
-          </span>
-        </button>
+          {params.uuid
+            ? "Mettre à jour l'itinéraire"
+            : "Enregistrer l'itinéraire"}
+        </h2>
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: "1.5rem" }}>
+            <Label htmlFor="route-name" style={{ marginBottom: "0.5rem" }}>
+              Nom de l'itinéraire
+            </Label>
+            <Input
+              style={{
+                ...inputStyle,
+              }}
+              id="route-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Mon itinéraire"
+              autoFocus
+              disabled={isLoading}
+            />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              justifyContent: "flex-end",
+            }}
+          >
+            <Button
+              type="button"
+              onClick={onClose}
+              disabled={isLoading}
+              style={{
+                ...buttonStyle,
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              style={{ ...buttonStyle }}
+              type="submit"
+              disabled={isLoading || !name.trim()}
+            >
+              {isLoading ? "Enregistrement..." : "Enregistrer"}
+            </Button>
+          </div>
+        </form>
       </div>
-    </header>
+    </div>
   );
 }
 
@@ -230,15 +472,17 @@ function App() {
   // Units: 'knots-celsius' | 'mph-fahrenheit'
   const [units, setUnits] = useState<UnitSystem>("knots-celsius");
 
-  const [me] = useAuth();
+  const [me, loading] = useAuth();
 
   useEffect(() => {
-    if (!me) {
+    if (!me && !loading) {
       if (!location.pathname.includes("/auth")) {
         navigate("/auth/login");
       }
-    } else {
-      navigate("/plan?create=true");
+    } else if (me) {
+      if (!location.pathname.startsWith("/plan")) {
+        // navigate("/plan?create=true");
+      }
     }
   }, [me, navigate, location.pathname]);
 
@@ -349,6 +593,7 @@ function App() {
                   </div>
                 }
               />
+              <Route path="/plan/:uuid" element={<MapView />} />
               <Route path="/plan" element={<MapView />} />
             </Routes>
           </ThemeContext.Provider>

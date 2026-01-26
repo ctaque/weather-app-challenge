@@ -1,3 +1,4 @@
+use crate::routes;
 use crate::{models::auth::AppData, utils::misc::Env};
 use actix_cors::Cors;
 use actix_governor::{Governor, GovernorConfigBuilder};
@@ -9,7 +10,6 @@ use tokio::sync::RwLock;
 use tracing::info;
 use tracing_subscriber;
 
-use crate::routes;
 use crate::services::{AnthropicClient, RedisClient, Scheduler};
 use crate::utils::config::Config;
 
@@ -104,6 +104,9 @@ pub async fn run(pool: PgPool, app_env: Env) -> std::io::Result<()> {
                     .route("/register", web::post().to(routes::register))
                     .route("/otc", web::post().to(routes::send_one_time_code))
                     .route("/me", web::get().to(routes::me))
+                    .route("/route", web::post().to(routes::routes::post_routing))
+                    .route("/route/{uuid}", web::get().to(routes::routes::get_routing))
+                    .route("/route/{uuid}", web::put().to(routes::routes::put_routing))
                     // Weather routes
                     .service(routes::weather::get_weather)
                     // Wind routes
