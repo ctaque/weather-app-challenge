@@ -15,6 +15,7 @@ pub struct RoutingRequest {
     instructions: Option<bool>,
     elevation: Option<bool>,
     language: Option<String>,
+    format: Option<String>,
 }
 
 fn default_profile() -> String {
@@ -37,9 +38,11 @@ pub async fn post_routing(
 
     println!("Using API key: {:#?}", &config.openrouteservice_token[..10]); // premiers caractères seulement
 
+    // Format goes in the URL path, not the body
+    let format_path = req.format.as_deref().unwrap_or("json");
     let url = format!(
-        "https://api.openrouteservice.org/v2/directions/{}",
-        req.profile
+        "https://api.openrouteservice.org/v2/directions/{}/{}",
+        req.profile, format_path
     );
 
     let mut body = serde_json::json!({
@@ -61,6 +64,11 @@ pub async fn post_routing(
     if let Some(language) = &req.language {
         body["language"] = serde_json::json!(language);
     }
+
+    // Note: format is in the URL path, not the body
+
+    info!("Request URL: {}", url);
+    info!("Request body to OpenRouteService: {}", serde_json::to_string_pretty(&body).unwrap_or_default());
 
     let client = reqwest::Client::new();
     let response = client
@@ -94,6 +102,8 @@ pub async fn post_routing(
         error!("Failed to parse OpenRouteService response: {}", e);
         actix_web::error::ErrorInternalServerError("Failed to parse routing data")
     })?;
+
+    info!("OpenRouteService response: {}", serde_json::to_string_pretty(&data).unwrap_or_default());
 
     Ok(HttpResponse::Ok().json(data))
 }

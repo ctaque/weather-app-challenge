@@ -379,7 +379,7 @@ export default function MapView() {
 
     setIsCalculating(true);
     try {
-      // Mapper les modes de transport vers les profils OpenRouteService
+      // Mapper les modes de transport vers les profils OpenRou395880teService
       const getORSProfile = () => {
         switch (transportMode) {
           case "driving-car":
@@ -444,20 +444,36 @@ export default function MapView() {
       }
 
       const data = await response.json();
-      console.log("Réponse complète OpenRouteService:", data);
+      console.log("🔍 Réponse complète OpenRouteService:", JSON.stringify(data, null, 2));
+      console.log("🔍 Type de data:", typeof data);
+      console.log("🔍 Clés de data:", Object.keys(data));
+      console.log("🔍 data.routes existe?", !!data.routes);
+      console.log("🔍 data.features existe?", !!data.features);
+      console.log("🔍 data.type:", data.type);
 
       // Vérifier différentes structures possibles
       let route;
       if (data.routes && data.routes.length > 0) {
+        console.log("✅ Utilisation de data.routes[0]");
         route = data.routes[0];
       } else if (data.features && data.features.length > 0) {
+        console.log("✅ Utilisation de data.features[0] (GeoJSON)");
         // Format GeoJSON Feature Collection
         route = data.features[0];
       } else {
-        console.error("Format de réponse inattendu:", data);
+        console.error("❌ Format de réponse inattendu:", data);
+        console.error("❌ Structure data:", {
+          hasRoutes: !!data.routes,
+          hasFeatures: !!data.features,
+          keys: Object.keys(data),
+        });
         setIsCalculating(false);
         return;
       }
+
+      console.log("🔍 Route extraite:", route);
+      console.log("🔍 Clés de route:", Object.keys(route));
+      console.log("🔍 route.geometry existe?", !!route.geometry);
 
       // Extraire la géométrie selon le format
       let geometry;
@@ -466,23 +482,32 @@ export default function MapView() {
       if (route.geometry) {
         // Format GeoJSON Feature (quand format: "geojson")
         geometry = route.geometry;
+        console.log("✅ Géométrie trouvée dans route.geometry");
         // Le summary peut être dans properties pour GeoJSON ou à la racine pour routes
         summary = route.properties?.summary || route.summary;
       } else {
-        console.error("Pas de géométrie dans la route:", route);
+        console.error("❌ Pas de géométrie dans la route:", route);
+        console.error("❌ Clés disponibles:", Object.keys(route));
         setIsCalculating(false);
         return;
       }
 
-      console.log("Géométrie extraite:", geometry);
-      console.log("Summary:", summary);
-      console.log("Route properties:", route.properties);
+      console.log("🔍 Géométrie extraite:", geometry);
+      console.log("🔍 Type de géométrie:", geometry?.type);
+      console.log("🔍 Géométrie a des coordonnées?", !!geometry?.coordinates);
+      console.log("🔍 Nombre de coordonnées:", geometry?.coordinates?.length);
+      console.log("🔍 Summary:", summary);
+      console.log("🔍 Route properties:", route.properties);
 
       if (!geometry || !geometry.coordinates) {
-        console.error("Géométrie invalide ou pas de coordonnées");
+        console.error("❌ Géométrie invalide ou pas de coordonnées");
+        console.error("❌ geometry:", geometry);
+        console.error("❌ geometry?.coordinates:", geometry?.coordinates);
         setIsCalculating(false);
         return;
       }
+
+      console.log("✅ Géométrie valide avec", geometry.coordinates.length, "points");
 
       // Calculer le dénivelé positif et négatif et préparer les données pour le graphique
       let elevationGain = 0;
