@@ -520,27 +520,50 @@ export default function SidePanel({
                       border: "none",
                       marginBottom: ".5rem",
                       borderRadius: "10px",
+                      textAlign: "right",
+                      fontSize: "0.8em",
                     }}
                   >
-                    <option value="driving-car" style={{ color: "#000" }}>
+                    <option
+                      value="driving-car"
+                      style={{ color: "#000", textAlign: "left" }}
+                    >
                       Voiture
                     </option>
-                    <option value="cycling-road" style={{ color: "#000" }}>
+                    <option
+                      value="cycling-road"
+                      style={{ color: "#000", textAlign: "left" }}
+                    >
                       Vélo de route
                     </option>
-                    <option value="cycling-mountain" style={{ color: "#000" }}>
+                    <option
+                      value="cycling-mountain"
+                      style={{ color: "#000", textAlign: "left" }}
+                    >
                       VTT
                     </option>
-                    <option value="cycling-electric" style={{ color: "#000" }}>
+                    <option
+                      value="cycling-electric"
+                      style={{ color: "#000", textAlign: "left" }}
+                    >
                       Vélo Electrique
                     </option>
-                    <option value="foot-walking" style={{ color: "#000" }}>
+                    <option
+                      value="foot-walking"
+                      style={{ color: "#000", textAlign: "left" }}
+                    >
                       Marche
                     </option>
-                    <option value="foot-hiking" style={{ color: "#000" }}>
+                    <option
+                      value="foot-hiking"
+                      style={{ color: "#000", textAlign: "left" }}
+                    >
                       Randonnée
                     </option>
-                    <option value="wheelchair" style={{ color: "#000" }}>
+                    <option
+                      value="wheelchair"
+                      style={{ color: "#000", textAlign: "left" }}
+                    >
                       Fauteuil roulant
                     </option>
                   </select>
@@ -845,12 +868,13 @@ export default function SidePanel({
                   padding: "10px",
                   borderRadius: "6px",
                   backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-                  border: `2px solid ${dragOverIndex === -1 &&
-                      draggedPointType !== null &&
-                      draggedPointType !== "start"
+                  border: `2px solid ${
+                    dragOverIndex === -1 &&
+                    draggedPointType !== null &&
+                    draggedPointType !== "start"
                       ? "#f59e0b"
                       : "#10b981"
-                    }`,
+                  }`,
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
@@ -861,8 +885,8 @@ export default function SidePanel({
                   transition: "transform 0.2s ease, opacity 0.2s ease",
                   boxShadow:
                     dragOverIndex === -1 &&
-                      draggedPointType !== null &&
-                      draggedPointType !== "start"
+                    draggedPointType !== null &&
+                    draggedPointType !== "start"
                       ? "0 0 12px rgba(245, 158, 11, 0.4)"
                       : "none",
                 }}
@@ -981,14 +1005,15 @@ export default function SidePanel({
                       padding: "10px",
                       borderRadius: "6px",
                       backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-                      border: `2px solid ${dragOverIndex === index &&
-                          draggedWaypointIndex !== null &&
-                          draggedWaypointIndex !== index
+                      border: `2px solid ${
+                        dragOverIndex === index &&
+                        draggedWaypointIndex !== null &&
+                        draggedWaypointIndex !== index
                           ? "#f59e0b"
                           : theme === "dark"
                             ? "#f59e0b"
                             : "#f59e0b"
-                        }`,
+                      }`,
                       display: "flex",
                       alignItems: "center",
                       gap: "10px",
@@ -1001,8 +1026,8 @@ export default function SidePanel({
                       transition: "transform 0.2s ease, opacity 0.2s ease",
                       boxShadow:
                         dragOverIndex === index &&
-                          draggedWaypointIndex !== null &&
-                          draggedWaypointIndex !== index
+                        draggedWaypointIndex !== null &&
+                        draggedWaypointIndex !== index
                           ? "0 0 12px rgba(245, 158, 11, 0.4)"
                           : "none",
                     }}
@@ -1138,12 +1163,13 @@ export default function SidePanel({
                   padding: "10px",
                   borderRadius: "6px",
                   backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-                  border: `2px solid ${dragOverIndex === waypoints.length &&
-                      draggedPointType !== null &&
-                      draggedPointType !== "end"
+                  border: `2px solid ${
+                    dragOverIndex === waypoints.length &&
+                    draggedPointType !== null &&
+                    draggedPointType !== "end"
                       ? "#f59e0b"
                       : "#ef4444"
-                    }`,
+                  }`,
                   display: "flex",
                   alignItems: "ce</select>nter",
                   gap: "10px",
@@ -1154,8 +1180,8 @@ export default function SidePanel({
                   transition: "transform 0.2s ease, opacity 0.2s ease",
                   boxShadow:
                     dragOverIndex === waypoints.length &&
-                      draggedPointType !== null &&
-                      draggedPointType !== "end"
+                    draggedPointType !== null &&
+                    draggedPointType !== "end"
                       ? "0 0 12px rgba(245, 158, 11, 0.4)"
                       : "none",
                 }}
