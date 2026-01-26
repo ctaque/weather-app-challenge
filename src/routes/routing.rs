@@ -36,8 +36,8 @@ pub async fn post_routing(
     }
 
     let url = format!(
-        "https://api.openrouteservice.org/v2/directions/{}/geojson?api_key={}",
-        req.profile, config.openrouteservice_token
+        "https://api.openrouteservice.org/v2/directions/{}/geojson",
+        req.profile
     );
 
     let mut body = serde_json::json!({
@@ -63,6 +63,7 @@ pub async fn post_routing(
     let client = reqwest::Client::new();
     let response = client
         .post(&url)
+        .query(&[("api_key", config.openrouteservice_token.as_str())])
         .header("Content-Type", "application/json")
         .json(&body)
         .send()
