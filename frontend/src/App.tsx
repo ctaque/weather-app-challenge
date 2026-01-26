@@ -19,6 +19,9 @@ import { Input } from "./components/ui/input";
 import { getTranslations, Language, Translations } from "./i18n";
 import MapView from "./components/core/MapView";
 import WeatherGrid from "./components/core/WeatherGrid";
+import ExportMenu from "./components/ui/MenuSave";
+import { generateGPXFromGeoJSON, downloadGPX } from "./utils/gpxExport";
+import type { RouteType } from "./types";
 
 type User = {
   email: string;
@@ -55,6 +58,13 @@ const useAuth = (): [User | null, boolean] => {
 
 export type UnitSystem = "knots-celsius" | "mph-fahrenheit";
 
+export const MyEventContext = createContext<{
+  message: {
+    type: string;
+    value: any;
+  } | null;
+  declencherEvenement: (message: { type: string; value: any }) => void;
+} | null>({ message: null, declencherEvenement: () => {} });
 export const ThemeContext = createContext<"light" | "dark">("light");
 export const LanguageContext = createContext<{
   lang: Language;
@@ -151,170 +161,53 @@ function AppHeader({
   t: Translations;
   units: UnitSystem;
 }) {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [showSaveModal, setShowSaveModal] = useState(false);
-
-  const handleCreateClick = () => {
-    navigate("/plan?create=true");
-  };
-
-  const isOnPlanPage = location.pathname.startsWith("/plan");
-
   return (
-    <>
-      <header className="app-header">
-        <h1>
-          <SunIcon className="app-title-icon" />
-          Weather App
-        </h1>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          {isOnPlanPage ? (
-            <button
-              onClick={() => setShowSaveModal(true)}
-              className="theme-toggle"
-              style={{
-                backgroundColor: "var(--brand)",
-                color: "white",
-                fontWeight: "600",
-              }}
-              title="Enregistrer l'itinéraire"
-              aria-label="Enregistrer l'itinéraire"
-            >
-              <span className="theme-label">Enregistrer</span>
-            </button>
-          ) : (
-            <button
-              onClick={handleCreateClick}
-              className="theme-toggle"
-              style={{
-                backgroundColor: "var(--brand)",
-                color: "white",
-                fontWeight: "600",
-              }}
-              title="Créer un itinéraire"
-              aria-label="Créer un itinéraire"
-            >
-              <span className="theme-label">+ Créer</span>
-            </button>
-          )}
-          <button
-            onClick={toggleLanguage}
-            className="theme-toggle"
-            title={t.languageAria}
-            aria-label={t.languageAria}
-          >
-            <span className="theme-icon" aria-hidden>
-              <LanguageIcon />
-            </span>
-            <span className="theme-label">{lang.toUpperCase()}</span>
-          </button>
-          <button
-            aria-pressed={theme === "dark"}
-            onClick={toggleTheme}
-            className="theme-toggle"
-            title={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
-            aria-label={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
-          >
-            <span className="theme-icon" aria-hidden>
-              {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-            </span>
-            <span className="theme-label">
-              {theme === "dark" ? t.themeDark : t.themeLight}
-            </span>
-          </button>
-          <button
-            onClick={toggleUnits}
-            className="theme-toggle"
-            title={t.unitsAria}
-            aria-label={t.unitsAria}
-          >
-            <span className="theme-label">
-              {units === "knots-celsius"
-                ? t.unitsKnotsCelsius
-                : t.unitsMphFahrenheit}
-            </span>
-          </button>
-        </div>
-      </header>
-      {showSaveModal && (
-        <SaveRouteModal
-          onClose={() => setShowSaveModal(false)}
-          onSave={async (name: string, savedUuid?: string) => {
-            try {
-              // Récupérer les données de l'itinéraire depuis localStorage
-              const savedRoute = localStorage.getItem("saved-route");
-              if (!savedRoute) {
-                toast.error("Aucun itinéraire à enregistrer", {
-                  theme: theme === "dark" ? "dark" : "light",
-                });
-                return;
-              }
-
-              const routeData = JSON.parse(savedRoute);
-              console.log(savedUuid);
-              let response;
-              if (savedUuid) {
-                // Mettre à jour l'itinéraire existant
-                response = await fetch(`/api/route/${savedUuid}`, {
-                  method: "PUT",
-                  credentials: "include",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    name,
-                    route: routeData,
-                  }),
-                });
-              } else {
-                // Créer un nouvel itinéraire
-                response = await fetch("/api/route", {
-                  method: "POST",
-                  credentials: "include",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    name,
-                    route: routeData,
-                  }),
-                });
-              }
-
-              if (!response.ok) {
-                throw response;
-              }
-
-              const result = await response.json();
-              console.log("Résultat de la sauvegarde:", result);
-
-              // Sauvegarder l'UUID et le nom pour les prochaines mises à jour
-              if (result.name) {
-                localStorage.setItem("saved-route-name", result.name);
-              }
-
-              if (result.uuid) {
-                console.log("Navigation vers /plan/" + result.uuid);
-                navigate("/plan/" + result.uuid);
-              }
-
-              toast.success(
-                savedUuid
-                  ? "Itinéraire mis à jour avec succès"
-                  : "Itinéraire enregistré avec succès",
-                {
-                  theme: theme === "dark" ? "dark" : "light",
-                },
-              );
-              setShowSaveModal(false);
-            } catch (error) {
-              handleErrorMessage(error as Response);
-            }
-          }}
-        />
-      )}
-    </>
+    <header className="app-header">
+      <h1>
+        <SunIcon className="app-title-icon" />
+        PlanMyTrip !
+      </h1>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <ExportMenu />
+        <button
+          onClick={toggleLanguage}
+          className="theme-toggle"
+          title={t.languageAria}
+          aria-label={t.languageAria}
+        >
+          <span className="theme-icon" aria-hidden>
+            <LanguageIcon />
+          </span>
+          <span className="theme-label">{lang.toUpperCase()}</span>
+        </button>
+        <button
+          aria-pressed={theme === "dark"}
+          onClick={toggleTheme}
+          className="theme-toggle"
+          title={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
+          aria-label={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
+        >
+          <span className="theme-icon" aria-hidden>
+            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+          </span>
+          <span className="theme-label">
+            {theme === "dark" ? t.themeDark : t.themeLight}
+          </span>
+        </button>
+        <button
+          onClick={toggleUnits}
+          className="theme-toggle"
+          title={t.unitsAria}
+          aria-label={t.unitsAria}
+        >
+          <span className="theme-label">
+            {units === "knots-celsius"
+              ? t.unitsKnotsCelsius
+              : t.unitsMphFahrenheit}
+          </span>
+        </button>
+      </div>
+    </header>
   );
 }
 
@@ -474,6 +367,15 @@ function App() {
 
   const [me, loading] = useAuth();
 
+  // Event context state
+  const [message, setMessage] = useState<{ type: string; value: any } | null>(
+    null,
+  );
+  const [showSaveModal, setShowSaveModal] = useState(false);
+
+  // Route data state
+  const [routeData, setRouteData] = useState<RouteType | null>(null);
+
   useEffect(() => {
     if (!me && !loading) {
       if (!location.pathname.includes("/auth")) {
@@ -538,6 +440,60 @@ function App() {
     localStorage.setItem("units", units);
   }, [units]);
 
+  // Charger l'itinéraire depuis l'API si un UUID est présent dans l'URL
+  useEffect(() => {
+    const loadRouteFromApi = async () => {
+      const pathParts = location.pathname.split("/");
+      const uuid = pathParts[pathParts.length - 1];
+
+      // Vérifier si on est sur une route /plan/:uuid
+      if (location.pathname.startsWith("/plan/") && uuid && uuid !== "plan") {
+        try {
+          console.log("Chargement de l'itinéraire depuis l'API:", uuid);
+          const response = await fetch(`/api/route/${uuid}`, {
+            credentials: "include",
+          });
+
+          if (!response.ok) {
+            throw new Error("Échec du chargement de l'itinéraire");
+          }
+
+          const savedRoute = await response.json();
+          console.log("Itinéraire chargé depuis l'API:", savedRoute);
+
+          // Stocker le nom et l'UUID pour les mises à jour futures
+          if (savedRoute.name) {
+            localStorage.setItem("saved-route-name", savedRoute.name);
+          }
+
+          // Charger les données de l'itinéraire
+          if (savedRoute.route) {
+            setRouteData(savedRoute.route);
+            // Sauvegarder aussi dans localStorage
+            localStorage.setItem(
+              "saved-route",
+              JSON.stringify(savedRoute.route),
+            );
+          }
+        } catch (error) {
+          console.error("Erreur lors du chargement de l'itinéraire:", error);
+        }
+      } else {
+        // Si pas d'UUID, charger depuis localStorage
+        try {
+          const savedRoute = localStorage.getItem("saved-route");
+          if (savedRoute) {
+            setRouteData(JSON.parse(savedRoute));
+          }
+        } catch (error) {
+          console.error("Erreur lors du chargement de l'itinéraire:", error);
+        }
+      }
+    };
+
+    loadRouteFromApi();
+  }, [location.pathname]);
+
   function toggleTheme() {
     setTheme((t) => (t === "light" ? "dark" : "light"));
   }
@@ -552,53 +508,204 @@ function App() {
     );
   }
 
+  const [doDownLoadGpx, setDownloadGpx] = useState(false);
+
+  const declencherEvenement = (nouveauMessage: {
+    type: string;
+    value: any;
+  }) => {
+    setMessage(nouveauMessage);
+
+    switch (nouveauMessage.type) {
+      case "save_route":
+        setShowSaveModal(true);
+        break;
+
+      case "export_gpx":
+        handleExportGPX();
+        break;
+    }
+  };
+
+  const handleExportGPX = () => {
+    try {
+      const savedRoute = localStorage.getItem("saved-route");
+      if (!savedRoute) {
+        toast.error("Aucun itinéraire à exporter", {
+          theme: theme === "dark" ? "dark" : "light",
+        });
+        setShowSaveModal(true);
+        setDownloadGpx(true);
+        return;
+      }
+
+      const parsedRoute = JSON.parse(savedRoute);
+
+      // Vérifier si on a la réponse API complète
+      if (!parsedRoute.apiResponse) {
+        toast.error("Données d'itinéraire incomplètes. Veuillez recalculer l'itinéraire.", {
+          theme: theme === "dark" ? "dark" : "light",
+        });
+        return;
+      }
+
+      const routeName = localStorage.getItem("saved-route-name") || "route";
+
+      // Utiliser la nouvelle fonction pour générer le GPX avec le tracé complet
+      const gpxContent = generateGPXFromGeoJSON(parsedRoute.apiResponse, routeName);
+      downloadGPX(gpxContent, routeName);
+
+      toast.success("Itinéraire exporté en GPX", {
+        theme: theme === "dark" ? "dark" : "light",
+      });
+    } catch (error) {
+      console.error("Erreur lors de l'export GPX:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Erreur lors de l'export GPX";
+      toast.error(errorMessage, {
+        theme: theme === "dark" ? "dark" : "light",
+      });
+    }
+  };
+
   return (
     <>
-      <LanguageContext.Provider value={{ lang, t }}>
-        <UnitContext.Provider value={{ units, setUnits }}>
-          <ThemeContext.Provider value={theme}>
-            <div className="welcome-wallpaper-background" data-theme={theme} />
-            <div className="welcome-gradient-background" />
-            <ToastContainer />
-            <AppHeader
-              theme={theme}
-              toggleTheme={toggleTheme}
-              toggleLanguage={toggleLanguage}
-              toggleUnits={toggleUnits}
-              lang={lang}
-              t={t}
-              units={units}
-            />
-            <Routes>
-              <Route path="/auth/:form" element={<Auth />} />
-              <Route
-                path="/"
-                element={<Navigate to="/auth/register" replace />}
+      <MyEventContext.Provider value={{ message, declencherEvenement }}>
+        <LanguageContext.Provider value={{ lang, t }}>
+          <UnitContext.Provider value={{ units, setUnits }}>
+            <ThemeContext.Provider value={theme}>
+              <div
+                className="welcome-wallpaper-background"
+                data-theme={theme}
               />
-              <Route
-                path="/weather"
-                element={
-                  <div className="container">
-                    <h2 style={{ marginTop: 0 }}>{t.forecastByCity}</h2>
-
-                    {error && (
-                      <div className="error">
-                        {t.errorPrefix}
-                        {error}
-                      </div>
-                    )}
-
-                    {/* Composant avec données en dur pour les 5 villes */}
-                    <WeatherGrid />
-                  </div>
-                }
+              <div className="welcome-gradient-background" />
+              <ToastContainer />
+              <AppHeader
+                theme={theme}
+                toggleTheme={toggleTheme}
+                toggleLanguage={toggleLanguage}
+                toggleUnits={toggleUnits}
+                lang={lang}
+                t={t}
+                units={units}
               />
-              <Route path="/plan/:uuid" element={<MapView />} />
-              <Route path="/plan" element={<MapView />} />
-            </Routes>
-          </ThemeContext.Provider>
-        </UnitContext.Provider>
-      </LanguageContext.Provider>
+              {showSaveModal && (
+                <SaveRouteModal
+                  onClose={() => setShowSaveModal(false)}
+                  onSave={async (name: string, savedUuid?: string) => {
+                    try {
+                      // Récupérer les données de l'itinéraire depuis localStorage
+                      const savedRoute = localStorage.getItem("saved-route");
+                      if (!savedRoute) {
+                        toast.error("Aucun itinéraire à enregistrer", {
+                          theme: theme === "dark" ? "dark" : "light",
+                        });
+                        return;
+                      }
+
+                      const routeData = JSON.parse(savedRoute);
+                      let response;
+                      if (savedUuid) {
+                        // Mettre à jour l'itinéraire existant
+                        response = await fetch(`/api/route/${savedUuid}`, {
+                          method: "PUT",
+                          credentials: "include",
+                          headers: {
+                            "Content-Type": "application/json",
+                          },
+                          body: JSON.stringify({
+                            name,
+                            route: routeData,
+                          }),
+                        });
+                      } else {
+                        // Créer un nouvel itinéraire
+                        response = await fetch("/api/route", {
+                          method: "POST",
+                          credentials: "include",
+                          headers: {
+                            "Content-Type": "application/json",
+                          },
+                          body: JSON.stringify({
+                            name,
+                            route: routeData,
+                          }),
+                        });
+                      }
+
+                      if (!response.ok) {
+                        throw response;
+                      }
+
+                      const result = await response.json();
+                      console.log("Résultat de la sauvegarde:", result);
+
+                      // Sauvegarder l'UUID et le nom pour les prochaines mises à jour
+                      if (result.name) {
+                        localStorage.setItem("saved-route-name", result.name);
+                      }
+
+                      if (result.uuid) {
+                        console.log("Navigation vers /plan/" + result.uuid);
+                        navigate("/plan/" + result.uuid);
+                      }
+
+                      toast.success(
+                        savedUuid
+                          ? "Itinéraire mis à jour avec succès"
+                          : "Itinéraire enregistré avec succès",
+                        {
+                          theme: theme === "dark" ? "dark" : "light",
+                        },
+                      );
+                      setShowSaveModal(false);
+                      // download GPX if aked
+                      if (doDownLoadGpx) {
+                        handleExportGPX();
+                      }
+                    } catch (error) {
+                      handleErrorMessage(error as Response);
+                    }
+                  }}
+                />
+              )}
+              <Routes>
+                <Route path="/auth/:form" element={<Auth />} />
+                <Route
+                  path="/"
+                  element={<Navigate to="/auth/register" replace />}
+                />
+                <Route
+                  path="/weather"
+                  element={
+                    <div className="container">
+                      <h2 style={{ marginTop: 0 }}>{t.forecastByCity}</h2>
+
+                      {error && (
+                        <div className="error">
+                          {t.errorPrefix}
+                          {error}
+                        </div>
+                      )}
+
+                      {/* Composant avec données en dur pour les 5 villes */}
+                      <WeatherGrid />
+                    </div>
+                  }
+                />
+                <Route
+                  path="/plan/:uuid"
+                  element={<MapView routeData={routeData} />}
+                />
+                <Route
+                  path="/plan"
+                  element={<MapView routeData={routeData} />}
+                />
+              </Routes>
+            </ThemeContext.Provider>
+          </UnitContext.Provider>
+        </LanguageContext.Provider>
+      </MyEventContext.Provider>
     </>
   );
 }

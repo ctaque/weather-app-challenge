@@ -161,8 +161,13 @@ export default function MapView() {
               setTransportMode(routeData.transportMode);
             }
 
-            // Sauvegarder aussi dans localStorage
-            localStorage.setItem("saved-route", JSON.stringify(routeData));
+            // Sauvegarder aussi dans localStorage (avec apiResponse si disponible)
+            const dataToSave = {
+              ...routeData,
+              // Conserver apiResponse s'il existe déjà dans le routeData
+              ...(routeData.apiResponse && { apiResponse: routeData.apiResponse })
+            };
+            localStorage.setItem("saved-route", JSON.stringify(dataToSave));
           }
         } catch (error) {
           console.error("Erreur lors du chargement de l'itinéraire:", error);
@@ -206,18 +211,27 @@ export default function MapView() {
     // Si au moins un point existe, sauvegarder
     if (startPoint || endPoint || waypoints.length > 0) {
       try {
+        // Récupérer l'apiResponse existante si elle existe
+        const existingRoute = localStorage.getItem("saved-route");
+        const existingApiResponse = existingRoute
+          ? JSON.parse(existingRoute).apiResponse
+          : undefined;
+
         const routeData = {
           startPoint,
           endPoint,
           waypoints,
           transportMode,
           timestamp: new Date().toISOString(),
+          // Conserver apiResponse si elle existe
+          ...(existingApiResponse && { apiResponse: existingApiResponse })
         };
         localStorage.setItem("saved-route", JSON.stringify(routeData));
         console.log("Itinéraire sauvegardé:", {
           hasStart: !!startPoint,
           hasEnd: !!endPoint,
           waypointsCount: waypoints.length,
+          hasApiResponse: !!existingApiResponse
         });
       } catch (error) {
         console.error("Erreur lors de la sauvegarde de l'itinéraire:", error);
@@ -495,6 +509,21 @@ export default function MapView() {
       }
 
       const data = await response.json();
+      // Sauvegarder la réponse complète de l'API pour l'export GPX
+      try {
+        const existingRoute = localStorage.getItem("saved-route");
+        const parsedRoute = existingRoute ? JSON.parse(existingRoute) : {};
+        const updatedRoute = {
+          ...parsedRoute,
+          apiResponse: data, // Sauvegarder toute la réponse de l'API
+          timestamp: new Date().toISOString(),
+        };
+        localStorage.setItem("saved-route", JSON.stringify(updatedRoute));
+        console.log("✅ Réponse API sauvegardée dans localStorage");
+      } catch (error) {
+        console.error("❌ Erreur lors de la sauvegarde de la réponse API:", error);
+      }
+
       console.log(
         "🔍 Réponse complète OpenRouteService:",
         JSON.stringify(data, null, 2),

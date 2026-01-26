@@ -215,6 +215,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  z-index: 50;
   gap: 1rem;
   padding: 0.5rem 0.5rem;
   background: rgba(255, 255, 255, 0.5);
