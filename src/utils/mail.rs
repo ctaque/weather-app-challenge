@@ -35,7 +35,7 @@ async fn send_mail(
 
     // Open a remote connection to gmail
     let creds = Credentials::new(app_env.mail_from.to_string(), app_env.smtp_pass.to_string());
-    let mailer = SmtpTransport::relay(&app_env.mail_host)
+    let mailer = SmtpTransport::starttls_relay(&app_env.mail_host)
         .unwrap()
         .credentials(creds)
         .port(app_env.mail_port)
