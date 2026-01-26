@@ -685,7 +685,7 @@ function App() {
                 <Route
                   path="/weather"
                   element={
-                    <div className="container">
+                    <div className="weather-container">
                       <h2 style={{ marginTop: 0 }}>{t.forecastByCity}</h2>
 
                       {error && (
