@@ -35,6 +35,8 @@ pub async fn post_routing(
         })));
     }
 
+    println!("Using API key: {:#?}", &config.openrouteservice_token[..10]); // premiers caractères seulement
+
     let url = format!(
         "https://api.openrouteservice.org/v2/directions/{}",
         req.profile
