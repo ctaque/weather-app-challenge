@@ -33,8 +33,8 @@ pub async fn post_routing(
     }
 
     let url = format!(
-        "https://api.openrouteservice.org/v2/directions/{}/json",
-        req.profile
+        "https://api.openrouteservice.org/v2/directions/{}/json?api_key={}",
+        req.profile, config.openrouteservice_token
     );
 
     let mut body = serde_json::json!({
@@ -48,7 +48,6 @@ pub async fn post_routing(
     let client = reqwest::Client::new();
     let response = client
         .post(&url)
-        .header("Authorization", &config.openrouteservice_token)
         .header("Content-Type", "application/json")
         .json(&body)
         .send()
@@ -62,7 +61,11 @@ pub async fn post_routing(
         let status_code = response.status().as_u16();
         let error_text = response.text().await.unwrap_or_default();
         error!("OpenRouteService error {}: {}", status_code, error_text);
-        return Ok(HttpResponse::build(actix_web::http::StatusCode::from_u16(status_code).unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR)).body(error_text));
+        return Ok(HttpResponse::build(
+            actix_web::http::StatusCode::from_u16(status_code)
+                .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
+        )
+        .body(error_text));
     }
 
     let data = response.json::<serde_json::Value>().await.map_err(|e| {

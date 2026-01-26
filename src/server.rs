@@ -16,6 +16,7 @@ use crate::utils::config::Config;
 pub async fn run(pool: PgPool, app_env: Env) -> std::io::Result<()> {
     let env_clone = app_env.clone();
     let is_prod = app_env.is_prod;
+    println!("{}", is_prod);
     // Initialize tracing
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -67,7 +68,7 @@ pub async fn run(pool: PgPool, app_env: Env) -> std::io::Result<()> {
             .unwrap()
     };
     let server = HttpServer::new(move || {
-        let cors = if is_prod {
+        let cors = if is_prod == true {
             Cors::default()
                 .allowed_origin(&env_clone.http_domain)
                 .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
@@ -79,7 +80,7 @@ pub async fn run(pool: PgPool, app_env: Env) -> std::io::Result<()> {
                 .supports_credentials()
                 .max_age(3600)
         } else {
-            Cors::permissive()
+            Cors::permissive().into()
         };
 
         App::new()
