@@ -36,7 +36,7 @@ pub async fn post_routing(
     }
 
     let url = format!(
-        "https://api.openrouteservice.org/v2/directions/{}/geojson",
+        "https://api.openrouteservice.org/v2/directions/{}",
         req.profile
     );
 
@@ -63,8 +63,12 @@ pub async fn post_routing(
     let client = reqwest::Client::new();
     let response = client
         .post(&url)
-        .query(&[("api_key", config.openrouteservice_token.as_str())])
         .header("Content-Type", "application/json")
+        .header(
+            "Accept",
+            "application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8",
+        )
+        .header("Authorization", config.openrouteservice_token.as_str())
         .json(&body)
         .send()
         .await
