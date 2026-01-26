@@ -751,7 +751,7 @@ export function Auth() {
         throw response;
       }
 
-      window.location.reload();
+      window.location.href = "/profile";
     } catch (error) {
       setLoading(false);
       handleErrorMessage(error as Response);
@@ -760,8 +760,6 @@ export function Auth() {
 
   useEffect(() => {
     const path = location.pathname;
-    console.log("Current path:", path);
-    console.log("FormPaths.Register:", FormPaths.Register);
     switch (path) {
       case FormPaths.Code:
         setForm(FormPaths.Code);
@@ -794,8 +792,11 @@ export function Auth() {
       return (
         <FormWrapper>
           <div className="flex flex-col justify-center px-12 py-6">
+            <h1 className="mt-3 text-center text-3xl font-bold tracking-tight text-white">
+              PlanMyTrip!
+            </h1>
             <div className="pb-4">
-              <h2 className="mt-3 text-center text-3xl font-bold tracking-tight text-white">
+              <h2 className="mt-3 text-center text-xl font-bold tracking-tight text-white">
                 Connect with One Time Code
               </h2>
             </div>
@@ -878,7 +879,7 @@ export function Auth() {
               <div className="block">
                 <Link
                   to="/auth/register"
-                  className="font-semibold text-md block text-indigo-400 text-center hover:text-indigo-300"
+                  className="font-semibold text-xl block text-indigo-400 text-center hover:text-indigo-300"
                 >
                   Créer mon compte
                 </Link>
@@ -946,8 +947,11 @@ export function Auth() {
         <FormWrapper>
           <div className="flex flex-col justify-center px-12 py-6">
             <div className="pb-4">
+              <h1 className="mt-3 text-center text-3xl font-bold tracking-tight text-white">
+                PlanMyTrip!
+              </h1>
               <h2 className="mt-3 text-center text-3xl font-bold tracking-tight text-white">
-                Créer un compte
+                Créer mon compte
               </h2>
             </div>
             <Formik
@@ -1014,8 +1018,9 @@ export function Auth() {
             <div className="mt-3">
               <div className="block">
                 <Link
+                  style={{ width: "fit-content" }}
                   to="/auth/login"
-                  className="font-semibold text-md text-indigo-400 text-center block hover:text-indigo-300"
+                  className="font-semibold text-md m-auto w-fit text-indigo-400 text-center block hover:text-indigo-300"
                 >
                   J'ai déjà un compte
                 </Link>
