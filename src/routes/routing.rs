@@ -12,6 +12,9 @@ pub struct RoutingRequest {
     profile: String,
     #[serde(rename = "extra_info")]
     extra_info: Option<Vec<String>>,
+    instructions: Option<bool>,
+    elevation: Option<bool>,
+    language: Option<String>,
 }
 
 fn default_profile() -> String {
@@ -33,7 +36,7 @@ pub async fn post_routing(
     }
 
     let url = format!(
-        "https://api.openrouteservice.org/v2/directions/{}/json?api_key={}",
+        "https://api.openrouteservice.org/v2/directions/{}/geojson?api_key={}",
         req.profile, config.openrouteservice_token
     );
 
@@ -43,6 +46,18 @@ pub async fn post_routing(
 
     if let Some(extra_info) = &req.extra_info {
         body["extra_info"] = serde_json::json!(extra_info);
+    }
+
+    if let Some(instructions) = req.instructions {
+        body["instructions"] = serde_json::json!(instructions);
+    }
+
+    if let Some(elevation) = req.elevation {
+        body["elevation"] = serde_json::json!(elevation);
+    }
+
+    if let Some(language) = &req.language {
+        body["language"] = serde_json::json!(language);
     }
 
     let client = reqwest::Client::new();
