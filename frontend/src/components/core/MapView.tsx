@@ -1437,8 +1437,8 @@ export default function MapView() {
               onMouseEnter={() => setHoveredMarker("start")}
               onMouseLeave={() => setHoveredMarker(null)}
               style={{
-                width: "10px",
-                height: "10px",
+                width: "18px",
+                height: "18px",
                 borderRadius: "50%",
                 backgroundColor: "var(--brand)",
                 border: "3px solid white",
@@ -1473,8 +1473,8 @@ export default function MapView() {
               onMouseEnter={() => setHoveredMarker("end")}
               onMouseLeave={() => setHoveredMarker(null)}
               style={{
-                width: "10px",
-                height: "10px",
+                width: "18px",
+                height: "18px",
                 borderRadius: "50%",
                 backgroundColor: "var(--brand)",
                 border: "3px solid white",
@@ -1510,8 +1510,8 @@ export default function MapView() {
             <div
               style={{
                 position: "relative",
-                width: "10px",
-                height: "10px",
+                width: "18px",
+                height: "18px",
               }}
               onMouseEnter={() => setHoveredMarker(waypoint.id)}
               onMouseLeave={() => setHoveredMarker(null)}
@@ -1530,8 +1530,8 @@ export default function MapView() {
             >
               <div
                 style={{
-                  width: "10px",
-                  height: "10px",
+                  width: "18px",
+                  height: "18px",
                   borderRadius: "50%",
                   backgroundColor: "#f59e0b",
                   border: "3px solid white",

@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect } from "react";
 import { ThemeContext } from "../../App";
 import RouteSegmentsGraph from "./RouteSegmentsGraph";
+import { TransportModeDropdown } from "../ui/TransportModeDropdown";
 
 interface Location {
   lat: number;
@@ -510,63 +511,16 @@ export default function SidePanel({
               </label>
               {!searchType && (
                 <div>
-                  <select
+                  <TransportModeDropdown
                     value={transportMode}
-                    onChange={(e) =>
-                      onTransportModeChange(e.target.value as TransportMode)
-                    }
                     style={{
-                      backgroundColor: "transparent",
                       border: "none",
-                      marginBottom: ".5rem",
-                      borderRadius: "10px",
-                      textAlign: "right",
-                      fontSize: "0.8em",
+                      padding: ".2rem .5rem",
+                      display: "block",
+                      minWidth: "7rem",
                     }}
-                  >
-                    <option
-                      value="driving-car"
-                      style={{ color: "#000", textAlign: "left" }}
-                    >
-                      Voiture
-                    </option>
-                    <option
-                      value="cycling-road"
-                      style={{ color: "#000", textAlign: "left" }}
-                    >
-                      Vélo de route
-                    </option>
-                    <option
-                      value="cycling-mountain"
-                      style={{ color: "#000", textAlign: "left" }}
-                    >
-                      VTT
-                    </option>
-                    <option
-                      value="cycling-electric"
-                      style={{ color: "#000", textAlign: "left" }}
-                    >
-                      Vélo Electrique
-                    </option>
-                    <option
-                      value="foot-walking"
-                      style={{ color: "#000", textAlign: "left" }}
-                    >
-                      Marche
-                    </option>
-                    <option
-                      value="foot-hiking"
-                      style={{ color: "#000", textAlign: "left" }}
-                    >
-                      Randonnée
-                    </option>
-                    <option
-                      value="wheelchair"
-                      style={{ color: "#000", textAlign: "left" }}
-                    >
-                      Fauteuil roulant
-                    </option>
-                  </select>
+                    onChange={(value) => onTransportModeChange(value)}
+                  />
                 </div>
               )}
             </div>
@@ -738,12 +692,12 @@ export default function SidePanel({
               <p
                 style={{
                   margin: "10px 0",
-                  color: theme === "dark" ? "#aaa" : "#666",
+                  color: theme === "dark" ? "#333" : "#666",
                   fontSize: "13px",
                   textAlign: "center",
                 }}
               >
-                🔍 Recherche en cours...
+                Recherche en cours...
               </p>
             )}
 
