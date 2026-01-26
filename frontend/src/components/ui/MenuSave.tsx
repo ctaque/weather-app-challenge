@@ -1,5 +1,6 @@
 import { MyEventContext } from "@/App";
 import { useState, useRef, useEffect, useContext } from "react";
+import { Save, Download, Plus } from "lucide-react";
 
 export default function ExportMenu() {
   const [open, setOpen] = useState(false);
@@ -17,10 +18,19 @@ export default function ExportMenu() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const innerButtonStyle: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "flex-start",
+    alignContent: "center",
+    gap: ".4rem",
+  };
+
   return (
     <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
       <button onClick={() => setOpen((v) => !v)} className="theme-toggle">
-        Actions
+        <div style={innerButtonStyle}>
+          <Plus style={{ height: "30px" }} /> Actions
+        </div>
       </button>
 
       <div className={`dropdown ${open ? "open" : ""}`} style={{ zIndex: 50 }}>
@@ -30,7 +40,9 @@ export default function ExportMenu() {
             setOpen(false);
           }}
         >
-          Enregistrer
+          <div style={innerButtonStyle}>
+            <Save /> Enregistrer
+          </div>
         </button>
         <button
           onClick={() => {
@@ -38,7 +50,9 @@ export default function ExportMenu() {
             setOpen(false);
           }}
         >
-          Exporter .gpx
+          <div style={innerButtonStyle}>
+            <Download /> Exporter .gpx
+          </div>
         </button>
       </div>
     </div>
