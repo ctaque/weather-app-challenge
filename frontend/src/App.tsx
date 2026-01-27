@@ -23,7 +23,7 @@ import Profile from "./components/core/Profile";
 import { generateGPXFromGeoJSON, downloadGPX } from "./utils/gpxExport";
 import type { RouteType } from "./types";
 import MobileSiderPanel from "./components/core/MobileSiderMenu";
-import { MenuIcon, X } from "lucide-react";
+import { Edit, MenuIcon, Save, Trash, X } from "lucide-react";
 
 type User = {
   email: string;
@@ -156,6 +156,10 @@ function AppHeader({
   units,
   openMobileMenuSider,
   mobileMenuIsOpen,
+  toggleEdit,
+  readOnly,
+  saveEdits,
+  cancelEdits,
 }: {
   theme: "light" | "dark";
   toggleTheme: () => void;
@@ -166,7 +170,12 @@ function AppHeader({
   units: UnitSystem;
   openMobileMenuSider: (value: boolean) => void;
   mobileMenuIsOpen: boolean;
+  toggleEdit: () => void;
+  readOnly: boolean;
+  saveEdits: () => void;
+  cancelEdits: () => void;
 }) {
+  const location = useLocation();
   return (
     <header className="app-header">
       <h1>
@@ -195,6 +204,53 @@ function AppHeader({
         ) : (
           <>
             <ExportMenu />
+            {location.pathname.match(
+              new RegExp(
+                /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
+              ),
+            ) ? (
+              !readOnly ? (
+                <>
+                  <button
+                    onClick={saveEdits}
+                    className="theme-toggle"
+                    title="Edit intinerar"
+                    aria-label="Edit itinerary"
+                  >
+                    <span className="theme-icon" aria-hidden>
+                      <Save />
+                    </span>
+                    <span className="theme-label">Sauvegarder</span>
+                  </button>
+                  <button
+                    onClick={cancelEdits}
+                    className="theme-toggle"
+                    title="Edit intinerar"
+                    aria-label="Edit itinerary"
+                  >
+                    <span className="theme-icon" aria-hidden>
+                      <Trash />
+                    </span>
+                    <span className="theme-label">Annuler</span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={toggleEdit}
+                  className="theme-toggle"
+                  title="Edit intinerar"
+                  aria-label="Edit itinerary"
+                >
+                  <span className="theme-icon" aria-hidden>
+                    <Edit />
+                  </span>
+                  <span className="theme-label">Modifier le parcours</span>
+                </button>
+              )
+            ) : (
+              <></>
+            )}
+
             <button
               onClick={toggleLanguage}
               className="theme-toggle"
@@ -382,7 +438,8 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
-  const [mobeilMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [readOnly, setReadOnly] = useState(true); // Mode lecture seule par défaut
 
   // Theme: 'light' | 'dark'
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -404,6 +461,14 @@ function App() {
 
   // Route data state
   const [routeData, setRouteData] = useState<RouteType | null>(null);
+
+  useEffect(() => {
+    if (location.pathname.includes("/edit")) {
+      setReadOnly(false);
+    } else {
+      setReadOnly(true);
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     if (!me && !loading) {
@@ -519,7 +584,6 @@ function App() {
         }
       }
     };
-
     loadRouteFromApi();
   }, [location.pathname]);
 
@@ -553,7 +617,18 @@ function App() {
       case "export_gpx":
         handleExportGPX();
         break;
+
+      case "discard_edits":
+        discardEdits();
+        break;
     }
+  };
+
+  const discardEdits = () => {
+    const pathParts = location.pathname.replace("/edit", "").split("/");
+    const uuid = pathParts[pathParts.length - 1];
+
+    navigate(`/plan/${uuid}`);
   };
 
   const handleExportGPX = () => {
@@ -588,6 +663,7 @@ function App() {
         parsedRoute.apiResponse,
         routeName,
       );
+      /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm;
       downloadGPX(gpxContent, routeName);
 
       toast.success("Itinéraire exporté en GPX", {
@@ -616,7 +692,19 @@ function App() {
               <div className="welcome-gradient-background" />
               <ToastContainer />
               <AppHeader
-                mobileMenuIsOpen={mobeilMenuOpen}
+                cancelEdits={discardEdits}
+                saveEdits={() =>
+                  declencherEvenement({ type: "save_route", value: "" })
+                }
+                toggleEdit={() => {
+                  if (!location.pathname.endsWith("/edit")) {
+                    navigate(location.pathname + "/edit");
+                  } else {
+                    navigate(location.pathname.replace("/edit", ""));
+                  }
+                }}
+                readOnly={readOnly}
+                mobileMenuIsOpen={mobileMenuOpen}
                 openMobileMenuSider={setMobileMenuOpen}
                 theme={theme}
                 toggleTheme={toggleTheme}
@@ -732,18 +820,41 @@ function App() {
                 />
                 <Route path="/profile" element={<Profile />} />
                 <Route
+                  path="/plan/:uuid/edit"
+                  element={
+                    <MapView
+                      routeData={routeData}
+                      readOnly={readOnly}
+                      onReadOnlyChange={setReadOnly}
+                    />
+                  }
+                />
+                <Route
                   path="/plan/:uuid"
-                  element={<MapView routeData={routeData} />}
+                  element={
+                    <MapView
+                      routeData={routeData}
+                      readOnly={readOnly}
+                      onReadOnlyChange={setReadOnly}
+                    />
+                  }
                 />
                 <Route
                   path="/plan"
-                  element={<MapView routeData={routeData} />}
+                  element={
+                    <MapView
+                      routeData={routeData}
+                      readOnly={readOnly}
+                      onReadOnlyChange={setReadOnly}
+                    />
+                  }
                 />
               </Routes>
               <MobileSiderPanel
+                setMobileMenuOpen={(value: boolean) => setMobileMenuOpen(value)}
                 units={units}
                 lang={lang}
-                isOpen={mobeilMenuOpen}
+                isOpen={mobileMenuOpen}
                 t={t}
                 toggleLanguage={toggleLanguage}
                 toggleTheme={toggleTheme}

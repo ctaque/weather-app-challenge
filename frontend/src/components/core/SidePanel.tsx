@@ -58,6 +58,7 @@ interface SidePanelProps {
       reason: string;
     }>;
   } | null;
+  readOnly: boolean;
 }
 
 export default function SidePanel({
@@ -81,6 +82,7 @@ export default function SidePanel({
   transportMode,
   onTransportModeChange,
   restrictedSegments,
+  readOnly,
 }: SidePanelProps) {
   const theme = useContext(ThemeContext);
   const [searchQuery, setSearchQuery] = useState("");
@@ -518,8 +520,13 @@ export default function SidePanel({
                       padding: ".2rem .5rem",
                       display: "block",
                       minWidth: "7rem",
+                      cursor: readOnly ? "not-allowed" : "pointer",
+                      opacity: readOnly ? 0.6 : 1,
                     }}
-                    onChange={(value) => onTransportModeChange(value)}
+                    onChange={(value) => {
+                      if (readOnly) return;
+                      onTransportModeChange(value);
+                    }}
                   />
                 </div>
               )}
@@ -565,6 +572,7 @@ export default function SidePanel({
                           : startPoint?.display_name || ""
                       }
                       onFocus={() => {
+                        if (readOnly) return;
                         setSearchType("start");
                         if (startPoint) {
                           setSearchQuery(startPoint.display_name);
@@ -574,13 +582,17 @@ export default function SidePanel({
                         setSearchResults([]);
                       }}
                       onChange={(e) => {
+                        if (readOnly) return;
                         setSearchQuery(e.target.value);
                       }}
+                      disabled={readOnly}
                       style={{
                         ...inputStyle,
                         marginBottom: 0,
                         paddingLeft: "42px",
                         width: "100%",
+                        cursor: readOnly ? "not-allowed" : "text",
+                        opacity: readOnly ? 0.6 : 1,
                       }}
                     />
                   </div>
@@ -645,6 +657,7 @@ export default function SidePanel({
                           : endPoint?.display_name || ""
                       }
                       onFocus={() => {
+                        if (readOnly) return;
                         setSearchType("end");
                         if (endPoint) {
                           setSearchQuery(endPoint.display_name);
@@ -654,13 +667,17 @@ export default function SidePanel({
                         setSearchResults([]);
                       }}
                       onChange={(e) => {
+                        if (readOnly) return;
                         setSearchQuery(e.target.value);
                       }}
+                      disabled={readOnly}
                       style={{
                         ...inputStyle,
                         marginBottom: 0,
                         paddingLeft: "42px",
                         width: "100%",
+                        cursor: readOnly ? "not-allowed" : "text",
+                        opacity: readOnly ? 0.6 : 1,
                       }}
                     />
                   </div>
@@ -771,24 +788,26 @@ export default function SidePanel({
               >
                 Points de passage
               </h3>
-              <button
-                onClick={onReverseRoute}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: "4px",
-                  border: "none",
-                  backgroundColor: "transparent",
-                  color: theme === "dark" ? "#fff" : "#333",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-                title="Inverser l'itinéraire"
-              >
-                Inverser
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={onReverseRoute}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: "4px",
+                    border: "none",
+                    backgroundColor: "transparent",
+                    color: theme === "dark" ? "#fff" : "#333",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                  title="Inverser l'itinéraire"
+                >
+                  Inverser
+                </button>
+              )}
             </div>
 
             <div
@@ -812,12 +831,18 @@ export default function SidePanel({
                 )}
               {/* Point de départ */}
               <div
-                draggable
-                onDragStart={() => handlePointDragStart("start")}
-                onDragOver={(e) => handlePointDragOver(e, "start")}
-                onDragLeave={handlePointDragLeave}
-                onDrop={(e) => handlePointDrop(e, "start")}
-                onDragEnd={handleDragEnd}
+                draggable={!readOnly}
+                onDragStart={
+                  readOnly ? undefined : () => handlePointDragStart("start")
+                }
+                onDragOver={
+                  readOnly ? undefined : (e) => handlePointDragOver(e, "start")
+                }
+                onDragLeave={readOnly ? undefined : handlePointDragLeave}
+                onDrop={
+                  readOnly ? undefined : (e) => handlePointDrop(e, "start")
+                }
+                onDragEnd={readOnly ? undefined : handleDragEnd}
                 style={{
                   padding: "10px",
                   borderRadius: "6px",
@@ -832,7 +857,7 @@ export default function SidePanel({
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
-                  cursor: "move",
+                  cursor: readOnly ? "default" : "move",
                   opacity: draggedPointType === "start" ? 0.3 : 1,
                   transform:
                     draggedPointType === "start" ? "scale(0.95)" : "scale(1)",
@@ -885,30 +910,32 @@ export default function SidePanel({
                     {startPoint.display_name.split(",").slice(0, 2).join(",")}
                   </p>
                 </div>
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  style={{ flexShrink: 0, cursor: "move" }}
-                >
-                  <rect
-                    x="2"
-                    y="5"
-                    width="12"
-                    height="2"
-                    rx="1"
-                    fill={theme === "dark" ? "#aaa" : "#999"}
-                  />
-                  <rect
-                    x="2"
-                    y="9"
-                    width="12"
-                    height="2"
-                    rx="1"
-                    fill={theme === "dark" ? "#aaa" : "#999"}
-                  />
-                </svg>
+                {!readOnly && (
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    style={{ flexShrink: 0, cursor: "move" }}
+                  >
+                    <rect
+                      x="2"
+                      y="5"
+                      width="12"
+                      height="2"
+                      rx="1"
+                      fill={theme === "dark" ? "#aaa" : "#999"}
+                    />
+                    <rect
+                      x="2"
+                      y="9"
+                      width="12"
+                      height="2"
+                      rx="1"
+                      fill={theme === "dark" ? "#aaa" : "#999"}
+                    />
+                  </svg>
+                )}
               </div>
               {/* Indicateur de drop APRES le départ */}
               {dragOverIndex === -1 &&
@@ -947,14 +974,24 @@ export default function SidePanel({
                       />
                     )}
                   <div
-                    draggable
-                    onDragStart={() => handlePointDragStart("waypoint", index)}
-                    onDragOver={(e) =>
-                      handlePointDragOver(e, "waypoint", index)
+                    draggable={!readOnly}
+                    onDragStart={
+                      readOnly
+                        ? undefined
+                        : () => handlePointDragStart("waypoint", index)
                     }
-                    onDragLeave={handlePointDragLeave}
-                    onDrop={(e) => handlePointDrop(e, "waypoint", index)}
-                    onDragEnd={handleDragEnd}
+                    onDragOver={
+                      readOnly
+                        ? undefined
+                        : (e) => handlePointDragOver(e, "waypoint", index)
+                    }
+                    onDragLeave={readOnly ? undefined : handlePointDragLeave}
+                    onDrop={
+                      readOnly
+                        ? undefined
+                        : (e) => handlePointDrop(e, "waypoint", index)
+                    }
+                    onDragEnd={readOnly ? undefined : handleDragEnd}
                     style={{
                       padding: "10px",
                       borderRadius: "6px",
@@ -971,7 +1008,7 @@ export default function SidePanel({
                       display: "flex",
                       alignItems: "center",
                       gap: "10px",
-                      cursor: "move",
+                      cursor: readOnly ? "default" : "move",
                       opacity: draggedWaypointIndex === index ? 0.3 : 1,
                       transform:
                         draggedWaypointIndex === index
@@ -1026,49 +1063,53 @@ export default function SidePanel({
                         {waypoint.lat.toFixed(4)}, {waypoint.lon.toFixed(4)}
                       </p>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRemoveWaypoint(waypoint.id);
-                      }}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#ef4444",
-                        cursor: "pointer",
-                        fontSize: "18px",
-                        padding: "0",
-                        flexShrink: 0,
-                      }}
-                      title="Supprimer ce point"
-                    >
-                      ×
-                    </button>
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      style={{ flexShrink: 0, cursor: "move" }}
-                    >
-                      <rect
-                        x="2"
-                        y="5"
-                        width="12"
-                        height="2"
-                        rx="1"
-                        fill={theme === "dark" ? "#aaa" : "#999"}
-                      />
-                      <rect
-                        x="2"
-                        y="9"
-                        width="12"
-                        height="2"
-                        rx="1"
-                        fill={theme === "dark" ? "#aaa" : "#999"}
-                      />
-                    </svg>
+                    {!readOnly && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveWaypoint(waypoint.id);
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#ef4444",
+                          cursor: "pointer",
+                          fontSize: "18px",
+                          padding: "0",
+                          flexShrink: 0,
+                        }}
+                        title="Supprimer ce point"
+                      >
+                        ×
+                      </button>
+                    )}
+                    {!readOnly && (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        style={{ flexShrink: 0, cursor: "move" }}
+                      >
+                        <rect
+                          x="2"
+                          y="5"
+                          width="12"
+                          height="2"
+                          rx="1"
+                          fill={theme === "dark" ? "#aaa" : "#999"}
+                        />
+                        <rect
+                          x="2"
+                          y="9"
+                          width="12"
+                          height="2"
+                          rx="1"
+                          fill={theme === "dark" ? "#aaa" : "#999"}
+                        />
+                      </svg>
+                    )}
                   </div>
                   {/* Indicateur de drop APRES */}
                   {dragOverIndex === index &&
@@ -1107,12 +1148,16 @@ export default function SidePanel({
                 )}
               {/* Point d'arrivée */}
               <div
-                draggable
-                onDragStart={() => handlePointDragStart("end")}
-                onDragOver={(e) => handlePointDragOver(e, "end")}
-                onDragLeave={handlePointDragLeave}
-                onDrop={(e) => handlePointDrop(e, "end")}
-                onDragEnd={handleDragEnd}
+                draggable={!readOnly}
+                onDragStart={
+                  readOnly ? undefined : () => handlePointDragStart("end")
+                }
+                onDragOver={
+                  readOnly ? undefined : (e) => handlePointDragOver(e, "end")
+                }
+                onDragLeave={readOnly ? undefined : handlePointDragLeave}
+                onDrop={readOnly ? undefined : (e) => handlePointDrop(e, "end")}
+                onDragEnd={readOnly ? undefined : handleDragEnd}
                 style={{
                   padding: "10px",
                   borderRadius: "6px",
@@ -1125,9 +1170,9 @@ export default function SidePanel({
                       : "#ef4444"
                   }`,
                   display: "flex",
-                  alignItems: "ce</select>nter",
+                  alignItems: "center",
                   gap: "10px",
-                  cursor: "move",
+                  cursor: readOnly ? "default" : "move",
                   opacity: draggedPointType === "end" ? 0.3 : 1,
                   transform:
                     draggedPointType === "end" ? "scale(0.95)" : "scale(1)",
@@ -1180,30 +1225,32 @@ export default function SidePanel({
                     {endPoint.display_name.split(",").slice(0, 2).join(",")}
                   </p>
                 </div>
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  style={{ flexShrink: 0, cursor: "move" }}
-                >
-                  <rect
-                    x="2"
-                    y="5"
-                    width="12"
-                    height="2"
-                    rx="1"
-                    fill={theme === "dark" ? "#aaa" : "#999"}
-                  />
-                  <rect
-                    x="2"
-                    y="9"
-                    width="12"
-                    height="2"
-                    rx="1"
-                    fill={theme === "dark" ? "#aaa" : "#999"}
-                  />
-                </svg>
+                {!readOnly && (
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    style={{ flexShrink: 0, cursor: "move" }}
+                  >
+                    <rect
+                      x="2"
+                      y="5"
+                      width="12"
+                      height="2"
+                      rx="1"
+                      fill={theme === "dark" ? "#aaa" : "#999"}
+                    />
+                    <rect
+                      x="2"
+                      y="9"
+                      width="12"
+                      height="2"
+                      rx="1"
+                      fill={theme === "dark" ? "#aaa" : "#999"}
+                    />
+                  </svg>
+                )}
               </div>
               {/* Indicateur de drop APRES l'arrivée */}
               {dragOverIndex === waypoints.length &&

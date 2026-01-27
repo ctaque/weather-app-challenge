@@ -29,9 +29,21 @@ interface Waypoint {
   lon: number;
 }
 
-export default function MapView() {
+export default function MapView({
+  readOnly,
+  onReadOnlyChange,
+}: {
+  readOnly: boolean;
+  onReadOnlyChange?: (value: boolean) => void;
+}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const params = useParams();
+  const [originalRouteData, setOriginalRouteData] = useState<{
+    startPoint: Location | null;
+    endPoint: Location | null;
+    waypoints: Waypoint[];
+    transportMode: TransportMode;
+  } | null>(null);
 
   const initialViewState = {
     longitude: 2.3522,
@@ -115,6 +127,7 @@ export default function MapView() {
   const routeCalculationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const animationProgressRef = useRef<number>(0);
+  const prevReadOnlyRef = useRef<boolean>(readOnly);
   const theme = React.useContext(ThemeContext);
 
   const { t } = useContext(LanguageContext);
@@ -161,11 +174,21 @@ export default function MapView() {
               setTransportMode(routeData.transportMode);
             }
 
+            // Sauvegarder l'état original pour pouvoir l'annuler plus tard
+            setOriginalRouteData({
+              startPoint: routeData.startPoint || null,
+              endPoint: routeData.endPoint || null,
+              waypoints: routeData.waypoints || [],
+              transportMode: routeData.transportMode || "driving-car",
+            });
+
             // Sauvegarder aussi dans localStorage (avec apiResponse si disponible)
             const dataToSave = {
               ...routeData,
               // Conserver apiResponse s'il existe déjà dans le routeData
-              ...(routeData.apiResponse && { apiResponse: routeData.apiResponse })
+              ...(routeData.apiResponse && {
+                apiResponse: routeData.apiResponse,
+              }),
             };
             localStorage.setItem("saved-route", JSON.stringify(dataToSave));
           }
@@ -177,6 +200,37 @@ export default function MapView() {
 
     loadRouteFromApi();
   }, [params.uuid]);
+
+  // Restaurer l'itinéraire original quand on annule les modifications (passage en mode lecture seule)
+  useEffect(() => {
+    const wasEditing = prevReadOnlyRef.current === false;
+    const isNowReadOnly = readOnly === true;
+
+    if (wasEditing && isNowReadOnly && originalRouteData && params.uuid) {
+      console.log("Annulation des modifications, restauration de l'itinéraire original");
+      setStartPoint(originalRouteData.startPoint);
+      setEndPoint(originalRouteData.endPoint);
+      setWaypoints(originalRouteData.waypoints);
+      setTransportMode(originalRouteData.transportMode);
+
+      // Restaurer aussi dans localStorage
+      const existingRoute = localStorage.getItem("saved-route");
+      if (existingRoute) {
+        const parsed = JSON.parse(existingRoute);
+        const restoredData = {
+          ...parsed,
+          startPoint: originalRouteData.startPoint,
+          endPoint: originalRouteData.endPoint,
+          waypoints: originalRouteData.waypoints,
+          transportMode: originalRouteData.transportMode,
+        };
+        localStorage.setItem("saved-route", JSON.stringify(restoredData));
+      }
+    }
+
+    // Mettre à jour la référence pour le prochain render
+    prevReadOnlyRef.current = readOnly;
+  }, [readOnly, originalRouteData, params.uuid]);
 
   // Charger l'itinéraire sauvegardé au démarrage depuis localStorage (uniquement si pas d'UUID dans l'URL)
   useEffect(() => {
@@ -224,14 +278,14 @@ export default function MapView() {
           transportMode,
           timestamp: new Date().toISOString(),
           // Conserver apiResponse si elle existe
-          ...(existingApiResponse && { apiResponse: existingApiResponse })
+          ...(existingApiResponse && { apiResponse: existingApiResponse }),
         };
         localStorage.setItem("saved-route", JSON.stringify(routeData));
         console.log("Itinéraire sauvegardé:", {
           hasStart: !!startPoint,
           hasEnd: !!endPoint,
           waypointsCount: waypoints.length,
-          hasApiResponse: !!existingApiResponse
+          hasApiResponse: !!existingApiResponse,
         });
       } catch (error) {
         console.error("Erreur lors de la sauvegarde de l'itinéraire:", error);
@@ -521,7 +575,10 @@ export default function MapView() {
         localStorage.setItem("saved-route", JSON.stringify(updatedRoute));
         console.log("✅ Réponse API sauvegardée dans localStorage");
       } catch (error) {
-        console.error("❌ Erreur lors de la sauvegarde de la réponse API:", error);
+        console.error(
+          "❌ Erreur lors de la sauvegarde de la réponse API:",
+          error,
+        );
       }
 
       console.log(
@@ -1007,7 +1064,7 @@ export default function MapView() {
 
   // Attacher les événements au layer de la route
   useEffect(() => {
-    if (!mapRef.current || !routeGeometry) return;
+    if (!mapRef.current || !routeGeometry || readOnly) return;
 
     const map = mapRef.current.getMap();
 
@@ -1067,7 +1124,7 @@ export default function MapView() {
         map.off("mouseleave", "route-layer-clickable", handleMouseLeave);
       }
     };
-  }, [routeGeometry, findClosestPointOnRoute]);
+  }, [routeGeometry, findClosestPointOnRoute, readOnly]);
 
   // Gérer le drag du waypoint nouvellement créé
   useEffect(() => {
@@ -1327,15 +1384,18 @@ export default function MapView() {
         transportMode={transportMode}
         onTransportModeChange={setTransportMode}
         restrictedSegments={restrictedSegments}
+        readOnly={readOnly}
       />
 
       <Map
         ref={mapRef}
         {...viewState}
         onMove={(evt) => setViewState(evt.viewState)}
-        onContextMenu={handleMapContextMenu}
+        onContextMenu={readOnly ? undefined : handleMapContextMenu}
         dragPan={
-          !isHoveringRoute && !isDraggingNewWaypoint && !isDraggingMarker
+          readOnly
+            ? true
+            : !isHoveringRoute && !isDraggingNewWaypoint && !isDraggingMarker
         }
         style={{
           position: "fixed",
@@ -1458,7 +1518,7 @@ export default function MapView() {
           <Marker
             longitude={startPoint.lon}
             latitude={startPoint.lat}
-            draggable
+            draggable={!readOnly}
             onDragStart={handleStartPointDragStart}
             onDragEnd={(event) => handleStartPointDragEnd(event.lngLat)}
           >
@@ -1494,7 +1554,7 @@ export default function MapView() {
           <Marker
             longitude={endPoint.lon}
             latitude={endPoint.lat}
-            draggable
+            draggable={!readOnly}
             onDragStart={handleEndPointDragStart}
             onDragEnd={(event) => handleEndPointDragEnd(event.lngLat)}
           >
@@ -1530,7 +1590,7 @@ export default function MapView() {
             key={waypoint.id}
             longitude={waypoint.lon}
             latitude={waypoint.lat}
-            draggable
+            draggable={!readOnly}
             onDragStart={handleWaypointDragStart}
             onDragEnd={(event) =>
               handleWaypointDragEnd(waypoint.id, event.lngLat)
@@ -1545,6 +1605,7 @@ export default function MapView() {
               onMouseEnter={() => setHoveredMarker(waypoint.id)}
               onMouseLeave={() => setHoveredMarker(null)}
               onClick={(e) => {
+                if (readOnly) return;
                 e.stopPropagation();
                 if (mapRef.current) {
                   const map = mapRef.current.getMap();
@@ -1701,8 +1762,53 @@ export default function MapView() {
         </svg>
       </button>
 
+      <button
+        onClick={() => onReadOnlyChange?.(!readOnly)}
+        style={{
+          ...controlButtonStyle,
+          top: "102px",
+          backgroundColor: readOnly
+            ? theme === "dark"
+              ? "#1a1a1a"
+              : "#ffffff"
+            : "#89a480",
+          color: readOnly ? (theme === "dark" ? "#fff" : "#333") : "#fff",
+        }}
+        title={readOnly ? "Activer l'édition" : "Mode lecture seule"}
+        aria-label={readOnly ? "Activer l'édition" : "Mode lecture seule"}
+      >
+        {readOnly ? (
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+          </svg>
+        ) : (
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        )}
+      </button>
+
       {/* Context Menu */}
-      {contextMenu && (
+      {contextMenu && !readOnly && (
         <div
           style={{
             position: "absolute",
@@ -1778,7 +1884,7 @@ export default function MapView() {
       )}
 
       {/* Waypoint Popup */}
-      {selectedWaypoint && (
+      {selectedWaypoint && !readOnly && (
         <div
           style={{
             position: "absolute",
