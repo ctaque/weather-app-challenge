@@ -270,6 +270,7 @@ textarea {
 .theme-toggle .theme-label {
   font-size: 0.95rem;
   color: var(--text);
+  white-space: nowrap;
 }
 
 /* Focus visible for keyboard users */

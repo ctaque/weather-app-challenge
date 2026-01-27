@@ -54,14 +54,14 @@ export default function ElevationProfile({
   // Largeur disponible: window.innerWidth - position left - marge droite
   const leftPosition = sidePanelOpen ? 400 : 16; // 1rem = 16px
   const rightMargin = 16; // 1rem de marge droite
-  const containerPadding = 16; // 0.5rem de padding interne du conteneur
+  const containerPadding = 16; // 0.5rem de paddinh interne du conteneur80/auth/plan
   const width = windowWidth - leftPosition - rightMargin - containerPadding * 2;
-  const height = 150;
+  const height = window.matchMedia("(max-width: 768px)").matches ? 100 : 150;
   const padding = { top: 10, right: 20, bottom: 15, left: 30 };
   const graphWidth = width - padding.left - padding.right;
   const graphHeight = height - padding.top - padding.bottom;
 
-  // Trouver les valeurs min et max d'élévation
+  // Trouver les valeurs min et max d'élévation240856
   const elevations = elevationData.map((p) => p.elevation);
   const minElevation = Math.min(...elevations);
   const maxElevation = Math.max(...elevations);
@@ -138,11 +138,11 @@ export default function ElevationProfile({
         position: "fixed",
         bottom: "1rem",
         left: `${leftPosition}px`,
-        width: `${width}px`,
         padding: `${containerPadding}px`,
         transition: "left 0.3s ease-in-out, width 0.3s ease-in-out",
         boxSizing: "border-box",
       }}
+      className="elevation-profile"
     >
       <svg
         width={width}
@@ -312,7 +312,7 @@ export default function ElevationProfile({
                 const y =
                   graphHeight -
                   ((closestPoint.elevation - minElevation) / elevationRange) *
-                  graphHeight;
+                    graphHeight;
 
                 return (
                   <>

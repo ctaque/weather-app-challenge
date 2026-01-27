@@ -407,4 +407,7 @@ a:hover {
   .pagination {
     flex-direction: column;
   }
+  .elevation-profile {
+    max-height: 150px;
+  }
 }
