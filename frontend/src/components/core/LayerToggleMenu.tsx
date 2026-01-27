@@ -53,7 +53,7 @@ export default function LayerToggleMenu({
     top: "148px",
     backgroundColor: theme === "dark" ? "#1a1a1a" : "#ffffff",
     border: `1px solid ${theme === "dark" ? "#444" : "#ddd"}`,
-    borderRadius: "4px",
+    borderRadius: ".5rem",
     boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
     zIndex: 1,
     overflow: "hidden",

@@ -1,6 +1,15 @@
 import { MyEventContext, useAuth } from "@/App";
 import { useState, useRef, useEffect, useContext } from "react";
-import { Save, Download, Plus, ShieldUser, Edit, Trash } from "lucide-react";
+import {
+  Save,
+  Download,
+  Plus,
+  ShieldUser,
+  Edit,
+  Trash,
+  Fingerprint,
+  Sun,
+} from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 
 export default function ExportMenu({
@@ -135,18 +144,18 @@ export default function ExportMenu({
             /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
           ),
         ) && (
-          <button
-            onClick={handleCreateNewRoute}
-            style={{ ...innerButtonStyle, padding: ".75rem" }}
-            title="Create new route"
-            aria-label="Create new route"
-          >
-            <span className="theme-icon" aria-hidden>
-              <Plus />
-            </span>
-            <span className="theme-label">Créer un itinéraire</span>
-          </button>
-        )}
+            <button
+              onClick={handleCreateNewRoute}
+              style={{ ...innerButtonStyle, padding: ".75rem" }}
+              title="Create new route"
+              aria-label="Create new route"
+            >
+              <span className="theme-icon" aria-hidden>
+                <Plus />
+              </span>
+              <span className="theme-label">Créer un itinéraire</span>
+            </button>
+          )}
         {!location.pathname.startsWith("/plan") && (
           <Link
             to="/plan"
@@ -161,7 +170,7 @@ export default function ExportMenu({
             </div>
           </Link>
         )}
-        {me && !loading && (
+        {me ? (
           <Link
             to="/profile"
             className="hover"
@@ -174,17 +183,54 @@ export default function ExportMenu({
               <ShieldUser /> Itinéraires enregistrés
             </div>
           </Link>
+        ) : (
+          <>
+            <Link
+              to="/auth/login"
+              className="hover"
+              style={{ ...innerButtonStyle, padding: ".75rem" }}
+            >
+              <div style={innerButtonStyle}>
+                <ShieldUser /> Login
+              </div>
+            </Link>
+            <Link
+              to="/auth/register"
+              className="hover"
+              style={{ ...innerButtonStyle, padding: ".75rem" }}
+            >
+              <div style={innerButtonStyle}>
+                <Fingerprint />
+                Créer un compte
+              </div>
+            </Link>
+          </>
         )}
-        <button
-          onClick={() => {
-            declencherEvenement({ type: "export_gpx", value: null });
-            setOpen(false);
-          }}
+
+        {location.pathname.match(
+          new RegExp(
+            /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
+          ),
+        ) && (
+            <button
+              onClick={() => {
+                declencherEvenement({ type: "export_gpx", value: null });
+                setOpen(false);
+              }}
+            >
+              <div style={innerButtonStyle}>
+                <Download /> Exporter .gpx
+              </div>
+            </button>
+          )}
+        <Link
+          to="/weather"
+          className="hover"
+          style={{ ...innerButtonStyle, padding: ".75rem" }}
         >
-          <div style={innerButtonStyle}>
-            <Download /> Exporter .gpx
-          </div>
-        </button>
+          <Sun />
+          <div style={innerButtonStyle}>Prévisions météo</div>
+        </Link>
       </div>
     </div>
   );
