@@ -160,7 +160,7 @@ export default function ElevationProfile({
               : 0
             : 0,
           left: "50%",
-          transform: "translateX: -50%",
+          transform: "translateX(-50%)",
           backgroundColor: "#89a380",
           width: "3rem",
           borderTopLeftRadius: "1rem",
