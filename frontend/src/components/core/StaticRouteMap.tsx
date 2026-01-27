@@ -67,8 +67,8 @@ export default function StaticRouteMap({
   const mapStyle = useMemo(
     () =>
       theme === "dark"
-        ? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
-        : "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+        ? "https://data.lfmaps.fr/styles/positron"
+        : "https://data.lfmaps.fr/styles/bright",
     [theme],
   );
 
