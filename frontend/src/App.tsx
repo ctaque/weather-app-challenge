@@ -397,7 +397,11 @@ function App() {
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [readOnly, setReadOnly] = useState(true); // Mode lecture seule par défaut
+  const [readOnly, setReadOnly] = useState<boolean>(
+    new RegExp(
+      /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
+    ).test(location.pathname),
+  );
 
   // Theme: 'light' | 'dark'
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -421,10 +425,16 @@ function App() {
   const [routeData, setRouteData] = useState<RouteType | null>(null);
 
   useEffect(() => {
-    if (location.pathname.includes("/edit")) {
-      setReadOnly(false);
-    } else {
-      setReadOnly(true);
+    if (
+      new RegExp(
+        /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
+      ).test(location.pathname)
+    ) {
+      if (location.pathname.includes("/edit")) {
+        setReadOnly(false);
+      } else {
+        setReadOnly(true);
+      }
     }
   }, [location.pathname]);
 

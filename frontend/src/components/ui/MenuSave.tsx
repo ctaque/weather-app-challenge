@@ -79,62 +79,56 @@ export default function ExportMenu({
         className={`dropdown ${open ? "open" : ""}`}
         style={{ zIndex: 50, width: "13rem" }}
       >
-        {!loading &&
-        me &&
-        location.pathname.match(
+        {!loading && me && !readOnly && (
+          <button
+            onClick={() => {
+              setOpen(false);
+              saveEdits();
+            }}
+            style={{ ...innerButtonStyle, padding: ".75rem" }}
+            title="Save edits"
+            aria-label="Save edits"
+          >
+            <span className="theme-icon" aria-hidden>
+              <Save />
+            </span>
+            <span className="theme-label">Sauvegarder</span>
+          </button>
+        )}
+        {location.pathname.match(
           new RegExp(
-            /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
+            /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/edit/gm,
           ),
         ) ? (
-          !readOnly ? (
-            <>
-              <button
-                onClick={() => {
-                  setOpen(false);
-                  saveEdits();
-                }}
-                style={{ ...innerButtonStyle, padding: ".75rem" }}
-                title="Save edits"
-                aria-label="Save edits"
-              >
-                <span className="theme-icon" aria-hidden>
-                  <Save />
-                </span>
-                <span className="theme-label">Sauvegarder</span>
-              </button>
-              <button
-                onClick={() => {
-                  setOpen(false);
-                  cancelEdits();
-                }}
-                style={{ ...innerButtonStyle, padding: ".75rem" }}
-                title="Cancel edit intinerary"
-                aria-label="Cancel edit itinerary"
-              >
-                <span className="theme-icon" aria-hidden>
-                  <Trash />
-                </span>
-                <span className="theme-label">Annuler l'édition</span>
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => {
-                setOpen(false);
-                toggleEdit();
-              }}
-              title="Edit intinerary"
-              style={{ ...innerButtonStyle, padding: ".75rem" }}
-              aria-label="Edit itinerary"
-            >
-              <span className="theme-icon" aria-hidden>
-                <Edit />
-              </span>
-              <span className="theme-label">Modifier le parcours</span>
-            </button>
-          )
+          <button
+            onClick={() => {
+              setOpen(false);
+              cancelEdits();
+            }}
+            style={{ ...innerButtonStyle, padding: ".75rem" }}
+            title="Cancel edit intinerary"
+            aria-label="Cancel edit itinerary"
+          >
+            <span className="theme-icon" aria-hidden>
+              <Trash />
+            </span>
+            <span className="theme-label">Annuler l'édition</span>
+          </button>
         ) : (
-          <></>
+          <button
+            onClick={() => {
+              setOpen(false);
+              toggleEdit();
+            }}
+            title="Edit intinerary"
+            style={{ ...innerButtonStyle, padding: ".75rem" }}
+            aria-label="Edit itinerary"
+          >
+            <span className="theme-icon" aria-hidden>
+              <Edit />
+            </span>
+            <span className="theme-label">Modifier le parcours</span>
+          </button>
         )}
         {location.pathname.match(
           new RegExp(

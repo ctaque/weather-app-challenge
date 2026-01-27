@@ -407,12 +407,46 @@ export default function MapView({
     });
   }, []);
 
+  const handleMapClick = useCallback(
+    (event: any) => {
+      // Ne pas ouvrir le menu si on clique sur un marker ou sur la route
+      if (event.features && event.features.length > 0) {
+        return;
+      }
+
+      // Ne pas ouvrir le menu si on est en mode drag
+      if (isDraggingMarker || isDraggingNewWaypoint) {
+        return;
+      }
+
+      const { lngLat } = event;
+      setContextMenu({
+        x: event.point.x,
+        y: event.point.y,
+        lat: lngLat.lat,
+        lon: lngLat.lng,
+      });
+    },
+    [isDraggingMarker, isDraggingNewWaypoint],
+  );
+
   const setPointFromMap = async (
     lat: number,
     lon: number,
-    type: "start" | "end",
+    type: "start" | "end" | "waypoint",
   ) => {
     try {
+      if (type === "waypoint") {
+        const newWaypoint: Waypoint = {
+          id: `waypoint-${Date.now()}`,
+          lat,
+          lon,
+        };
+        setWaypoints((prev) => [...prev, newWaypoint]);
+        setContextMenu(null);
+        return;
+      }
+
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
       );
@@ -431,15 +465,24 @@ export default function MapView({
       }
     } catch (error) {
       console.error("Erreur de géocodage inverse:", error);
-      const location: Location = {
-        lat,
-        lon,
-        display_name: `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
-      };
-      if (type === "start") {
-        setStartPoint(location);
+      if (type === "waypoint") {
+        const newWaypoint: Waypoint = {
+          id: `waypoint-${Date.now()}`,
+          lat,
+          lon,
+        };
+        setWaypoints((prev) => [...prev, newWaypoint]);
       } else {
-        setEndPoint(location);
+        const location: Location = {
+          lat,
+          lon,
+          display_name: `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+        };
+        if (type === "start") {
+          setStartPoint(location);
+        } else {
+          setEndPoint(location);
+        }
       }
     }
     setContextMenu(null);
@@ -1394,6 +1437,7 @@ export default function MapView({
         {...viewState}
         onMove={(evt) => setViewState(evt.viewState)}
         onContextMenu={readOnly ? undefined : handleMapContextMenu}
+        onClick={readOnly ? undefined : handleMapClick}
         dragPan={
           readOnly
             ? true
@@ -1408,6 +1452,7 @@ export default function MapView({
           top: "3rem",
         }}
         mapStyle={mapStyle}
+        interactiveLayerIds={readOnly ? [] : ["route-layer-clickable"]}
       >
         {/* Route Line - Clickable */}
         {routeGeometry && (
@@ -1528,8 +1573,8 @@ export default function MapView({
               onMouseEnter={() => setHoveredMarker("start")}
               onMouseLeave={() => setHoveredMarker(null)}
               style={{
-                width: "18px",
-                height: "18px",
+                width: "25px",
+                height: "25px",
                 borderRadius: "50%",
                 backgroundColor: "var(--brand)",
                 border: "3px solid white",
@@ -1564,8 +1609,8 @@ export default function MapView({
               onMouseEnter={() => setHoveredMarker("end")}
               onMouseLeave={() => setHoveredMarker(null)}
               style={{
-                width: "18px",
-                height: "18px",
+                width: "25px",
+                height: "25px",
                 borderRadius: "50%",
                 backgroundColor: "var(--brand)",
                 border: "3px solid white",
@@ -1601,8 +1646,8 @@ export default function MapView({
             <div
               style={{
                 position: "relative",
-                width: "18px",
-                height: "18px",
+                width: "25px",
+                height: "25px",
               }}
               onMouseEnter={() => setHoveredMarker(waypoint.id)}
               onMouseLeave={() => setHoveredMarker(null)}
@@ -1622,8 +1667,8 @@ export default function MapView({
             >
               <div
                 style={{
-                  width: "18px",
-                  height: "18px",
+                  width: "25px",
+                  height: "25px",
                   borderRadius: "50%",
                   backgroundColor: "#f59e0b",
                   border: "3px solid white",
@@ -1654,8 +1699,8 @@ export default function MapView({
           >
             <div
               style={{
-                width: "16px",
-                height: "16px",
+                width: "25px",
+                height: "25px",
                 borderRadius: "50%",
                 backgroundColor: "var(--brand)",
                 border: "3px solid white",
@@ -1674,8 +1719,8 @@ export default function MapView({
           >
             <div
               style={{
-                width: "12px",
-                height: "12px",
+                width: "25px",
+                height: "25px",
                 borderRadius: "50%",
                 backgroundColor: theme === "dark" ? "#3b82f6" : "#555555",
                 border: "2px solid white",
@@ -1726,8 +1771,8 @@ export default function MapView({
         aria-label="Me localiser"
       >
         <svg
-          width="20"
-          height="20"
+          width="25"
+          height="25"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -1751,8 +1796,8 @@ export default function MapView({
         aria-label="Orienter vers le nord"
       >
         <svg
-          width="20"
-          height="20"
+          width="25"
+          height="25"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -1781,8 +1826,8 @@ export default function MapView({
       >
         {readOnly ? (
           <svg
-            width="20"
-            height="20"
+            width="25"
+            height="25"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -1794,8 +1839,8 @@ export default function MapView({
           </svg>
         ) : (
           <svg
-            width="20"
-            height="20"
+            width="25"
+            height="25"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -1882,6 +1927,36 @@ export default function MapView({
             <span style={{ color: "#ef4444", fontSize: "18px" }}>●</span>
             Choisir comme point d'arrivée
           </button>
+          {startPoint && endPoint && (
+            <button
+              onClick={() =>
+                setPointFromMap(contextMenu.lat, contextMenu.lon, "waypoint")
+              }
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                border: "none",
+                backgroundColor: "transparent",
+                color: theme === "dark" ? "#fff" : "#333",
+                textAlign: "left",
+                cursor: "pointer",
+                fontSize: "14px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor =
+                  theme === "dark" ? "#2a2a2a" : "#f3f4f6";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
+            >
+              <span style={{ color: "#f59e0b", fontSize: "18px" }}>📍</span>
+              Ajouter un point intermédiaire
+            </button>
+          )}
         </div>
       )}
 
