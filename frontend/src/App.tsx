@@ -168,7 +168,15 @@ function AppHeader({
         <SunIcon className="app-title-icon" />
         PlanMyTrip !
       </h1>
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          maxWidth: "100%",
+          overflowX: "auto",
+        }}
+      >
         <ExportMenu />
         <button
           onClick={toggleLanguage}
