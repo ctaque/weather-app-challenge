@@ -26,7 +26,7 @@ pub async fn run(pool: PgPool, app_env: Env) -> std::io::Result<()> {
 
     // Load configuration
     let config = Config::from_env().expect("Failed to load configuration");
-    let port = config.port;
+    let _port = config.port;
     let is_production = config.is_production;
 
     info!("Configuration loaded:");
@@ -107,7 +107,11 @@ pub async fn run(pool: PgPool, app_env: Env) -> std::io::Result<()> {
                     .route("/route", web::post().to(routes::routes::post_routing))
                     .route("/route/{uuid}", web::get().to(routes::routes::get_routing))
                     .route("/route/{uuid}", web::put().to(routes::routes::put_routing))
-                    .route("/routes", web::get().to(routes::routes::get_routes_paginated))
+                    .route(
+                        "/routes",
+                        web::get().to(routes::routes::get_routes_paginated),
+                    )
+                    .route("/prefered_addresses", web::get().to(routes::fetch_adresses))
                     // Weather routes
                     .service(routes::weather::get_weather)
                     // Wind routes

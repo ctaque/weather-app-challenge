@@ -4,7 +4,7 @@ use tokio::sync::RwLock;
 use tracing::{error, info};
 
 use crate::models::api_responses::WindRefreshResponse;
-use crate::services::{RedisClient, Scheduler};
+use crate::services::Scheduler;
 
 /// GET /api/wind-status - Get scheduler status
 #[get("/wind-status")]

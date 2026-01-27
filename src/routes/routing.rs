@@ -1,6 +1,6 @@
 use actix_web::{post, web, HttpResponse, Result};
 use reqwest;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tracing::{error, info};
 
 use crate::utils::config::Config;

@@ -3,12 +3,11 @@ use chrono::{DateTime, Datelike, Duration, Timelike, Utc};
 use reqwest;
 use tracing::{error, info};
 
-use crate::models::{PrecipitationData, PrecipitationPoint, WindData, WindMetadata, WindPoint};
+use crate::models::{PrecipitationPoint, WindMetadata, WindPoint};
 use crate::utils::opendap_parser::{
-    parse_opendap_ascii, parse_opendap_precipitation_ascii, ParsedPrecipitationData,
-    ParsedWindData,
+    parse_opendap_ascii, parse_opendap_precipitation_ascii,
 };
-use crate::utils::png_converter::{convert_to_png, WindPngData};
+use crate::utils::png_converter::convert_to_png;
 
 #[derive(Debug, Clone)]
 pub struct ForecastRun {

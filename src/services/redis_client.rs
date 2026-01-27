@@ -3,7 +3,7 @@ use base64::{engine::general_purpose, Engine as _};
 use redis::{aio::ConnectionManager, AsyncCommands, Client};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::{error, info};
+use tracing::info;
 
 const REDIS_TTL: u64 = 60 * 60; // 1 hour in seconds
 const MAX_SIZE: usize = 8 * 1024 * 1024; // 8 MB

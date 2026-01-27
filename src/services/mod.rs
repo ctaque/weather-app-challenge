@@ -4,6 +4,5 @@ pub mod scheduler;
 pub mod anthropic_client;
 
 pub use redis_client::*;
-pub use opendap_downloader::*;
 pub use scheduler::*;
 pub use anthropic_client::*;

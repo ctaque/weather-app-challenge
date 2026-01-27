@@ -4,8 +4,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info};
 
-use crate::models::api_responses::{LastFetchInfo, WindStatusResponse};
-use crate::models::{PrecipitationData, WindData, WindPoint};
+use crate::models::api_responses::LastFetchInfo;
 use crate::services::opendap_downloader::{
     download_precipitation_data_opendap, download_wind_data_opendap,
 };

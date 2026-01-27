@@ -5,10 +5,10 @@ use actix_web::{
         header::{HeaderName, HeaderValue},
         StatusCode,
     },
-    web::{self, Redirect},
+    web::{self},
     HttpResponse, Responder, Result as ActixResult,
 };
-use actix_web::{HttpMessage, HttpRequest};
+use actix_web::HttpRequest;
 use base64::{
     alphabet,
     engine::{self, general_purpose},
@@ -218,7 +218,7 @@ pub async fn login(
                     )),
             }
         }
-        Err(e) => Err(Response::new(
+        Err(_e) => Err(Response::new(
             StatusCode::FORBIDDEN,
             Some("Code expiré, utilisé ou non trouvé".to_string()),
         )
@@ -257,7 +257,7 @@ pub async fn gsi(
     let maybe_user = select_user_from_email(&email, &data).await;
     let api_token = generate_random_string(255);
 
-    let maybe_user = if let Err(e) = maybe_user {
+    let maybe_user = if let Err(_e) = maybe_user {
         insert_user(&name, &email, &api_token, &data).await
     } else {
         maybe_user
@@ -352,7 +352,7 @@ pub async fn me(req: HttpRequest, data: web::Data<AppData>) -> ActixResult<impl 
 
             match user {
                 Ok(u) => Ok(u),
-                Err(e) => Err(Response::new(
+                Err(_e) => Err(Response::new(
                     StatusCode::NOT_FOUND,
                     Some("User not found".to_string()),
                 ))?,

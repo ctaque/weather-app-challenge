@@ -1,5 +1,5 @@
 use crate::models::auth::{AppData, OneTimeCode, User};
-use actix_web::App;
+use crate::models::prefered_address::PreferedAddress;
 use sqlx::{self, migrate::Migrator, postgres::types::PgInterval, PgPool};
 
 static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
@@ -96,4 +96,17 @@ pub async fn get_user_from_api_token(
     sqlx::query_as!(User, "SELECT * from users where api_token = $1", api_token)
         .fetch_one(&data.db)
         .await
+}
+
+pub async fn get_prefered_addresses(
+    user_id: i64,
+    data: &AppData,
+) -> Result<Vec<PreferedAddress>, sqlx::Error> {
+    sqlx::query_as!(
+        PreferedAddress,
+        "SELECT * from prefered_addresses where user_id = $1 and deleted_at is null",
+        user_id
+    )
+    .fetch_all(&data.db)
+    .await
 }
