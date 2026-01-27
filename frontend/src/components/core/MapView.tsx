@@ -13,8 +13,7 @@ import { LanguageContext, ThemeContext } from "../../App";
 import { useParams, useSearchParams } from "react-router-dom";
 import SidePanel from "./SidePanel";
 import ElevationProfile from "./ElevationProfile";
-import arrowIconBlack from "../../assets/arrow-icon.png";
-import arrowIconWhite from "../../assets/arrow-icon-white.png";
+import LayerToggleMenu from "./LayerToggleMenu";
 import { TransportMode } from "./SidePanel";
 
 interface Location {
@@ -28,6 +27,189 @@ interface Waypoint {
   lat: number;
   lon: number;
 }
+
+export const RouteArrows = ({
+  mapRef,
+  routeGeometry,
+  theme,
+  isHoveringRoute,
+}: {
+  mapRef: any;
+  routeGeometry: any;
+  theme: "dark" | "light";
+  isHoveringRoute: boolean;
+}) => {
+  const [arrowPoints, setArrowPoints] = useState<any>({
+    type: "FeatureCollection",
+    features: [],
+  });
+
+  const animationFrameRef = useRef<number | null>(null);
+  const animationProgressRef = useRef(0);
+
+  // --- 1️⃣ Chargement des images ---
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current.getMap();
+
+    const loadImages = async () => {
+      if (!map.isStyleLoaded()) return;
+
+      try {
+        // Charger les images depuis /public
+        const black = await map.loadImage("/arrow-icon.png");
+        const white = await map.loadImage("/arrow-icon-white.png");
+
+        // Ajouter les images seulement si elles n'existent pas
+        if (!map.hasImage("arrow-icon")) map.addImage("arrow-icon", black);
+        if (!map.hasImage("arrow-icon-white"))
+          map.addImage("arrow-icon-white", white);
+
+        console.log("✅ Images de flèches chargées");
+      } catch (err) {
+        console.error("❌ Erreur chargement des flèches:", err);
+      }
+    };
+
+    map.on("style.load", loadImages);
+    if (map.isStyleLoaded()) loadImages();
+
+    // Gestion du cas où une image manque
+    const handleMissing = (e: any) => {
+      if (e.id === "arrow-icon") {
+        map
+          .loadImage("/arrow-icon.png")
+          .then((img) => map.addImage("arrow-icon", img.data));
+      } else if (e.id === "arrow-icon-white") {
+        map
+          .loadImage("/arrow-icon-white.png")
+          .then((img) => map.addImage("arrow-icon-white", img.data));
+      }
+    };
+    map.on("styleimagemissing", handleMissing);
+
+    return () => {
+      map.off("style.load", loadImages);
+      map.off("styleimagemissing", handleMissing);
+    };
+  }, [theme]);
+
+  // --- 2️⃣ Fonction pour calculer les points des flèches ---
+  const calculateArrowPoints = useCallback(
+    (geometry: any, numArrows: number, offset: number) => {
+      if (!geometry || !geometry.coordinates) {
+        return { type: "FeatureCollection", features: [] };
+      }
+
+      const coords = geometry.coordinates;
+      if (coords.length < 2) return { type: "FeatureCollection", features: [] };
+
+      let totalLength = 0;
+      const segments: { start: number[]; end: number[]; length: number }[] = [];
+
+      for (let i = 0; i < coords.length - 1; i++) {
+        const [x1, y1] = coords[i];
+        const [x2, y2] = coords[i + 1];
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        segments.push({ start: [x1, y1], end: [x2, y2], length });
+        totalLength += length;
+      }
+
+      const points: any[] = [];
+      const spacing = totalLength / numArrows;
+
+      for (let i = 0; i < numArrows; i++) {
+        const targetDistance = (i * spacing + offset) % totalLength;
+        let currentDistance = 0;
+
+        for (const segment of segments) {
+          if (currentDistance + segment.length >= targetDistance) {
+            const segmentProgress =
+              (targetDistance - currentDistance) / segment.length;
+            const [x1, y1] = segment.start;
+            const [x2, y2] = segment.end;
+            const x = x1 + (x2 - x1) * segmentProgress;
+            const y = y1 + (y2 - y1) * segmentProgress;
+
+            const angle =
+              (Math.atan2(x2 - x1, y2 - y1) * (180 / Math.PI) + 360) % 360;
+
+            points.push({
+              type: "Feature",
+              geometry: { type: "Point", coordinates: [x, y] },
+              properties: { rotation: angle },
+            });
+            break;
+          }
+          currentDistance += segment.length;
+        }
+      }
+
+      return { type: "FeatureCollection", features: points };
+    },
+    [],
+  );
+
+  // --- 3️⃣ Animation des flèches ---
+  useEffect(() => {
+    console.log("routeGeometry", routeGeometry);
+    if (!routeGeometry) return;
+
+    const numArrows = 15;
+    const speed = 0.0001; // ajustable
+
+    animationProgressRef.current = 0;
+
+    const animate = () => {
+      animationProgressRef.current += speed;
+      if (animationProgressRef.current > 1) animationProgressRef.current -= 1;
+
+      const points = calculateArrowPoints(
+        routeGeometry,
+        numArrows,
+        animationProgressRef.current,
+      );
+
+      setArrowPoints(points);
+
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
+    };
+  }, [routeGeometry, calculateArrowPoints]);
+
+  // --- 4️⃣ Affichage Layer ---
+  return (
+    <>
+      {arrowPoints && (
+        <Source id="arrow-points" type="geojson" data={arrowPoints}>
+          <Layer
+            id="route-arrows"
+            type="symbol"
+            layout={{
+              "icon-image": "arrow-icon",
+              "icon-size": isHoveringRoute ? 0.8 : 0.6,
+              "icon-rotate": ["get", "rotation"],
+              "icon-rotation-alignment": "map",
+              "icon-allow-overlap": true,
+              "icon-ignore-placement": true,
+            }}
+            paint={{
+              "icon-opacity": isHoveringRoute ? 1 : 0.85,
+            }}
+          />
+        </Source>
+      )}
+    </>
+  );
+};
 
 export default function MapView({
   readOnly,
@@ -129,9 +311,29 @@ export default function MapView({
   const animationProgressRef = useRef<number>(0);
   const prevReadOnlyRef = useRef<boolean>(readOnly);
   const theme = React.useContext(ThemeContext);
+  const [mapLayers, setMapLayers] = useState({
+    terrain: false,
+    contours: false,
+    thunderforestCycle: false,
+    bikeRoads: false,
+    satellite: false,
+  });
 
   const { t } = useContext(LanguageContext);
 
+  const openCycleMapKey = "995e7fa280ff4c31872de771b8f28eb9";
+
+  const mapStyle = useMemo(
+    () =>
+      mapLayers.satellite
+        ? "https://api.maptiler.com/maps/satellite-v4/style.json?key=0ELaktRhjBjANQJS6C4s"
+        : theme === "dark"
+          ? "https://tiles.openfreemap.org/styles/liberty"
+          : "https://tiles.openfreemap.org/styles/liberty",
+    [theme, mapLayers.satellite],
+  );
+  /*
+   *
   const mapStyle = useMemo(
     () =>
       theme === "dark"
@@ -139,6 +341,7 @@ export default function MapView({
         : "https://data.lfmaps.fr/styles/bright",
     [theme],
   );
+  */
 
   // Charger l'itinéraire depuis l'API si un UUID est présent dans l'URL
   useEffect(() => {
@@ -328,40 +531,248 @@ export default function MapView({
     }
   }, []);
 
-  // Charger l'icône de flèche SVG dans la map
+  const getMapSafe = () => {
+    if (!mapRef.current) return null;
+    const map = mapRef.current.getMap();
+    return map && map.style ? map : null;
+  };
+
+  // Charger l'icône de flèche SVG dans la map et inspecter les sources
   useEffect(() => {
-    (async () => {
-      if (!mapRef.current) return;
-      const map = mapRef.current.getMap();
+    if (!mapRef.current) return;
 
-      const loadImages = async () => {
-        try {
-          const imageBlack = await map.loadImage(arrowIconBlack);
-          const imageLight = await map.loadImage(arrowIconWhite);
+    const map = mapRef.current.getMap();
 
-          if (map.hasImage("arrow-icon")) {
-            map.removeImage("arrow-icon");
-          }
-          if (map.hasImage("arrow-icon-white")) {
-            map.removeImage("arrow-icon-white");
-          }
+    map.loadImage("/arrow-icon.png").then(
+      () => console.log("image chargée"),
+      (err) => console.error("image KO", err),
+    );
+    const loadImages = async () => {
+      if (!map.isStyleLoaded()) return;
 
-          map.addImage("arrow-icon", imageBlack.data);
-          map.addImage("arrow-icon-white", imageLight.data);
+      try {
+        const black = await map.loadImage(
+          "http://localhost:8080/arrow-icon.png",
+        );
+        const white = await map.loadImage(
+          "http://localhost:8080/arrow-icon-white.png",
+        );
 
-          console.log("Images de flèches chargées");
-        } catch (error) {
-          console.error("Erreur chargement des flèches:", error);
-        }
-      };
+        map.addImage("arrow-icon", black.data);
 
-      if (map.loaded()) {
-        await loadImages();
-      } else {
-        map.once("load", loadImages);
+        map.addImage("arrow-icon-white", white.data);
+
+        console.log("✅ Images de flèches chargées");
+      } catch (error) {
+        console.error("❌ Erreur chargement des flèches:", error);
       }
-    })();
+    };
+
+    // 🔥 LE BON EVENT
+    map.on("style.load", loadImages);
+
+    // Cas où le style est déjà prêt
+    if (map.isStyleLoaded()) {
+      loadImages();
+    }
+
+    return () => {
+      map.off("style.load", loadImages);
+    };
   }, [theme]);
+
+  // Gérer la couche de terrain (relief 3D et hillshade)
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const map = mapRef.current.getMap();
+
+    const updateTerrain = () => {
+      if (!map.isStyleLoaded()) return;
+
+      console.log("Setup terrain 3D:", mapLayers.terrain);
+
+      if (mapLayers.terrain) {
+        if (!map.getSource("terrain-dem")) {
+          console.log("Ajout de la source terrain-dem");
+          map.addSource("terrain-dem", {
+            type: "raster-dem",
+            tiles: [
+              "https://api.maptiler.com/tiles/terrain-rgb-v2/{z}/{x}/{y}.webp?key=0ELaktRhjBjANQJS6C4s",
+            ],
+            tileSize: 256,
+          });
+        }
+
+        console.log("Activation du terrain 3D");
+        map.setTerrain({
+          source: "terrain-dem",
+          exaggeration: 1.2,
+        });
+
+        if (!map.getLayer("hillshade")) {
+          console.log("Ajout de la couche hillshade");
+          map.addLayer({
+            id: "hillshade",
+            type: "hillshade",
+            source: "terrain-dem",
+            paint: {
+              "hillshade-shadow-color": "#473B24",
+            },
+          });
+        }
+      } else {
+        console.log("Désactivation du terrain 3D");
+
+        map.setTerrain(null);
+
+        if (map.getLayer("hillshade")) {
+          map.removeLayer("hillshade");
+        }
+
+        if (map.getSource("terrain-dem")) {
+          map.removeSource("terrain-dem");
+        }
+      }
+    };
+
+    // 🔥 LE BON EVENT
+    map.on("style.load", updateTerrain);
+
+    // Cas où le style est déjà prêt
+    if (map.isStyleLoaded()) {
+      updateTerrain();
+    }
+
+    return () => {
+      map.off("style.load", updateTerrain);
+    };
+  }, [mapLayers.terrain]);
+
+  // Gérer la couche de courbes de niveau
+  // 1. Crée une fonction de sécurité pour vérifier la disponibilité de la map
+  // 2. Exemple corrigé pour les courbes de niveau
+  useEffect(() => {
+    const map = getMapSafe();
+    if (!map) return;
+
+    const updateContours = () => {
+      if (mapLayers.contours) {
+        console.log("🚀 Activation des contours...");
+
+        if (!map.getSource("contours-source")) {
+          map.addSource("contours-source", {
+            type: "vector",
+            url: "https://api.maptiler.com/tiles/contours/tiles.json?key=0ELaktRhjBjANQJS6C4s",
+          });
+        }
+
+        if (!map.getLayer("contours")) {
+          map.addLayer({
+            id: "contours",
+            type: "line",
+            source: "contours-source",
+            "source-layer": "contour",
+            paint: {
+              "line-color": "#a08c6c",
+              "line-width": 1,
+              "line-opacity": 0.8,
+            },
+          });
+        }
+      } else {
+        if (map.getLayer("contours")) {
+          console.log("🛑 Suppression des contours");
+          map.removeLayer("contours");
+        }
+
+        if (map.getSource("contours-source")) {
+          map.removeSource("contours-source");
+        }
+      }
+    };
+
+    // 🔥 LE BON EVENT
+    if (!map.isStyleLoaded()) {
+      map.once("style.load", updateContours);
+    } else {
+      updateContours();
+    }
+
+    // 🧹 cleanup React
+    return () => {
+      if (map.getLayer("contours")) {
+        map.removeLayer("contours");
+      }
+      if (map.getSource("contours-source")) {
+        map.removeSource("contours-source");
+      }
+    };
+  }, [mapLayers.contours]);
+
+  // Gérer la couche de pistes cyclables
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const map = mapRef.current.getMap();
+
+    const updateThunderforest = () => {
+      if (!map.isStyleLoaded()) return;
+
+      const beforeId =
+        map.getLayer("road_label")?.id ||
+        map.getLayer("road-label")?.id ||
+        undefined;
+
+      if (mapLayers.thunderforestCycle) {
+        // Source raster
+        if (!map.getSource("thunderforest-cycle")) {
+          map.addSource("thunderforest-cycle", {
+            type: "raster",
+            tiles: [
+              "https://tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey=" +
+              openCycleMapKey,
+            ],
+            tileSize: 256,
+            attribution: "© Thunderforest, © OpenStreetMap contributors",
+          });
+        }
+
+        // Layer raster
+        if (!map.getLayer("thunderforest-cycle")) {
+          map.addLayer(
+            {
+              id: "thunderforest-cycle",
+              type: "raster",
+              source: "thunderforest-cycle",
+              paint: {
+                "raster-opacity": 1,
+              },
+            },
+            beforeId,
+          );
+        }
+      } else {
+        // Nettoyage
+        if (map.getLayer("thunderforest-cycle")) {
+          map.removeLayer("thunderforest-cycle");
+        }
+        if (map.getSource("thunderforest-cycle")) {
+          map.removeSource("thunderforest-cycle");
+        }
+      }
+    };
+
+    map.on("style.load", updateThunderforest);
+
+    if (map.isStyleLoaded()) {
+      updateThunderforest();
+    }
+
+    return () => {
+      map.off("style.load", updateThunderforest);
+    };
+  }, [mapLayers.thunderforestCycle]);
 
   const recenterMap = () => {
     if ("geolocation" in navigator) {
@@ -510,9 +921,9 @@ export default function MapView({
         const a =
           Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
           Math.cos(lat1) *
-            Math.cos(lat2) *
-            Math.sin(deltaLon / 2) *
-            Math.sin(deltaLon / 2);
+          Math.cos(lat2) *
+          Math.sin(deltaLon / 2) *
+          Math.sin(deltaLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const segmentDistance = R * c;
 
@@ -724,9 +1135,9 @@ export default function MapView({
           const a =
             Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
             Math.cos(lat1) *
-              Math.cos(lat2) *
-              Math.sin(deltaLon / 2) *
-              Math.sin(deltaLon / 2);
+            Math.cos(lat2) *
+            Math.sin(deltaLon / 2) *
+            Math.sin(deltaLon / 2);
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           const segmentDistance = R * c;
 
@@ -1022,15 +1433,26 @@ export default function MapView({
   useEffect(() => {
     if (!routeGeometry) {
       console.log("Pas de routeGeometry, pas de flèches");
-      setArrowPoints(null);
+      setArrowPoints([]);
       return;
     }
 
     console.log("Animation des flèches démarrée");
-    const numArrows = 15; // Nombre de flèches sur l'itinéraire
+
+    const numArrows = 15;
+    const speed = 0.0015; // ajustable : vitesse de défilement
+
+    // Reset de la progression à chaque nouveau tracé
+    animationProgressRef.current = 0;
 
     const animate = () => {
-      animationProgressRef.current += 0.00002; // Vitesse d'animation ralentie
+      animationProgressRef.current += speed;
+
+      // On boucle entre 0 et 1
+      if (animationProgressRef.current > 1) {
+        animationProgressRef.current -= 1;
+      }
+
       const points = calculateArrowPoints(
         routeGeometry,
         numArrows,
@@ -1041,12 +1463,13 @@ export default function MapView({
       animationFrameRef.current = requestAnimationFrame(animate);
     };
 
-    animate();
+    animationFrameRef.current = requestAnimationFrame(animate);
 
     return () => {
       console.log("Animation des flèches arrêtée");
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
     };
   }, [routeGeometry, calculateArrowPoints]);
@@ -1093,9 +1516,9 @@ export default function MapView({
         const a =
           Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
           Math.cos(lat1) *
-            Math.cos(lat2) *
-            Math.sin(deltaLon / 2) *
-            Math.sin(deltaLon / 2);
+          Math.cos(lat2) *
+          Math.sin(deltaLon / 2) *
+          Math.sin(deltaLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const segmentDistance = R * c;
 
@@ -1519,46 +1942,12 @@ export default function MapView({
           )}
 
         {/* Flèches animées le long de l'itinéraire */}
-        {arrowPoints && theme === "dark" ? (
-          <Source id="arrow-points" type="geojson" data={arrowPoints}>
-            <Layer
-              id="route-arrows"
-              type="symbol"
-              layout={{
-                "icon-image": "arrow-icon-white",
-                "icon-size": isHoveringRoute ? 0.6 : 0.5,
-                "icon-rotate": ["get", "rotation"],
-                "icon-rotation-alignment": "map",
-                "icon-allow-overlap": true,
-                "icon-ignore-placement": true,
-              }}
-              paint={{
-                "icon-opacity": isHoveringRoute ? 1 : 0.85,
-              }}
-            />
-          </Source>
-        ) : (
-          <></>
-        )}
-        {arrowPoints && theme === "light" && (
-          <Source id="arrow-points" type="geojson" data={arrowPoints}>
-            <Layer
-              id="route-arrows"
-              type="symbol"
-              layout={{
-                "icon-image": "arrow-icon",
-                "icon-size": isHoveringRoute ? 0.6 : 0.5,
-                "icon-rotate": ["get", "rotation"],
-                "icon-rotation-alignment": "map",
-                "icon-allow-overlap": true,
-                "icon-ignore-placement": true,
-              }}
-              paint={{
-                "icon-opacity": isHoveringRoute ? 1 : 0.85,
-              }}
-            />
-          </Source>
-        )}
+        <RouteArrows
+          mapRef={mapRef}
+          routeGeometry={routeGeometry} // GeoJSON LineString de ton itinéraire
+          theme={theme} // "dark" | "light"
+          isHoveringRoute={isHoveringRoute} // boolean pour hover
+        />
 
         {/* Start Point Marker */}
         {startPoint && (
@@ -1853,6 +2242,23 @@ export default function MapView({
           </svg>
         )}
       </button>
+
+      {/* Menu de contrôle des couches */}
+      <LayerToggleMenu
+        onToggleTerrain={(enabled) =>
+          setMapLayers((prev) => ({ ...prev, terrain: enabled }))
+        }
+        onToggleContours={(enabled) =>
+          setMapLayers((prev) => ({ ...prev, contours: enabled }))
+        }
+        onToggleCycleways={(enabled) =>
+          setMapLayers((prev) => ({ ...prev, thunderforestCycle: enabled }))
+        }
+        onToggleSatellite={(enabled) =>
+          setMapLayers((prev) => ({ ...prev, satellite: enabled }))
+        }
+        layersState={mapLayers}
+      />
 
       {/* Context Menu */}
       {contextMenu && !readOnly && (
