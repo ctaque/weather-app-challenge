@@ -1,5 +1,6 @@
 import React, { useContext, useState, useEffect } from "react";
 import { ThemeContext } from "../../App";
+import { ArrowUpToLine } from "lucide-react";
 
 interface ElevationPoint {
   distance: number; // en mètres
@@ -25,6 +26,8 @@ export default function ElevationProfile({
 }: ElevationProfileProps) {
   const theme = useContext(ThemeContext);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [visible, setVisivle] = React.useState(true);
+  const wrappeRef = React.useRef(null);
   const [hoverPosition, setHoverPosition] = useState<{
     x: number;
     distance: number;
@@ -131,12 +134,15 @@ export default function ElevationProfile({
 
   return (
     <div
+      ref={wrappeRef}
       style={{
         borderRadius: "6px",
         backgroundColor: theme === "dark" ? "#89a380" : "#f3f4f6",
         color: "#222",
         position: "fixed",
-        bottom: "1rem",
+        bottom: visible
+          ? "1rem"
+          : `-${wrappeRef?.current ? wrappeRef?.current?.getBoundingClientRect()?.height : 0}px`,
         left: `${leftPosition}px`,
         padding: `${containerPadding}px`,
         transition: "left 0.3s ease-in-out, width 0.3s ease-in-out",
@@ -144,6 +150,34 @@ export default function ElevationProfile({
       }}
       className="elevation-profile"
     >
+      <button
+        onClick={() => setVisivle((v) => !v)}
+        style={{
+          position: "fixed",
+          bottom: visible
+            ? wrappeRef?.current
+              ? `${wrappeRef?.current?.getBoundingClientRect().height + 10}px`
+              : 0
+            : 0,
+          left: "50%",
+          transform: "translateX: -50%",
+          backgroundColor: "#89a380",
+          width: "3rem",
+          borderTopLeftRadius: "1rem",
+          borderTopRightRadius: "1rem",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "2rem",
+        }}
+      >
+        <span>
+          <ArrowUpToLine
+            style={{ transform: visible ? "rotate(180deg)" : "" }}
+          />
+        </span>
+      </button>
       <svg
         width={width}
         height={height}
