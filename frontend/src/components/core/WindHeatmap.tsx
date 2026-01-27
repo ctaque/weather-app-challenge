@@ -1255,6 +1255,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
       <style>{`
         .wind-heatmap-container {
           margin: .2rem 0;
+          paddingTop: 1rem;
         }
 
         .preload-progress {
@@ -1307,6 +1308,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
 
         .wind-heatmap-controls {
           display: flex;
+          padding-top: 1rem;
           gap: 0.5rem;
           align-items: center;
           max-width: 100%;

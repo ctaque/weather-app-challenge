@@ -245,8 +245,8 @@ function makeForecastForCity(
   const currentTemp = nowEntry
     ? Math.round(nowEntry.temp_c)
     : Math.round(
-        (todayForecast.day.maxtemp_c + todayForecast.day.mintemp_c) / 2,
-      );
+      (todayForecast.day.maxtemp_c + todayForecast.day.mintemp_c) / 2,
+    );
   const currentCondition = nowEntry
     ? nowEntry.condition.text
     : todayForecast.day.condition.text;
@@ -412,9 +412,9 @@ export default function WeatherGrid() {
                     h.time ??
                     (h.time_epoch
                       ? new Date(h.time_epoch * 1000)
-                          .toISOString()
-                          .replace("T", " ")
-                          .slice(0, 16)
+                        .toISOString()
+                        .replace("T", " ")
+                        .slice(0, 16)
                       : `${dateStr} ${String(h.hour ?? "00").padStart(2, "0")}:00`);
                   const temp_c =
                     typeof h.temp_c !== "undefined"
@@ -568,9 +568,9 @@ export default function WeatherGrid() {
             const currentTemp = nowEntry
               ? Math.round(nowEntry.temp_c)
               : Math.round(
-                  (todayForecast.day.maxtemp_c + todayForecast.day.mintemp_c) /
-                    2,
-                );
+                (todayForecast.day.maxtemp_c + todayForecast.day.mintemp_c) /
+                2,
+              );
             copy[idx].current = {
               ...copy[idx].current,
               temp_c: currentTemp,
@@ -685,9 +685,9 @@ export default function WeatherGrid() {
                 hourEntries.length > 0
                   ? computeDayMinMaxFromHours(hourEntries)
                   : {
-                      maxtemp_c: ad.day?.maxtemp_c || 0,
-                      mintemp_c: ad.day?.mintemp_c || 0,
-                    };
+                    maxtemp_c: ad.day?.maxtemp_c || 0,
+                    mintemp_c: ad.day?.mintemp_c || 0,
+                  };
 
               return {
                 date: dateStr,
@@ -797,9 +797,9 @@ export default function WeatherGrid() {
                     hourEntries.length > 0
                       ? computeDayMinMaxFromHours(hourEntries)
                       : {
-                          maxtemp_c: ad.day?.maxtemp_c || 0,
-                          mintemp_c: ad.day?.mintemp_c || 0,
-                        };
+                        maxtemp_c: ad.day?.maxtemp_c || 0,
+                        mintemp_c: ad.day?.mintemp_c || 0,
+                      };
 
                   return {
                     date: dateStr,
@@ -1023,7 +1023,7 @@ export default function WeatherGrid() {
         </div>
       </div>
 
-      <div style={{ marginTop: 12 }}>
+      <div>
         <CityCard
           ref={cityCardRef}
           data={customCityData || dataList[selectedCityIndex]}
@@ -1034,14 +1034,13 @@ export default function WeatherGrid() {
             {error}
           </div>
         )}
+        {/* Wind Heatmap for selected city */}
+        {currentLocation && (
+          <div style={{ marginTop: 24, paddingTop: "1rem" }}>
+            <WindHeatmap location={currentLocation} />
+          </div>
+        )}
       </div>
-
-      {/* Wind Heatmap for selected city */}
-      {currentLocation && (
-        <div style={{ marginTop: 24 }}>
-          <WindHeatmap location={currentLocation} />
-        </div>
-      )}
     </section>
   );
 }
@@ -1343,10 +1342,10 @@ const CityCard = React.forwardRef<
                   style={
                     isCurrentHour
                       ? {
-                          backgroundColor: "var(--accent)",
-                          color: "#ffffff",
-                          border: "2px solid var(--selection-border)",
-                        }
+                        backgroundColor: "var(--accent)",
+                        color: "#ffffff",
+                        border: "2px solid var(--selection-border)",
+                      }
                       : undefined
                   }
                 >
@@ -1409,7 +1408,7 @@ const CityCard = React.forwardRef<
           )}
 
           {selectedDay?.day?.api_mintemp_c !== undefined ||
-          selectedDay?.day?.api_maxtemp_c !== undefined ? (
+            selectedDay?.day?.api_maxtemp_c !== undefined ? (
             <div className="small muted" style={{ marginTop: 6 }}>
               {t.apiValues}{" "}
               {units === "knots-celsius"
