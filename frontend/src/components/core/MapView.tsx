@@ -135,8 +135,8 @@ export default function MapView({
   const mapStyle = useMemo(
     () =>
       theme === "dark"
-        ? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
-        : "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+        ? "https://data.lfmaps.fr/styles/positron"
+        : "https://data.lfmaps.fr/styles/bright",
     [theme],
   );
 
@@ -207,7 +207,9 @@ export default function MapView({
     const isNowReadOnly = readOnly === true;
 
     if (wasEditing && isNowReadOnly && originalRouteData && params.uuid) {
-      console.log("Annulation des modifications, restauration de l'itinéraire original");
+      console.log(
+        "Annulation des modifications, restauration de l'itinéraire original",
+      );
       setStartPoint(originalRouteData.startPoint);
       setEndPoint(originalRouteData.endPoint);
       setWaypoints(originalRouteData.waypoints);
