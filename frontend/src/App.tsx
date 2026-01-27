@@ -179,7 +179,6 @@ function AppHeader({
           alignItems: "center",
           gap: "0.5rem",
           maxWidth: "100%",
-          overflowX: "auto",
         }}
       >
         {window.matchMedia("(max-width: 768px)").matches ? (

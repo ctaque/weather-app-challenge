@@ -1,8 +1,15 @@
 import { useContext } from "react";
 import { LanguageContext, ThemeContext, UnitSystem } from "../../App";
 import { Language, Translations } from "@/i18n";
-import { LanguagesIcon, MoonIcon, SunIcon } from "lucide-react";
+import {
+  LanguagesIcon,
+  LogIn,
+  MoonIcon,
+  SunIcon,
+  Fingerprint,
+} from "lucide-react";
 import ExportMenu from "../ui/MenuSave";
+import { Link } from "react-router";
 
 interface SidePanelProps {
   isOpen: boolean;
@@ -12,7 +19,7 @@ interface SidePanelProps {
   lang: Language;
   t: Translations;
   units: UnitSystem;
-  setMobileMenuOpen: () => void;
+  setMobileMenuOpen: (value: boolean) => void;
 }
 
 export default function MobileSiderPanel({
@@ -20,6 +27,7 @@ export default function MobileSiderPanel({
   toggleUnits,
   toggleTheme,
   toggleLanguage,
+  setMobileMenuOpen,
   units,
 }: SidePanelProps) {
   const theme = useContext(ThemeContext);
@@ -63,6 +71,26 @@ export default function MobileSiderPanel({
         >
           Menu
         </h2>
+        <Link
+          onClick={() => setMobileMenuOpen(false)}
+          className="theme-toggle"
+          to="/auth/login"
+        >
+          <span className="theme-icon">
+            <LogIn />
+          </span>
+          <span className="theme-label">Login</span>
+        </Link>
+        <Link
+          className="theme-toggle"
+          to="/auth/register"
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <span className="theme-icon">
+            <Fingerprint />
+          </span>
+          <span className="theme-label">Register</span>
+        </Link>
         <ExportMenu />
         <button
           onClick={toggleLanguage}
