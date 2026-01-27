@@ -124,7 +124,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
       if (!response.ok) throw new Error("Failed to fetch wind indices");
       const data = await response.json();
 
-      const reversedIndices = [...data.indices].reverse();
+      const reversedIndices = [...data].reverse();
       setAvailableIndices(reversedIndices);
 
       // Select the latest index by default (now first in reversed array)
@@ -523,6 +523,7 @@ export default function WindHeatmap({ location }: WindHeatmapProps) {
   useEffect(() => {
     const indices =
       displayMode === "wind" ? availableIndices : availablePrecipIndices;
+    console.log(indices);
 
     if (!isPlaying || indices.length === 0) {
       if (playIntervalRef.current) {
