@@ -1,7 +1,7 @@
 import { MyEventContext, useAuth } from "@/App";
 import { useState, useRef, useEffect, useContext } from "react";
 import { Save, Download, Plus, ShieldUser, Edit, Trash } from "lucide-react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 
 export default function ExportMenu({
   saveEdits,
@@ -18,6 +18,7 @@ export default function ExportMenu({
   const ref = useRef<HTMLDivElement>(null);
   const { declencherEvenement } = useContext(MyEventContext);
   const location = useLocation();
+  const navigate = useNavigate();
   // Fermer au clic extérieur
   const [me, loading] = useAuth();
   useEffect(() => {
@@ -35,6 +36,22 @@ export default function ExportMenu({
     justifyContent: "flex-start",
     alignContent: "center",
     gap: ".4rem",
+  };
+
+  const handleCreateNewRoute = () => {
+    // Nettoyer le localStorage
+    localStorage.removeItem("saved-route");
+    localStorage.removeItem("saved-route-uuid");
+    localStorage.removeItem("saved-route-name");
+
+    // Fermer le menu
+    setOpen(false);
+
+    // Naviguer vers /plan pour créer un nouveau parcours
+    navigate("/plan");
+
+    // Recharger la page pour réinitialiser complètement le composant MapView
+    window.location.href = "/plan";
   };
 
   return (
@@ -118,6 +135,23 @@ export default function ExportMenu({
           )
         ) : (
           <></>
+        )}
+        {location.pathname.match(
+          new RegExp(
+            /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
+          ),
+        ) && (
+          <button
+            onClick={handleCreateNewRoute}
+            style={{ ...innerButtonStyle, padding: ".75rem" }}
+            title="Create new route"
+            aria-label="Create new route"
+          >
+            <span className="theme-icon" aria-hidden>
+              <Plus />
+            </span>
+            <span className="theme-label">Créer un itinéraire</span>
+          </button>
         )}
         {!location.pathname.startsWith("/plan") && (
           <Link
