@@ -40,17 +40,17 @@ function calculateZoom(bbox: number[], width: number, height: number): number {
   const maxDiff = Math.max(lngDiff, latDiff);
 
   let zoom;
-  if (maxDiff > 10) zoom = 5;
-  else if (maxDiff > 5) zoom = 6;
-  else if (maxDiff > 2) zoom = 7;
-  else if (maxDiff > 1) zoom = 8;
-  else if (maxDiff > 0.5) zoom = 9;
-  else if (maxDiff > 0.25) zoom = 10;
-  else if (maxDiff > 0.1) zoom = 11;
-  else if (maxDiff > 0.05) zoom = 12;
-  else if (maxDiff > 0.025) zoom = 13;
-  else if (maxDiff > 0.01) zoom = 14;
-  else zoom = 15;
+  if (maxDiff > 10) zoom = 3;
+  else if (maxDiff > 5) zoom = 5;
+  else if (maxDiff > 2) zoom = 6;
+  else if (maxDiff > 1) zoom = 7;
+  else if (maxDiff > 0.5) zoom = 8;
+  else if (maxDiff > 0.25) zoom = 9;
+  else if (maxDiff > 0.1) zoom = 10;
+  else if (maxDiff > 0.05) zoom = 11;
+  else if (maxDiff > 0.025) zoom = 12;
+  else if (maxDiff > 0.01) zoom = 13;
+  else zoom = 13;
 
   console.log("Calculated zoom from maxDiff:", maxDiff, "=>", zoom);
   return zoom;
@@ -101,23 +101,25 @@ export default function StaticRouteMap({
     })),
   };
 
-  console.log(routeGeoJSON);
-
   // Gérer bbox avec ou sans altitude (4 ou 6 éléments)
   const minLon = route.bbox ? route.bbox[0] : 0;
   const minLat = route.bbox ? route.bbox[1] : 0;
-  const maxLon = route.bbox ? (route.bbox.length === 6 ? route.bbox[3] : route.bbox[2]) : 0;
-  const maxLat = route.bbox ? (route.bbox.length === 6 ? route.bbox[4] : route.bbox[3]) : 0;
+  const maxLon = route.bbox
+    ? route.bbox.length === 6
+      ? route.bbox[3]
+      : route.bbox[2]
+    : 0;
+  const maxLat = route.bbox
+    ? route.bbox.length === 6
+      ? route.bbox[4]
+      : route.bbox[3]
+    : 0;
 
   const centerLon = (minLon + maxLon) / 2;
   const centerLat = (minLat + maxLat) / 2;
   const calculatedZoom = route.bbox
     ? calculateZoom(route.bbox, width, height)
     : 10;
-
-  console.log("Route bbox:", route.bbox);
-  console.log("Center:", { centerLon, centerLat });
-  console.log("Calculated zoom:", calculatedZoom);
 
   return (
     <div
@@ -135,7 +137,10 @@ export default function StaticRouteMap({
           latitude: centerLat,
           zoom: calculatedZoom,
         }}
-        style={{ width: "100%", height: "100%" }}
+        style={{
+          width: "100%",
+          height: "100%",
+        }}
         mapStyle={mapStyle}
         interactive={false}
         attributionControl={false}

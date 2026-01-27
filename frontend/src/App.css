@@ -235,8 +235,8 @@ a:hover {
 /* Profile Page Styles */
 .profile-container {
   max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
+  width: 100%;
+  padding: 0.5rem;
   z-index: 1;
   @media screen and (min-width: 1000px) {
     width: 80%;
@@ -304,6 +304,9 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
+  @media (max-width: 768px) {
+    max-height: 150px;
+  }
 }
 
 .route-map img {
@@ -397,7 +400,6 @@ a:hover {
 
 @media (max-width: 768px) {
   .profile-container {
-    padding: 1rem;
   }
 
   .routes-grid {
