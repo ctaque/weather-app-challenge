@@ -1,14 +1,25 @@
-import { MyEventContext } from "@/App";
+import { MyEventContext, useAuth } from "@/App";
 import { useState, useRef, useEffect, useContext } from "react";
-import { Save, Download, Plus, ShieldUser } from "lucide-react";
+import { Save, Download, Plus, ShieldUser, Edit, Trash } from "lucide-react";
 import { Link, useLocation } from "react-router";
 
-export default function ExportMenu() {
+export default function ExportMenu({
+  saveEdits,
+  cancelEdits,
+  readOnly,
+  toggleEdit,
+}: {
+  saveEdits: () => void;
+  cancelEdits: () => void;
+  readOnly: boolean;
+  toggleEdit: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { declencherEvenement } = useContext(MyEventContext);
   const location = useLocation();
   // Fermer au clic extérieur
+  const [me, loading] = useAuth();
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -51,29 +62,62 @@ export default function ExportMenu() {
         className={`dropdown ${open ? "open" : ""}`}
         style={{ zIndex: 50, width: "13rem" }}
       >
-        {location.pathname.startsWith("/plan") && (
-          <>
+        {!loading &&
+        me &&
+        location.pathname.match(
+          new RegExp(
+            /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
+          ),
+        ) ? (
+          !readOnly ? (
+            <>
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  saveEdits();
+                }}
+                style={{ ...innerButtonStyle, padding: ".75rem" }}
+                title="Save edits"
+                aria-label="Save edits"
+              >
+                <span className="theme-icon" aria-hidden>
+                  <Save />
+                </span>
+                <span className="theme-label">Sauvegarder</span>
+              </button>
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  cancelEdits();
+                }}
+                style={{ ...innerButtonStyle, padding: ".75rem" }}
+                title="Cancel edit intinerary"
+                aria-label="Cancel edit itinerary"
+              >
+                <span className="theme-icon" aria-hidden>
+                  <Trash />
+                </span>
+                <span className="theme-label">Annuler l'édition</span>
+              </button>
+            </>
+          ) : (
             <button
               onClick={() => {
-                declencherEvenement({ type: "save_route", value: null });
                 setOpen(false);
+                toggleEdit();
               }}
+              title="Edit intinerary"
+              style={{ ...innerButtonStyle, padding: ".75rem" }}
+              aria-label="Edit itinerary"
             >
-              <div style={innerButtonStyle}>
-                <Save /> Enregistrer
-              </div>
+              <span className="theme-icon" aria-hidden>
+                <Edit />
+              </span>
+              <span className="theme-label">Modifier le parcours</span>
             </button>
-            <button
-              onClick={() => {
-                declencherEvenement({ type: "export_gpx", value: null });
-                setOpen(false);
-              }}
-            >
-              <div style={innerButtonStyle}>
-                <Download /> Exporter .gpx
-              </div>
-            </button>
-          </>
+          )
+        ) : (
+          <></>
         )}
         {!location.pathname.startsWith("/plan") && (
           <Link
@@ -89,18 +133,30 @@ export default function ExportMenu() {
             </div>
           </Link>
         )}
-        <Link
-          to="/profile"
-          className="hover"
-          style={{ ...innerButtonStyle, padding: ".75rem" }}
+        {me && !loading && (
+          <Link
+            to="/profile"
+            className="hover"
+            style={{ ...innerButtonStyle, padding: ".75rem" }}
+            onClick={() => {
+              setOpen(false);
+            }}
+          >
+            <div style={innerButtonStyle}>
+              <ShieldUser /> Itinéraires enregistrés
+            </div>
+          </Link>
+        )}
+        <button
           onClick={() => {
+            declencherEvenement({ type: "export_gpx", value: null });
             setOpen(false);
           }}
         >
           <div style={innerButtonStyle}>
-            <ShieldUser /> Itinéraires enregistrés
+            <Download /> Exporter .gpx
           </div>
-        </Link>
+        </button>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { LanguageContext, ThemeContext, UnitSystem } from "../../App";
+import { LanguageContext, ThemeContext, UnitSystem, useAuth } from "../../App";
 import { Language, Translations } from "@/i18n";
 import {
   LanguagesIcon,
@@ -7,6 +7,9 @@ import {
   MoonIcon,
   SunIcon,
   Fingerprint,
+  Save,
+  Trash,
+  Edit,
 } from "lucide-react";
 import ExportMenu from "../ui/MenuSave";
 import { Link } from "react-router";
@@ -20,6 +23,10 @@ interface SidePanelProps {
   t: Translations;
   units: UnitSystem;
   setMobileMenuOpen: (value: boolean) => void;
+  readOnly: boolean;
+  saveEdits: () => void;
+  cancelEdits: () => void;
+  toggleEdit: () => void;
 }
 
 export default function MobileSiderPanel({
@@ -29,9 +36,14 @@ export default function MobileSiderPanel({
   toggleLanguage,
   setMobileMenuOpen,
   units,
+  readOnly,
+  saveEdits,
+  cancelEdits,
+  toggleEdit,
 }: SidePanelProps) {
   const theme = useContext(ThemeContext);
   const { t, lang } = useContext(LanguageContext);
+  const [me, loading] = useAuth();
   return (
     <div
       style={{
@@ -71,27 +83,36 @@ export default function MobileSiderPanel({
         >
           Menu
         </h2>
-        <Link
-          onClick={() => setMobileMenuOpen(false)}
-          className="theme-toggle"
-          to="/auth/login"
-        >
-          <span className="theme-icon">
-            <LogIn />
-          </span>
-          <span className="theme-label">Login</span>
-        </Link>
-        <Link
-          className="theme-toggle"
-          to="/auth/register"
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          <span className="theme-icon">
-            <Fingerprint />
-          </span>
-          <span className="theme-label">Register</span>
-        </Link>
-        <ExportMenu />
+        {!me && (
+          <>
+            <Link
+              onClick={() => setMobileMenuOpen(false)}
+              className="theme-toggle"
+              to="/auth/login"
+            >
+              <span className="theme-icon">
+                <LogIn />
+              </span>
+              <span className="theme-label">Login</span>
+            </Link>
+            <Link
+              className="theme-toggle"
+              to="/auth/register"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <span className="theme-icon">
+                <Fingerprint />
+              </span>
+              <span className="theme-label">Register</span>
+            </Link>
+          </>
+        )}
+        <ExportMenu
+          cancelEdits={cancelEdits}
+          saveEdits={saveEdits}
+          toggleEdit={toggleEdit}
+          readOnly={readOnly}
+        />
         <button
           onClick={toggleLanguage}
           className="theme-toggle mobile"

@@ -29,7 +29,7 @@ type User = {
   email: string;
 };
 
-const useAuth = (): [User | null, boolean] => {
+export const useAuth = (): [User | null, boolean] => {
   const [me, setMe] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -203,54 +203,12 @@ function AppHeader({
           </>
         ) : (
           <>
-            <ExportMenu />
-            {location.pathname.match(
-              new RegExp(
-                /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
-              ),
-            ) ? (
-              !readOnly ? (
-                <>
-                  <button
-                    onClick={saveEdits}
-                    className="theme-toggle"
-                    title="Edit intinerar"
-                    aria-label="Edit itinerary"
-                  >
-                    <span className="theme-icon" aria-hidden>
-                      <Save />
-                    </span>
-                    <span className="theme-label">Sauvegarder</span>
-                  </button>
-                  <button
-                    onClick={cancelEdits}
-                    className="theme-toggle"
-                    title="Edit intinerar"
-                    aria-label="Edit itinerary"
-                  >
-                    <span className="theme-icon" aria-hidden>
-                      <Trash />
-                    </span>
-                    <span className="theme-label">Annuler</span>
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={toggleEdit}
-                  className="theme-toggle"
-                  title="Edit intinerar"
-                  aria-label="Edit itinerary"
-                >
-                  <span className="theme-icon" aria-hidden>
-                    <Edit />
-                  </span>
-                  <span className="theme-label">Modifier le parcours</span>
-                </button>
-              )
-            ) : (
-              <></>
-            )}
-
+            <ExportMenu
+              toggleEdit={toggleEdit}
+              cancelEdits={cancelEdits}
+              readOnly={readOnly}
+              saveEdits={saveEdits}
+            />
             <button
               onClick={toggleLanguage}
               className="theme-toggle"
@@ -418,7 +376,7 @@ export function SaveRouteModal({
                 ...buttonStyle,
               }}
             >
-              Annuler
+              Annuler l'édition
             </Button>
             <Button
               style={{ ...buttonStyle }}
@@ -856,9 +814,35 @@ function App() {
                 lang={lang}
                 isOpen={mobileMenuOpen}
                 t={t}
-                toggleLanguage={toggleLanguage}
-                toggleTheme={toggleTheme}
-                toggleUnits={toggleUnits}
+                toggleLanguage={() => {
+                  setMobileMenuOpen(false);
+                  toggleLanguage();
+                }}
+                toggleTheme={() => {
+                  setMobileMenuOpen(false);
+                  toggleTheme();
+                }}
+                toggleUnits={() => {
+                  setMobileMenuOpen(false);
+                  toggleUnits();
+                }}
+                cancelEdits={() => {
+                  discardEdits();
+                  setMobileMenuOpen(false);
+                }}
+                toggleEdit={() => {
+                  setMobileMenuOpen(false);
+                  if (!location.pathname.endsWith("/edit")) {
+                    navigate(location.pathname + "/edit");
+                  } else {
+                    navigate(location.pathname.replace("/edit", ""));
+                  }
+                }}
+                saveEdits={() => {
+                  setMobileMenuOpen(false);
+                  declencherEvenement({ type: "save_route", value: "" });
+                }}
+                readOnly={readOnly}
               />
             </ThemeContext.Provider>
           </UnitContext.Provider>
