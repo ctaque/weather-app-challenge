@@ -27,8 +27,21 @@ export default function ExportMenu() {
   };
 
   return (
-    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
-      <button onClick={() => setOpen((v) => !v)} className="theme-toggle">
+    <div
+      ref={ref}
+      style={{
+        position: "relative",
+        display: "inline-block",
+        flex: 1,
+        width: "100%",
+        height: "100%",
+      }}
+    >
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="theme-toggle"
+        style={{ flex: 1, width: "100%" }}
+      >
         <div style={innerButtonStyle}>
           <Plus style={{ height: "30px" }} /> Actions
         </div>

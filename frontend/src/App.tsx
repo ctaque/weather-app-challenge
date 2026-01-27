@@ -4,7 +4,6 @@ import {
   Navigate,
   useLocation,
   useNavigate,
-  BrowserRouter,
   useParams,
 } from "react-router";
 import "./App.css";
@@ -23,6 +22,8 @@ import ExportMenu from "./components/ui/MenuSave";
 import Profile from "./components/core/Profile";
 import { generateGPXFromGeoJSON, downloadGPX } from "./utils/gpxExport";
 import type { RouteType } from "./types";
+import MobileSiderPanel from "./components/core/MobileSiderMenu";
+import { MenuIcon, X } from "lucide-react";
 
 type User = {
   email: string;
@@ -153,6 +154,8 @@ function AppHeader({
   lang,
   t,
   units,
+  openMobileMenuSider,
+  mobileMenuIsOpen,
 }: {
   theme: "light" | "dark";
   toggleTheme: () => void;
@@ -161,6 +164,8 @@ function AppHeader({
   lang: Language;
   t: Translations;
   units: UnitSystem;
+  openMobileMenuSider: (value: boolean) => void;
+  mobileMenuIsOpen: boolean;
 }) {
   return (
     <header className="app-header">
@@ -177,50 +182,65 @@ function AppHeader({
           overflowX: "auto",
         }}
       >
-        <ExportMenu />
-        <button
-          onClick={toggleLanguage}
-          className="theme-toggle"
-          title={t.languageAria}
-          aria-label={t.languageAria}
-        >
-          <span className="theme-icon" aria-hidden>
-            <LanguageIcon />
-          </span>
-          <span className="theme-label">{lang.toUpperCase()}</span>
-        </button>
-        <button
-          aria-pressed={theme === "dark"}
-          onClick={toggleTheme}
-          className="theme-toggle"
-          title={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
-          aria-label={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
-        >
-          <span className="theme-icon" aria-hidden>
-            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-          </span>
-          <span className="theme-label">
-            {theme === "dark" ? t.themeDark : t.themeLight}
-          </span>
-        </button>
-        <button
-          onClick={toggleUnits}
-          className="theme-toggle"
-          title={t.unitsAria}
-          aria-label={t.unitsAria}
-        >
-          <span className="theme-label">
-            {units === "knots-celsius"
-              ? t.unitsKnotsCelsius
-              : t.unitsMphFahrenheit}
-          </span>
-        </button>
+        {window.matchMedia("(max-width: 768px)").matches ? (
+          <>
+            <button
+              onClick={() => openMobileMenuSider(!mobileMenuIsOpen)}
+              className="theme-toggle"
+            >
+              <span className="theme-icon" aria-hidden>
+                {mobileMenuIsOpen ? <X /> : <MenuIcon />}
+              </span>
+            </button>
+          </>
+        ) : (
+          <>
+            <ExportMenu />
+            <button
+              onClick={toggleLanguage}
+              className="theme-toggle"
+              title={t.languageAria}
+              aria-label={t.languageAria}
+            >
+              <span className="theme-icon" aria-hidden>
+                <LanguageIcon />
+              </span>
+              <span className="theme-label">{lang.toUpperCase()}</span>
+            </button>
+            <button
+              aria-pressed={theme === "dark"}
+              onClick={toggleTheme}
+              className="theme-toggle"
+              title={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
+              aria-label={theme === "dark" ? t.themeDarkAria : t.themeLightAria}
+            >
+              <span className="theme-icon" aria-hidden>
+                {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+              </span>
+              <span className="theme-label">
+                {theme === "dark" ? t.themeDark : t.themeLight}
+              </span>
+            </button>
+            <button
+              onClick={toggleUnits}
+              className="theme-toggle"
+              title={t.unitsAria}
+              aria-label={t.unitsAria}
+            >
+              <span className="theme-label">
+                {units === "knots-celsius"
+                  ? t.unitsKnotsCelsius
+                  : t.unitsMphFahrenheit}
+              </span>
+            </button>
+          </>
+        )}
       </div>
     </header>
   );
 }
 
-function SaveRouteModal({
+export function SaveRouteModal({
   onClose,
   onSave,
 }: {
@@ -363,6 +383,7 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
+  const [mobeilMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Theme: 'light' | 'dark'
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -596,6 +617,8 @@ function App() {
               <div className="welcome-gradient-background" />
               <ToastContainer />
               <AppHeader
+                mobileMenuIsOpen={mobeilMenuOpen}
+                openMobileMenuSider={setMobileMenuOpen}
                 theme={theme}
                 toggleTheme={toggleTheme}
                 toggleLanguage={toggleLanguage}
@@ -718,6 +741,15 @@ function App() {
                   element={<MapView routeData={routeData} />}
                 />
               </Routes>
+              <MobileSiderPanel
+                units={units}
+                lang={lang}
+                isOpen={mobeilMenuOpen}
+                t={t}
+                toggleLanguage={toggleLanguage}
+                toggleTheme={toggleTheme}
+                toggleUnits={toggleUnits}
+              />
             </ThemeContext.Provider>
           </UnitContext.Provider>
         </LanguageContext.Provider>

@@ -251,6 +251,10 @@ textarea {
     box-shadow 120ms ease,
     background 160ms ease;
 }
+.theme-toggle.mobile{
+  width: 100%;
+  flex: 1;
+}
 .theme-toggle:hover {
   transform: translateY(-2px);
 }
@@ -821,7 +825,6 @@ select::picker(select) {
     text-align: left;
     white-space: normal;
     font-size: 1.2rem;
-    flex: 1 1 100%;
     margin-bottom: 0.5rem;
   }
 
