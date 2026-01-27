@@ -65,6 +65,55 @@ export default function Profile() {
     });
   };
 
+  const formatDistance = (meters: number): string => {
+    if (meters < 1000) {
+      return `${Math.round(meters)} m`;
+    }
+    return `${(meters / 1000).toFixed(1)} km`;
+  };
+
+  const formatDuration = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+
+    if (hours > 0) {
+      return `${hours}h${minutes > 0 ? ` ${minutes}min` : ""}`;
+    }
+    return `${minutes} min`;
+  };
+
+  const getTransportIcon = (mode: string): string => {
+    const modeMap: Record<string, string> = {
+      "cycling-regular": "🚴",
+      "cycling-road": "🚴",
+      "cycling-mountain": "🚵",
+      "cycling-electric": "🚴",
+      "foot-walking": "🚶",
+      "foot-hiking": "🥾",
+      "driving-car": "🚗",
+    };
+    return modeMap[mode] || "🚴";
+  };
+
+  const getRouteStats = (route: SavedRoute) => {
+    const feature = route.route?.apiResponse?.features?.[0];
+    if (!feature) return null;
+
+    const properties = feature.properties;
+    const summary = properties.summary;
+
+    return {
+      distance: summary.distance,
+      duration: summary.duration,
+      ascent: properties.ascent,
+      descent: properties.descent,
+      transportMode: route.route.transportMode,
+      startPoint: route.route.startPoint,
+      endPoint: route.route.endPoint,
+      waypointsCount: route.route.waypoints?.length || 0,
+    };
+  };
+
   if (loading && routes.length === 0) {
     return (
       <div className="profile-container">
@@ -88,39 +137,82 @@ export default function Profile() {
       ) : (
         <>
           <div className="routes-grid">
-            {routes.map((route) => (
-              <Link
-                key={route.uuid}
-                to={`/plan/${route.uuid}`}
-                className="route-card"
-              >
-                <div className="route-info">
-                  <h3>{route.name}</h3>
-                  <p className="route-date">
-                    Modifié le {formatDate(route.updated_at)}
-                  </p>
-                </div>
-                <div className="route-map">
-                  {route.route?.apiResponse ? (
-                    <StaticRouteMap route={route.route.apiResponse} />
-                  ) : (
-                    <div
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        background: "var(--color-muted)",
-                        color: "var(--color-muted-foreground)",
-                      }}
-                    >
-                      Carte non disponible
-                    </div>
-                  )}
-                </div>
-              </Link>
-            ))}
+            {routes.map((route) => {
+              const stats = getRouteStats(route);
+              return (
+                <Link
+                  key={route.uuid}
+                  to={`/plan/${route.uuid}`}
+                  className="route-card"
+                >
+                  <div className="route-info">
+                    <h3>{route.name}</h3>
+                    <p className="route-date">
+                      Modifié le {formatDate(route.updated_at)}
+                    </p>
+
+                    {stats && (
+                      <div className="route-stats">
+                        <div className="stat-row">
+                          <span className="stat-icon">
+                            {getTransportIcon(stats.transportMode)}
+                          </span>
+                          <span className="stat-value">
+                            {formatDistance(stats.distance)}
+                          </span>
+                          <span className="stat-separator">•</span>
+                          <span className="stat-value">
+                            {formatDuration(stats.duration)}
+                          </span>
+                        </div>
+
+                        {(stats.ascent > 0 || stats.descent > 0) && (
+                          <div className="stat-row">
+                            <span className="stat-label">D+</span>
+                            <span className="stat-value">
+                              {Math.round(stats.ascent)} m
+                            </span>
+                            <span className="stat-separator">•</span>
+                            <span className="stat-label">D-</span>
+                            <span className="stat-value">
+                              {Math.round(stats.descent)} m
+                            </span>
+                          </div>
+                        )}
+
+                        {stats.waypointsCount > 0 && (
+                          <div className="stat-row">
+                            <span className="stat-value">
+                              {stats.waypointsCount} point
+                              {stats.waypointsCount > 1 ? "s" : ""} d'intérêt
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="route-map">
+                    {route.route?.apiResponse ? (
+                      <StaticRouteMap route={route.route.apiResponse} />
+                    ) : (
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "var(--color-muted)",
+                          color: "var(--color-muted-foreground)",
+                        }}
+                      >
+                        Carte non disponible
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
           </div>
 
           {totalPages > 1 && (
