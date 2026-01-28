@@ -1908,8 +1908,8 @@ export default function MapView({
                       ? "#60a5fa"
                       : "#3b82f6"
                     : isHoveringRoute
-                      ? "#888888"
-                      : "#555555",
+                      ? "#60a5fa"
+                      : "#3b82f6",
                 "line-width": isHoveringRoute ? 6 : 4,
                 "line-opacity": isHoveringRoute ? 1 : 0.9,
               }}
