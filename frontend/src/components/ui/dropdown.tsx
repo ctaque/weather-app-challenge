@@ -12,6 +12,7 @@ interface DropdownProps {
   placeholder?: string;
   className?: string;
   style?: React.CSSProperties;
+  disabled: boolean;
 }
 
 export function Dropdown({
@@ -21,6 +22,7 @@ export function Dropdown({
   placeholder = "Sélectionner...",
   className = "",
   style = {},
+  disabled,
 }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -60,6 +62,7 @@ export function Dropdown({
     >
       <button
         type="button"
+        disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
         style={{
           width: "100%",
@@ -68,7 +71,7 @@ export function Dropdown({
           color: "var(--text-primary)",
           border: "none",
           borderRadius: "8px",
-          cursor: "pointer",
+          cursor: disabled ? "not-allowed" : "pointer",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -85,24 +88,26 @@ export function Dropdown({
         }}
       >
         <span>{selectedOption ? selectedOption.label : placeholder}</span>
-        <svg
-          width="8"
-          height="5"
-          viewBox="0 0 12 8"
-          fill="none"
-          style={{
-            transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 0.2s",
-          }}
-        >
-          <path
-            d="M1 1L6 6L11 1"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        {!disabled && (
+          <svg
+            width="8"
+            height="5"
+            viewBox="0 0 12 8"
+            fill="none"
+            style={{
+              transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.2s",
+            }}
+          >
+            <path
+              d="M1 1L6 6L11 1"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
       </button>
 
       {isOpen && (

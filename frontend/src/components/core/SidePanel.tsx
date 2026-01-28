@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect } from "react";
 import { ThemeContext } from "../../App";
 import RouteSegmentsGraph from "./RouteSegmentsGraph";
 import { TransportModeDropdown } from "../ui/TransportModeDropdown";
-import { Edit, Edit2, LoaderCircle, LocateIcon, Save } from "lucide-react";
+import { Edit, Edit2, LoaderCircle, LocateIcon, Save, X } from "lucide-react";
 import { AppLocation } from "./MapView";
 import { ToastContainer, toast } from "react-toastify";
 import { useNavigate } from "react-router";
@@ -615,13 +615,13 @@ export default function SidePanel({
                 <div>
                   <TransportModeDropdown
                     value={transportMode}
+                    disabled={readOnly}
                     style={{
                       border: "none",
                       padding: ".2rem .5rem",
                       display: "block",
                       minWidth: "7rem",
                       cursor: readOnly ? "not-allowed" : "pointer",
-                      opacity: readOnly ? 0.6 : 1,
                     }}
                     onChange={(value) => {
                       if (readOnly) return;
@@ -1039,6 +1039,7 @@ export default function SidePanel({
                 return (
                   <button
                     style={{
+                      position: "relative",
                       borderRadius: "5px",
                       padding: ".5rem 1rem",
                       backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
@@ -1082,6 +1083,29 @@ export default function SidePanel({
                         </small>
                       </div>
                     </div>
+                    <button
+                      style={{
+                        position: "absolute",
+                        right: ".25rem",
+                        top: ".25rem",
+                      }}
+                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        fetch("/api/prefered_addresses/" + addr.id, {
+                          method: "DELETE",
+                        })
+                          .then((response: Response) => {
+                            return response.json();
+                          })
+                          .then(() => {
+                            doFetchAddresses();
+                            toast("Adresse supprimée !");
+                          });
+                      }}
+                    >
+                      <X style={{ fontSize: ".3rem" }} />
+                    </button>
                   </button>
                 );
               })}

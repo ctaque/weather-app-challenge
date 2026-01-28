@@ -7,6 +7,7 @@ interface TransportModeDropdownProps {
   onChange: (value: TransportMode) => void;
   className?: string;
   style?: React.CSSProperties;
+  disabled: boolean;
 }
 
 const transportModeOptions: { value: TransportMode; label: string }[] = [
@@ -24,9 +25,11 @@ export function TransportModeDropdown({
   onChange,
   className,
   style,
+  disabled,
 }: TransportModeDropdownProps) {
   return (
     <Dropdown
+      disabled={disabled}
       options={transportModeOptions}
       value={value}
       onChange={(newValue) => onChange(newValue as TransportMode)}

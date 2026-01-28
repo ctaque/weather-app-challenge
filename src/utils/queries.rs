@@ -145,3 +145,18 @@ pub async fn do_save_address(
     .fetch_one(&data.db)
     .await
 }
+
+pub async fn do_delete_prefered_address(
+    user_id: i64,
+    id: i64,
+    data: web::Data<AppData>,
+) -> Result<Option<PreferedAddress>, sqlx::Error> {
+    sqlx::query_as!(
+        PreferedAddress,
+        "DELETE from prefered_addresses WHERE user_id = $1 AND id = $2 RETURNING *",
+        user_id,
+        id,
+    )
+    .fetch_optional(&data.db)
+    .await
+}
