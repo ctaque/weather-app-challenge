@@ -966,7 +966,7 @@ export default function SidePanel({
               <p
                 style={{
                   margin: "10px 0",
-                  color: theme === "dark" ? "#333" : "#666",
+                  color: "#fff",
                   fontSize: "13px",
                   textAlign: "center",
                 }}
@@ -980,7 +980,7 @@ export default function SidePanel({
                 <p
                   style={{
                     margin: "0 0 10px 0",
-                    color: theme === "dark" ? "#333" : "#666",
+                    color: "#fff",
                     fontSize: "13px",
                   }}
                 >
