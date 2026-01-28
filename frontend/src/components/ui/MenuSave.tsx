@@ -40,6 +40,12 @@ export default function ExportMenu({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  useEffect(() => {
+    if (!open) {
+      declencherEvenement({ type: "close_mobile_menu", value: "" });
+    }
+  }, [open]);
+
   const innerButtonStyle: React.CSSProperties = {
     display: "flex",
     justifyContent: "flex-start",
@@ -133,10 +139,10 @@ export default function ExportMenu({
             <span className="theme-label">Annuler l'édition</span>
           </button>
         ) : location.pathname.match(
-          new RegExp(
-            /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
-          ),
-        ) ? (
+            new RegExp(
+              /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
+            ),
+          ) ? (
           <button
             onClick={() => {
               setOpen(false);
@@ -159,18 +165,21 @@ export default function ExportMenu({
             /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
           ),
         ) && (
-            <button
-              onClick={handleCreateNewRoute}
-              style={{ ...innerButtonStyle, padding: ".75rem" }}
-              title="Create new route"
-              aria-label="Create new route"
-            >
-              <span className="theme-icon" aria-hidden>
-                <Plus />
-              </span>
-              <span className="theme-label">Créer un itinéraire</span>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              handleCreateNewRoute();
+              setOpen(false);
+            }}
+            style={{ ...innerButtonStyle, padding: ".75rem" }}
+            title="Create new route"
+            aria-label="Create new route"
+          >
+            <span className="theme-icon" aria-hidden>
+              <Plus />
+            </span>
+            <span className="theme-label">Créer un itinéraire</span>
+          </button>
+        )}
         {!location.pathname.startsWith("/plan") && (
           <Link
             to="/plan"
@@ -204,6 +213,9 @@ export default function ExportMenu({
               to="/auth/login"
               className="hover"
               style={{ ...innerButtonStyle, padding: ".75rem" }}
+              onClick={() => {
+                setOpen(false);
+              }}
             >
               <div style={innerButtonStyle}>
                 <ShieldUser /> Login
@@ -213,6 +225,9 @@ export default function ExportMenu({
               to="/auth/register"
               className="hover"
               style={{ ...innerButtonStyle, padding: ".75rem" }}
+              onClick={() => {
+                setOpen(false);
+              }}
             >
               <div style={innerButtonStyle}>
                 <Fingerprint />
@@ -227,21 +242,24 @@ export default function ExportMenu({
             /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
           ),
         ) && (
-            <button
-              onClick={() => {
-                declencherEvenement({ type: "export_gpx", value: null });
-                setOpen(false);
-              }}
-            >
-              <div style={innerButtonStyle}>
-                <Download /> Exporter .gpx
-              </div>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              declencherEvenement({ type: "export_gpx", value: null });
+              setOpen(false);
+            }}
+          >
+            <div style={innerButtonStyle}>
+              <Download /> Exporter .gpx
+            </div>
+          </button>
+        )}
         <Link
           to="/weather"
           className="hover"
           style={{ ...innerButtonStyle, padding: ".75rem" }}
+          onClick={() => {
+            setOpen(false);
+          }}
         >
           <Sun />
           <div style={innerButtonStyle}>Prévisions météo</div>

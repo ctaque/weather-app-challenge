@@ -1,5 +1,11 @@
 import { useContext } from "react";
-import { LanguageContext, ThemeContext, UnitSystem, useAuth } from "../../App";
+import {
+  LanguageContext,
+  MyEventContext,
+  ThemeContext,
+  UnitSystem,
+  useAuth,
+} from "../../App";
 import { Language, Translations } from "@/i18n";
 import {
   LanguagesIcon,
@@ -27,6 +33,7 @@ interface SidePanelProps {
   saveEdits: () => void;
   cancelEdits: () => void;
   toggleEdit: () => void;
+  toggleOpen: () => void;
 }
 
 export default function MobileSiderPanel({
@@ -40,10 +47,12 @@ export default function MobileSiderPanel({
   saveEdits,
   cancelEdits,
   toggleEdit,
+  toggleOpen,
 }: SidePanelProps) {
   const theme = useContext(ThemeContext);
   const { t, lang } = useContext(LanguageContext);
   const [me, loading] = useAuth();
+  const { declencherEvenement } = useContext(MyEventContext);
   return (
     <div
       style={{

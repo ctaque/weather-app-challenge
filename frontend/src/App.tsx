@@ -66,7 +66,7 @@ export const MyEventContext = createContext<{
     value: any;
   } | null;
   declencherEvenement: (message: { type: string; value: any }) => void;
-} | null>({ message: null, declencherEvenement: () => { } });
+} | null>({ message: null, declencherEvenement: () => {} });
 export const ThemeContext = createContext<"light" | "dark">("light");
 export const LanguageContext = createContext<{
   lang: Language;
@@ -80,7 +80,7 @@ export const UnitContext = createContext<{
   setUnits: (units: UnitSystem) => void;
 }>({
   units: "knots-celsius",
-  setUnits: () => { },
+  setUnits: () => {},
 });
 
 function SunIcon(props: { className?: string }) {
@@ -414,7 +414,7 @@ function App() {
     new RegExp(
       /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
     ).test(location.pathname) ||
-    !new RegExp(/\/plan/gm).test(location.pathname),
+      !new RegExp(/\/plan/gm).test(location.pathname),
   );
 
   // Theme: 'light' | 'dark'
@@ -602,6 +602,9 @@ function App() {
 
       case "discard_edits":
         discardEdits();
+        break;
+      case "close_mobile_menu":
+        setMobileMenuOpen(false);
         break;
     }
   };
