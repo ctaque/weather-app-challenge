@@ -23,7 +23,7 @@ import Profile from "./components/core/Profile";
 import { generateGPXFromGeoJSON, downloadGPX } from "./utils/gpxExport";
 import type { RouteType } from "./types";
 import MobileSiderPanel from "./components/core/MobileSiderMenu";
-import { Edit, MenuIcon, Save, Trash, X } from "lucide-react";
+import { Edit, HeartIcon, MenuIcon, Save, Trash, X } from "lucide-react";
 
 type User = {
   email: string;
@@ -178,9 +178,22 @@ function AppHeader({
   const location = useLocation();
   return (
     <header className="app-header">
-      <h1>
+      <h1 style={{ gap: "1rem", display: "flex", alignItems: "center" }}>
         <SunIcon className="app-title-icon" />
         PlanMyTrip !
+        <Link
+          target="_blank"
+          to="https://ko-fi.com/tackz"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: ".5rem",
+            width: "fit-content",
+          }}
+        >
+          <HeartIcon style={{ color: "#e91e63", fontSize: "1.5rem" }} />
+          <small>Give me a tip !</small>
+        </Link>
       </h1>
       <div
         style={{
