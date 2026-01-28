@@ -46,8 +46,8 @@ interface SidePanelProps {
   startPoint: AppLocation | null;
   endPoint: AppLocation | null;
   waypoints: Waypoint[];
-  onSetStartPoint: (location: AppLocation) => void;
-  onSetEndPoint: (location: AppLocation) => void;
+  onSetStartPoint: (location: AppLocation | null) => void;
+  onSetEndPoint: (location: AppLocation | null) => void;
   onReorderWaypoints: (waypoints: Waypoint[]) => void;
   onRemoveWaypoint: (waypointId: string) => void;
   onReverseRoute: () => void;
@@ -705,12 +705,37 @@ export default function SidePanel({
                         ...inputStyle,
                         marginBottom: 0,
                         paddingLeft: "42px",
-                        paddingRight: readOnly ? "42px" : "0px",
+                        paddingRight: readOnly || searchQuery ? "42px" : "0px",
                         width: "100%",
                         cursor: readOnly ? "not-allowed" : "text",
                         opacity: readOnly ? 0.6 : 1,
                       }}
                     />
+                    {searchQuery && (
+                      <button
+                        style={{
+                          cursor: "pointer",
+                          position: "absolute",
+                          right: "10px",
+                          width: "20px",
+                          height: "20px",
+                          borderRadius: "50%",
+                          color: "white",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                          zIndex: 1,
+                        }}
+                        onClick={() => {
+                          setSearchQuery("");
+                          onSetStartPoint(null);
+                        }}
+                      >
+                        <X style={{ fontSize: "1em" }} />
+                      </button>
+                    )}
                     {readOnly && (
                       <button
                         style={{
@@ -843,12 +868,37 @@ export default function SidePanel({
                         ...inputStyle,
                         marginBottom: 0,
                         paddingLeft: "42px",
-                        paddingRight: readOnly ? "42px" : "0px",
+                        paddingRight: readOnly || searchQuery ? "42px" : "0px",
                         width: "100%",
                         cursor: readOnly ? "not-allowed" : "text",
                         opacity: readOnly ? 0.6 : 1,
                       }}
                     />
+                    {searchQuery && (
+                      <button
+                        style={{
+                          cursor: "pointer",
+                          position: "absolute",
+                          right: "10px",
+                          width: "20px",
+                          height: "20px",
+                          borderRadius: "50%",
+                          color: "white",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                          zIndex: 1,
+                        }}
+                        onClick={() => {
+                          setSearchQuery("");
+                          onSetEndPoint(null);
+                        }}
+                      >
+                        <X style={{ fontSize: "1em" }} />
+                      </button>
+                    )}
                     {readOnly && (
                       <button
                         style={{
