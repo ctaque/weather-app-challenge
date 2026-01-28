@@ -1,8 +1,9 @@
 import React, { useContext, useState, useEffect } from "react";
-import { ThemeContext } from "../../App";
+import { ThemeContext, useAuth } from "../../App";
 import RouteSegmentsGraph from "./RouteSegmentsGraph";
 import { TransportModeDropdown } from "../ui/TransportModeDropdown";
 import {
+  Bookmark,
   BookmarkCheck,
   Edit,
   Edit2,
@@ -112,6 +113,7 @@ export default function SidePanel({
   const [searchResults, setSearchResults] = useState<AppLocation[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [preferedAddreses, setAddreses] = useState<Address[]>([]);
+  const [me, loadingMe] = useAuth();
   const [draggedWaypointIndex, setDraggedWaypointIndex] = useState<
     number | null
   >(null);
@@ -703,7 +705,6 @@ export default function SidePanel({
                         ...inputStyle,
                         marginBottom: 0,
                         paddingLeft: "42px",
-                        paddingRight: !startPoint?.is_saved ? "42px" : "0px",
                         width: "100%",
                         cursor: readOnly ? "not-allowed" : "text",
                         opacity: readOnly ? 0.6 : 1,
@@ -731,38 +732,6 @@ export default function SidePanel({
                         }}
                       >
                         <Edit2 style={{ fontSize: "1em" }} />
-                      </button>
-                    )}
-                    {startPoint && !startPoint.is_saved && !readOnly && (
-                      <button
-                        disabled={addressesLoading}
-                        onClick={() => {
-                          saveAddress({
-                            lat: `${startPoint.lat}`,
-                            lng: `${startPoint.lon}`,
-                            created_at: new Date().toISOString(),
-                            name: startPoint.name || startPoint.display_name,
-                            address_text:
-                              startPoint.address_text ||
-                              startPoint.display_name,
-                          });
-                        }}
-                        style={{
-                          position: "absolute",
-                          right: "10px",
-                          width: "24px",
-                          height: "24px",
-                          borderRadius: "50%",
-                          color: "white",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "12px",
-                          fontWeight: "bold",
-                          zIndex: 1,
-                        }}
-                      >
-                        <Save />
                       </button>
                     )}
                   </div>
@@ -873,7 +842,6 @@ export default function SidePanel({
                         ...inputStyle,
                         marginBottom: 0,
                         paddingLeft: "42px",
-                        paddingRight: endPoint?.is_saved ? 0 : "42px",
                         width: "100%",
                         cursor: readOnly ? "not-allowed" : "text",
                         opacity: readOnly ? 0.6 : 1,
@@ -901,38 +869,6 @@ export default function SidePanel({
                         }}
                       >
                         <Edit2 style={{ fontSize: "1em" }} />
-                      </button>
-                    )}
-                    {endPoint && !endPoint.is_saved && !readOnly && (
-                      <button
-                        disabled={addressesLoading}
-                        onClick={() => {
-                          saveAddress({
-                            lat: `${endPoint.lat}`,
-                            lng: `${endPoint.lon}`,
-                            created_at: new Date().toISOString(),
-                            name: endPoint.name || endPoint.display_name,
-                            address_text:
-                              endPoint.address_text || endPoint.display_name,
-                          });
-                        }}
-                        style={{
-                          cursor: "pointer",
-                          position: "absolute",
-                          right: "10px",
-                          width: "24px",
-                          height: "24px",
-                          borderRadius: "50%",
-                          color: "white",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "12px",
-                          fontWeight: "bold",
-                          zIndex: 1,
-                        }}
-                      >
-                        <Save />
                       </button>
                     )}
                   </div>
@@ -1000,7 +936,7 @@ export default function SidePanel({
                     onClick={() => selectLocation(result)}
                     style={{
                       width: "100%",
-                      padding: "10px",
+                      padding: ".75rem",
                       marginBottom: "8px",
                       borderRadius: "6px",
                       border: "none",
@@ -1032,25 +968,35 @@ export default function SidePanel({
             <div
               style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}
             >
-              <label
+              <div
                 style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  color: theme === "dark" ? "#fff" : "#333",
-                  fontSize: "14px",
-                  fontWeight: "500",
+                  display: "flex",
+                  gap: "10px",
+                  fontSize: "12px",
+                  alignItems: "center",
+                  justifyContent: "flex-start",
                 }}
               >
-                Adreses enregistrées
-              </label>
+                <BookmarkCheck />
+                <label
+                  style={{
+                    display: "block",
+                    color: "#fff",
+                    fontWeight: "500",
+                  }}
+                >
+                  Adreses enregistrées
+                </label>
+              </div>
               {preferedAddreses.map((addr: Address) => {
                 return (
                   <button
                     style={{
                       position: "relative",
                       borderRadius: "5px",
-                      padding: ".5rem 1rem",
+                      padding: ".75rem",
                       backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
+                      cursor: "pointer",
                       color: theme === "dark" ? "#fff" : "#333",
                       border:
                         theme === "dark" ? "1px solid rgb(68, 68, 68)" : "#ccc",
@@ -1068,9 +1014,6 @@ export default function SidePanel({
                     }}
                   >
                     <div style={{ display: "flex", gap: "1rem" }}>
-                      <div style={{ minWidth: "1rem" }}>
-                        <BookmarkCheck />
-                      </div>
                       <div
                         style={{
                           display: "flex",
@@ -1079,15 +1022,16 @@ export default function SidePanel({
                           overflow: "hidden",
                         }}
                       >
-                        <span>{addr.name}</span>
+                        <span style={{ fontSize: "12px" }}>{addr.name}</span>
                         <small
                           style={{
+                            fontSize: "10px",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
                           }}
                         >
-                          {addr.address_text.slice(0, 30) +
-                            (addr.address_text.length > 30 ? "..." : "")}
+                          {addr.address_text.slice(0, 45) +
+                            (addr.address_text.length > 45 ? "..." : "")}
                         </small>
                       </div>
                     </div>
@@ -1112,7 +1056,13 @@ export default function SidePanel({
                           });
                       }}
                     >
-                      <X style={{ fontSize: ".3rem" }} />
+                      <X
+                        style={{
+                          fontSize: ".3rem",
+                          width: "1rem",
+                          height: "1rem",
+                        }}
+                      />
                     </button>
                   </button>
                 );
@@ -1129,7 +1079,6 @@ export default function SidePanel({
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: "10px",
               }}
             >
               <h3
@@ -1228,7 +1177,7 @@ export default function SidePanel({
                     width: "24px",
                     height: "24px",
                     borderRadius: "50%",
-                    backgroundColor: "var(--brand)",
+                    backgroundColor: "#10b981",
                     color: "white",
                     display: "flex",
                     alignItems: "center",
@@ -1288,6 +1237,37 @@ export default function SidePanel({
                       fill={theme === "dark" ? "#aaa" : "#999"}
                     />
                   </svg>
+                )}
+                {me && (
+                  <button
+                    disabled={addressesLoading}
+                    onClick={() => {
+                      saveAddress({
+                        lat: `${startPoint.lat}`,
+                        lng: `${startPoint.lon}`,
+                        created_at: new Date().toISOString(),
+                        name: startPoint.display_name,
+                        address_text: startPoint.address_text,
+                      });
+                    }}
+                    style={{
+                      position: "absolute",
+                      right: "40px",
+                      width: "24px",
+                      height: "24px",
+                      borderRadius: "50%",
+                      color: "white",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "12px",
+                      fontWeight: "bold",
+                      zIndex: 1,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Bookmark />
+                  </button>
                 )}
               </div>
               {/* Indicateur de drop APRES le départ */}
@@ -1541,7 +1521,7 @@ export default function SidePanel({
                     width: "24px",
                     height: "24px",
                     borderRadius: "50%",
-                    backgroundColor: "var(--brand)",
+                    backgroundColor: "#ef4444",
                     color: "white",
                     display: "flex",
                     alignItems: "center",
@@ -1601,6 +1581,37 @@ export default function SidePanel({
                       fill={theme === "dark" ? "#aaa" : "#999"}
                     />
                   </svg>
+                )}
+                {me && (
+                  <button
+                    disabled={addressesLoading}
+                    onClick={() => {
+                      saveAddress({
+                        lat: `${endPoint.lat}`,
+                        lng: `${endPoint.lon}`,
+                        created_at: new Date().toISOString(),
+                        name: endPoint.display_name,
+                        address_text: endPoint.address_text,
+                      });
+                    }}
+                    style={{
+                      position: "absolute",
+                      right: "40px",
+                      width: "24px",
+                      height: "24px",
+                      borderRadius: "50%",
+                      color: "white",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "12px",
+                      fontWeight: "bold",
+                      zIndex: 1,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Bookmark />
+                  </button>
                 )}
               </div>
               {/* Indicateur de drop APRES l'arrivée */}
