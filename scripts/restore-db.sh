@@ -143,18 +143,22 @@ log_warn "Nettoyage de la base de données..."
 # psql "$BASE_URL" -c "DROP DATABASE IF EXISTS $DB_NAME;"
 # psql "$BASE_URL" -c "CREATE DATABASE $DB_NAME;"
 
-# Restauration de la base de données
+# Nettoyage
+log_info "✓ Restauration complète!"
+
 log_info "Restauration de la base de données..."
-if gunzip -c "$LOCAL_PATH" | psql "$DATABASE_URL" > /dev/null 2>&1; then
+
+set +e
+gunzip -c "$LOCAL_PATH" | psql "$DATABASE_URL" 2> /tmp/restore_error.log
+RESTORE_STATUS=$?
+set -e
+
+if [ $RESTORE_STATUS -eq 0 ]; then
     log_info "✓ Restauration terminée avec succès!"
 else
     log_error "Échec de la restauration"
+    log_error "Détails de l'erreur :"
+    cat /tmp/restore_error.log
     rm -f "$LOCAL_PATH"
     exit 1
 fi
-
-# Nettoyage
-rm -f "$LOCAL_PATH"
-log_info "Fichier temporaire supprimé"
-
-log_info "✓ Restauration complète!"
