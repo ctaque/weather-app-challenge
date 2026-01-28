@@ -413,7 +413,8 @@ function App() {
   const [readOnly, setReadOnly] = useState<boolean>(
     new RegExp(
       /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
-    ).test(location.pathname) || new RegExp(/\/plan/gm).test(location.pathname),
+    ).test(location.pathname) ||
+    !new RegExp(/\/plan/gm).test(location.pathname),
   );
 
   // Theme: 'light' | 'dark'

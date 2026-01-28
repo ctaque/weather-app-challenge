@@ -705,6 +705,7 @@ export default function SidePanel({
                         ...inputStyle,
                         marginBottom: 0,
                         paddingLeft: "42px",
+                        paddingRight: readOnly ? "42px" : "0px",
                         width: "100%",
                         cursor: readOnly ? "not-allowed" : "text",
                         opacity: readOnly ? 0.6 : 1,
@@ -842,6 +843,7 @@ export default function SidePanel({
                         ...inputStyle,
                         marginBottom: 0,
                         paddingLeft: "42px",
+                        paddingRight: readOnly ? "42px" : "0px",
                         width: "100%",
                         cursor: readOnly ? "not-allowed" : "text",
                         opacity: readOnly ? 0.6 : 1,
@@ -1150,12 +1152,13 @@ export default function SidePanel({
                   padding: "10px",
                   borderRadius: "6px",
                   backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-                  border: `2px solid ${dragOverIndex === -1 &&
-                      draggedPointType !== null &&
-                      draggedPointType !== "start"
+                  border: `2px solid ${
+                    dragOverIndex === -1 &&
+                    draggedPointType !== null &&
+                    draggedPointType !== "start"
                       ? "#f59e0b"
                       : "#10b981"
-                    }`,
+                  }`,
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
@@ -1166,8 +1169,8 @@ export default function SidePanel({
                   transition: "transform 0.2s ease, opacity 0.2s ease",
                   boxShadow:
                     dragOverIndex === -1 &&
-                      draggedPointType !== null &&
-                      draggedPointType !== "start"
+                    draggedPointType !== null &&
+                    draggedPointType !== "start"
                       ? "0 0 12px rgba(245, 158, 11, 0.4)"
                       : "none",
                 }}
@@ -1329,14 +1332,15 @@ export default function SidePanel({
                       padding: "10px",
                       borderRadius: "6px",
                       backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-                      border: `2px solid ${dragOverIndex === index &&
-                          draggedWaypointIndex !== null &&
-                          draggedWaypointIndex !== index
+                      border: `2px solid ${
+                        dragOverIndex === index &&
+                        draggedWaypointIndex !== null &&
+                        draggedWaypointIndex !== index
                           ? "#f59e0b"
                           : theme === "dark"
                             ? "#f59e0b"
                             : "#f59e0b"
-                        }`,
+                      }`,
                       display: "flex",
                       alignItems: "center",
                       gap: "10px",
@@ -1349,8 +1353,8 @@ export default function SidePanel({
                       transition: "transform 0.2s ease, opacity 0.2s ease",
                       boxShadow:
                         dragOverIndex === index &&
-                          draggedWaypointIndex !== null &&
-                          draggedWaypointIndex !== index
+                        draggedWaypointIndex !== null &&
+                        draggedWaypointIndex !== index
                           ? "0 0 12px rgba(245, 158, 11, 0.4)"
                           : "none",
                     }}
@@ -1494,12 +1498,13 @@ export default function SidePanel({
                   padding: "10px",
                   borderRadius: "6px",
                   backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-                  border: `2px solid ${dragOverIndex === waypoints.length &&
-                      draggedPointType !== null &&
-                      draggedPointType !== "end"
+                  border: `2px solid ${
+                    dragOverIndex === waypoints.length &&
+                    draggedPointType !== null &&
+                    draggedPointType !== "end"
                       ? "#f59e0b"
                       : "#ef4444"
-                    }`,
+                  }`,
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
@@ -1510,8 +1515,8 @@ export default function SidePanel({
                   transition: "transform 0.2s ease, opacity 0.2s ease",
                   boxShadow:
                     dragOverIndex === waypoints.length &&
-                      draggedPointType !== null &&
-                      draggedPointType !== "end"
+                    draggedPointType !== null &&
+                    draggedPointType !== "end"
                       ? "0 0 12px rgba(245, 158, 11, 0.4)"
                       : "none",
                 }}
