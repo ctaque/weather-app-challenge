@@ -16,10 +16,13 @@ import ElevationProfile from "./ElevationProfile";
 import LayerToggleMenu from "./LayerToggleMenu";
 import { TransportMode } from "./SidePanel";
 
-interface Location {
+export interface AppLocation {
   lat: number;
   lon: number;
   display_name: string;
+  address_text?: string;
+  name?: string;
+  is_saved?: boolean;
 }
 
 interface Waypoint {
@@ -221,8 +224,8 @@ export default function MapView({
   const [searchParams, setSearchParams] = useSearchParams();
   const params = useParams();
   const [originalRouteData, setOriginalRouteData] = useState<{
-    startPoint: Location | null;
-    endPoint: Location | null;
+    startPoint: AppLocation | null;
+    endPoint: AppLocation | null;
     waypoints: Waypoint[];
     transportMode: TransportMode;
   } | null>(null);
@@ -247,8 +250,8 @@ export default function MapView({
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
-  const [startPoint, setStartPoint] = useState<Location | null>(null);
-  const [endPoint, setEndPoint] = useState<Location | null>(null);
+  const [startPoint, setStartPoint] = useState<AppLocation | null>(null);
+  const [endPoint, setEndPoint] = useState<AppLocation | null>(null);
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [routeGeometry, setRouteGeometry] = useState<any>(null);
   const [routeInfo, setRouteInfo] = useState<{
@@ -319,8 +322,6 @@ export default function MapView({
     satellite: false,
   });
 
-  const { t } = useContext(LanguageContext);
-
   const openCycleMapKey = "995e7fa280ff4c31872de771b8f28eb9";
 
   const mapStyle = useMemo(
@@ -332,16 +333,6 @@ export default function MapView({
           : "https://tiles.openfreemap.org/styles/liberty",
     [theme, mapLayers.satellite],
   );
-  /*
-   *
-  const mapStyle = useMemo(
-    () =>
-      theme === "dark"
-        ? "https://data.lfmaps.fr/styles/positron"
-        : "https://data.lfmaps.fr/styles/bright",
-    [theme],
-  );
-  */
 
   // Charger l'itinéraire depuis l'API si un UUID est présent dans l'URL
   useEffect(() => {
@@ -774,6 +765,12 @@ export default function MapView({
     };
   }, [mapLayers.thunderforestCycle]);
 
+  // Extraire un nom court depuis display_name (premier élément avant la virgule)
+  const extractShortName = (displayName: string): string => {
+    const parts = displayName.split(',');
+    return parts[0].trim();
+  };
+
   const recenterMap = () => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -862,11 +859,16 @@ export default function MapView({
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
       );
       const data = await response.json();
-      const location: Location = {
+      const displayName = data.name ||
+        data.display_name ||
+        `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+      const location: AppLocation = {
         lat,
         lon,
-        display_name:
-          data.display_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+        display_name: displayName,
+        address_text: data.display_name || displayName,
+        name: extractShortName(displayName),
+        is_saved: false,
       };
 
       if (type === "start") {
@@ -884,10 +886,14 @@ export default function MapView({
         };
         setWaypoints((prev) => [...prev, newWaypoint]);
       } else {
-        const location: Location = {
+        const displayName = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+        const location: AppLocation = {
           lat,
           lon,
-          display_name: `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+          display_name: displayName,
+          address_text: displayName,
+          name: displayName,
+          is_saved: false,
         };
         if (type === "start") {
           setStartPoint(location);
@@ -1681,18 +1687,25 @@ export default function MapView({
           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lngLat.lat}&lon=${lngLat.lng}`,
         );
         const data = await response.json();
+        const displayName = data.display_name ||
+          `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`;
         setStartPoint({
           lat: lngLat.lat,
           lon: lngLat.lng,
-          display_name:
-            data.display_name ||
-            `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`,
+          display_name: displayName,
+          address_text: data.display_name || displayName,
+          name: extractShortName(displayName),
+          is_saved: false,
         });
       } catch (error) {
+        const displayName = `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`;
         setStartPoint({
           lat: lngLat.lat,
           lon: lngLat.lng,
-          display_name: `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`,
+          display_name: displayName,
+          address_text: displayName,
+          name: displayName,
+          is_saved: false,
         });
       }
     },
@@ -1711,18 +1724,25 @@ export default function MapView({
           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lngLat.lat}&lon=${lngLat.lng}`,
         );
         const data = await response.json();
+        const displayName = data.display_name ||
+          `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`;
         setEndPoint({
           lat: lngLat.lat,
           lon: lngLat.lng,
-          display_name:
-            data.display_name ||
-            `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`,
+          display_name: displayName,
+          address_text: data.display_name || displayName,
+          name: extractShortName(displayName),
+          is_saved: false,
         });
       } catch (error) {
+        const displayName = `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`;
         setEndPoint({
           lat: lngLat.lat,
           lon: lngLat.lng,
-          display_name: `${lngLat.lat.toFixed(4)}, ${lngLat.lng.toFixed(4)}`,
+          display_name: displayName,
+          address_text: displayName,
+          name: displayName,
+          is_saved: false,
         });
       }
     },
@@ -1739,10 +1759,14 @@ export default function MapView({
       const waypoint = waypoints.find((wp) => wp.id === waypointId);
       if (waypoint && startPoint) {
         // Déplacer le point de départ au waypoint
+        const displayName = `${waypoint.lat.toFixed(4)}, ${waypoint.lon.toFixed(4)}`;
         setStartPoint({
           lat: waypoint.lat,
           lon: waypoint.lon,
-          display_name: `${waypoint.lat.toFixed(4)}, ${waypoint.lon.toFixed(4)}`,
+          display_name: displayName,
+          address_text: displayName,
+          name: displayName,
+          is_saved: false,
         });
         // Supprimer le waypoint
         setWaypoints((prev) => prev.filter((wp) => wp.id !== waypointId));

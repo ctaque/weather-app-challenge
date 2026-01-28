@@ -12,4 +12,4 @@ pub mod windgl;
 pub use auth::{gsi, health, index, login, logout, me, register, send_one_time_code, serve};
 
 // Re-export addresses functions for convenience
-pub use addresses::fetch_adresses;
+pub use addresses::*;

@@ -1,5 +1,6 @@
 use crate::models::auth::{AppData, OneTimeCode, User};
-use crate::models::prefered_address::PreferedAddress;
+use crate::models::prefered_address::{NewPreferedAddress, PreferedAddress};
+use actix_web::web;
 use sqlx::{self, migrate::Migrator, postgres::types::PgInterval, PgPool};
 
 static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
@@ -108,5 +109,39 @@ pub async fn get_prefered_addresses(
         user_id
     )
     .fetch_all(&data.db)
+    .await
+}
+
+pub async fn do_save_address(
+    addr: NewPreferedAddress,
+    user_id: i64,
+    data: web::Data<AppData>,
+) -> Result<PreferedAddress, sqlx::Error> {
+    sqlx::query_as!(
+        PreferedAddress,
+        "INSERT INTO prefered_addresses (
+            address_text,
+            lat,
+            lng,
+            user_id,
+            name,
+            created_at,
+            updated_at
+    ) values (
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
+        ) returning *;",
+        addr.address_text,
+        addr.lat,
+        addr.lng,
+        user_id,
+        addr.name
+    )
+    .fetch_one(&data.db)
     .await
 }

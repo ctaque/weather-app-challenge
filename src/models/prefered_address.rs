@@ -21,7 +21,29 @@ pub struct PreferedAddress {
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct NewPreferedAddress {
+    pub address_text: Option<String>,
+    pub lat: Option<String>,
+    pub lng: Option<String>,
+    pub name: String,
+    pub created_at: DateTime<Utc>,
+}
+
 impl Responder for PreferedAddress {
+    type Body = BoxBody;
+
+    fn respond_to(self, _req: &HttpRequest) -> HttpResponse<Self::Body> {
+        let body = serde_json::to_string(&self).unwrap();
+
+        // Create response and set content type
+        HttpResponse::Ok()
+            .content_type(ContentType::json())
+            .body(body)
+    }
+}
+
+impl Responder for NewPreferedAddress {
     type Body = BoxBody;
 
     fn respond_to(self, _req: &HttpRequest) -> HttpResponse<Self::Body> {

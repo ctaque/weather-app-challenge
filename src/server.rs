@@ -112,6 +112,7 @@ pub async fn run(pool: PgPool, app_env: Env) -> std::io::Result<()> {
                         web::get().to(routes::routes::get_routes_paginated),
                     )
                     .route("/prefered_addresses", web::get().to(routes::fetch_adresses))
+                    .route("/prefered_addresses", web::post().to(routes::save_address))
                     // Weather routes
                     .service(routes::weather::get_weather)
                     // Wind routes

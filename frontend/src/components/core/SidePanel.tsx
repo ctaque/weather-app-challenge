@@ -2,11 +2,16 @@ import React, { useContext, useState, useEffect } from "react";
 import { ThemeContext } from "../../App";
 import RouteSegmentsGraph from "./RouteSegmentsGraph";
 import { TransportModeDropdown } from "../ui/TransportModeDropdown";
+import { LoaderCircle, LocateIcon, Save } from "lucide-react";
+import { AppLocation } from "./MapView";
+import { ToastContainer, toast } from "react-toastify";
 
-interface Location {
-  lat: number;
-  lon: number;
-  display_name: string;
+interface NewLocation {
+  address_text?: string;
+  lat?: string;
+  lng?: string;
+  name: string;
+  created_at: string;
 }
 
 interface Waypoint {
@@ -28,11 +33,11 @@ export type TransportMode =
 interface SidePanelProps {
   isOpen: boolean;
   onClose: () => void;
-  startPoint: Location | null;
-  endPoint: Location | null;
+  startPoint: AppLocation | null;
+  endPoint: AppLocation | null;
   waypoints: Waypoint[];
-  onSetStartPoint: (location: Location) => void;
-  onSetEndPoint: (location: Location) => void;
+  onSetStartPoint: (location: AppLocation) => void;
+  onSetEndPoint: (location: AppLocation) => void;
   onReorderWaypoints: (waypoints: Waypoint[]) => void;
   onRemoveWaypoint: (waypointId: string) => void;
   onReverseRoute: () => void;
@@ -61,6 +66,14 @@ interface SidePanelProps {
   readOnly: boolean;
 }
 
+interface Address {
+  id: number;
+  name: string;
+  lat: string;
+  lng: string;
+  address_text: string;
+}
+
 export default function SidePanel({
   isOpen,
   onClose,
@@ -87,8 +100,9 @@ export default function SidePanel({
   const theme = useContext(ThemeContext);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState<"start" | "end" | null>(null);
-  const [searchResults, setSearchResults] = useState<Location[]>([]);
+  const [searchResults, setSearchResults] = useState<AppLocation[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [preferedAddreses, setAddreses] = useState<Address[]>([]);
   const [draggedWaypointIndex, setDraggedWaypointIndex] = useState<
     number | null
   >(null);
@@ -99,14 +113,16 @@ export default function SidePanel({
   const [draggedPointType, setDraggedPointType] = useState<
     "start" | "end" | "waypoint" | null
   >(null);
-  const [isGeolocating, setIsGeolocating] = useState(false);
+  const [isGeolocating, setIsGeolocating] = useState<"start" | "end" | null>(
+    null,
+  );
 
   const handleGeolocation = async (type: "start" | "end") => {
-    setIsGeolocating(true);
+    setIsGeolocating(type);
 
     if (!navigator.geolocation) {
       alert("La géolocalisation n'est pas supportée par votre navigateur");
-      setIsGeolocating(false);
+      setIsGeolocating(null);
       return;
     }
 
@@ -120,13 +136,17 @@ export default function SidePanel({
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
           );
           const data = await response.json();
+          const displayName =
+            data.display_name ||
+            `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
 
-          const location: Location = {
+          const location: AppLocation = {
             lat: latitude,
             lon: longitude,
-            display_name:
-              data.display_name ||
-              `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+            display_name: displayName,
+            address_text: data.display_name || displayName,
+            name: extractShortName(displayName),
+            is_saved: isAddressAlreadySaved(latitude, longitude),
           };
 
           if (type === "start") {
@@ -141,10 +161,14 @@ export default function SidePanel({
         } catch (error) {
           console.error("Erreur de géocodage inversé:", error);
           // Utiliser les coordonnées directement en cas d'erreur
-          const location: Location = {
+          const displayName = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+          const location: AppLocation = {
             lat: latitude,
             lon: longitude,
-            display_name: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+            display_name: displayName,
+            address_text: displayName,
+            name: displayName,
+            is_saved: isAddressAlreadySaved(latitude, longitude),
           };
 
           if (type === "start") {
@@ -168,6 +192,22 @@ export default function SidePanel({
     );
   };
 
+  // Fonction pour extraire un nom court depuis display_name
+  const extractShortName = (displayName: string): string => {
+    const parts = displayName.split(",");
+    return parts[0].trim();
+  };
+
+  // Fonction pour vérifier si une adresse est déjà enregistrée (avec tolérance de 0.0001° ~10m)
+  const isAddressAlreadySaved = (lat: number, lon: number): boolean => {
+    const tolerance = 0.0001;
+    return preferedAddreses.some(
+      (addr) =>
+        Math.abs(parseFloat(addr.lat) - lat) < tolerance &&
+        Math.abs(parseFloat(addr.lng) - lon) < tolerance,
+    );
+  };
+
   // Recherche automatique avec debounce
   useEffect(() => {
     if (!searchType || !searchQuery.trim()) {
@@ -185,11 +225,19 @@ export default function SidePanel({
         );
         const data = await response.json();
         setSearchResults(
-          data.map((item: any) => ({
-            lat: parseFloat(item.lat),
-            lon: parseFloat(item.lon),
-            display_name: item.display_name,
-          })),
+          data.map((item: any) => {
+            const displayName = item.display_name;
+            const lat = parseFloat(item.lat);
+            const lon = parseFloat(item.lon);
+            return {
+              lat,
+              lon,
+              display_name: displayName,
+              name: extractShortName(displayName),
+              address_text: displayName,
+              is_saved: isAddressAlreadySaved(lat, lon),
+            };
+          }),
         );
       } catch (error) {
         console.error("Erreur de recherche:", error);
@@ -199,9 +247,9 @@ export default function SidePanel({
     }, 500); // Debounce de 500ms
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, searchType]);
+  }, [searchQuery, searchType, preferedAddreses]);
 
-  const selectLocation = (location: Location) => {
+  const selectLocation = (location: AppLocation) => {
     if (searchType === "start") {
       onSetStartPoint(location);
     } else if (searchType === "end") {
@@ -261,7 +309,7 @@ export default function SidePanel({
     // Construction d'une liste ordonnée de tous les points
     const allPoints: Array<{
       type: "start" | "end" | "waypoint";
-      data: Location | Waypoint;
+      data: AppLocation | Waypoint;
       waypointIndex?: number;
     }> = [];
 
@@ -319,39 +367,47 @@ export default function SidePanel({
     allPoints.splice(targetIdx, 0, draggedPoint);
 
     // Reconstituer les états
-    let newStart: Location | null = null;
-    let newEnd: Location | null = null;
+    let newStart: AppLocation | null = null;
+    let newEnd: AppLocation | null = null;
     const newWaypoints: Waypoint[] = [];
 
     if (allPoints.length > 0) {
       // Le premier point devient le départ
       const firstPoint = allPoints[0];
       if (firstPoint.type === "start") {
-        newStart = firstPoint.data as Location;
+        newStart = firstPoint.data as AppLocation;
       } else if (firstPoint.type === "waypoint") {
         const wp = firstPoint.data as Waypoint;
+        const displayName = `${wp.lat.toFixed(4)}, ${wp.lon.toFixed(4)}`;
         newStart = {
           lat: wp.lat,
           lon: wp.lon,
-          display_name: `${wp.lat.toFixed(4)}, ${wp.lon.toFixed(4)}`,
+          display_name: displayName,
+          address_text: displayName,
+          name: displayName,
+          is_saved: false,
         };
       } else if (firstPoint.type === "end") {
-        newStart = firstPoint.data as Location;
+        newStart = firstPoint.data as AppLocation;
       }
 
       // Le dernier point devient l'arrivée
       const lastPoint = allPoints[allPoints.length - 1];
       if (lastPoint.type === "end") {
-        newEnd = lastPoint.data as Location;
+        newEnd = lastPoint.data as AppLocation;
       } else if (lastPoint.type === "waypoint") {
         const wp = lastPoint.data as Waypoint;
+        const displayName = `${wp.lat.toFixed(4)}, ${wp.lon.toFixed(4)}`;
         newEnd = {
           lat: wp.lat,
           lon: wp.lon,
-          display_name: `${wp.lat.toFixed(4)}, ${wp.lon.toFixed(4)}`,
+          display_name: displayName,
+          address_text: displayName,
+          name: displayName,
+          is_saved: false,
         };
       } else if (lastPoint.type === "start") {
-        newEnd = lastPoint.data as Location;
+        newEnd = lastPoint.data as AppLocation;
       }
 
       // Les points du milieu deviennent des waypoints
@@ -360,7 +416,7 @@ export default function SidePanel({
         if (point.type === "waypoint") {
           newWaypoints.push(point.data as Waypoint);
         } else if (point.type === "start" || point.type === "end") {
-          const loc = point.data as Location;
+          const loc = point.data as AppLocation;
           newWaypoints.push({
             id: `waypoint-${Date.now()}-${i}`,
             lat: loc.lat,
@@ -371,8 +427,8 @@ export default function SidePanel({
     }
 
     // Mettre à jour les états
-    onSetStartPoint(newStart as Location);
-    onSetEndPoint(newEnd as Location);
+    onSetStartPoint(newStart as AppLocation);
+    onSetEndPoint(newEnd as AppLocation);
     onReorderWaypoints(newWaypoints);
 
     // Nettoyer
@@ -385,6 +441,46 @@ export default function SidePanel({
     setDraggedPointType(null);
     setDraggedWaypointIndex(null);
     setDragOverIndex(null);
+  };
+
+  const doFetchAddresses = () => {
+    setAddresesLoading(true);
+    fetch("/api/prefered_addresses", { credentials: "include" })
+      .then((resp: Response) => {
+        return resp.json();
+      })
+      .then((json: any) => {
+        setAddreses(json);
+        setAddresesLoading(false);
+      })
+      .catch(() => {
+        setAddresesLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    doFetchAddresses();
+  }, []);
+
+  const [addressesLoading, setAddresesLoading] = useState(false);
+
+  const saveAddress = (address: NewLocation) => {
+    setAddresesLoading(true);
+    fetch("/api/prefered_addresses", {
+      credentials: "include",
+      method: "POST",
+      body: JSON.stringify(address),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+      .then((json) => json.json())
+      .then(() => {
+        doFetchAddresses();
+        toast.success("Adresse enregistrée avec succès", {
+          theme: theme === "dark" ? "dark" : "light",
+        });
+      });
   };
 
   const inputStyle: React.CSSProperties = {
@@ -412,6 +508,7 @@ export default function SidePanel({
 
   return (
     <>
+      <ToastContainer />
       {/* Side Panel */}
       <div
         style={{
@@ -534,7 +631,12 @@ export default function SidePanel({
             {
               <>
                 <div
-                  style={{ display: "flex", gap: "8px", marginBottom: "10px" }}
+                  style={{
+                    display: "flex",
+                    gap: "8px",
+                    marginBottom: "10px",
+                    alignItems: "center",
+                  }}
                 >
                   <div
                     style={{
@@ -590,12 +692,68 @@ export default function SidePanel({
                         ...inputStyle,
                         marginBottom: 0,
                         paddingLeft: "42px",
+                        paddingRight: !startPoint?.is_saved ? "42px" : "0px",
                         width: "100%",
                         cursor: readOnly ? "not-allowed" : "text",
                         opacity: readOnly ? 0.6 : 1,
                       }}
                     />
+                    {startPoint && !startPoint.is_saved && !readOnly && (
+                      <button
+                        disabled={addressesLoading}
+                        onClick={() => {
+                          saveAddress({
+                            lat: `${startPoint.lat}`,
+                            lng: `${startPoint.lon}`,
+                            created_at: new Date().toISOString(),
+                            name: startPoint.name || startPoint.display_name,
+                            address_text:
+                              startPoint.address_text ||
+                              startPoint.display_name,
+                          });
+                        }}
+                        style={{
+                          position: "absolute",
+                          right: "10px",
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "50%",
+                          color: "white",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                          zIndex: 1,
+                        }}
+                      >
+                        <Save />
+                      </button>
+                    )}
                   </div>
+                  {/* Bouton Me localiser */}
+                  {!readOnly && searchType && (
+                    <button
+                      onClick={() => handleGeolocation("start")}
+                      disabled={isGeolocating !== null}
+                      style={{
+                        border: `1px solid ${theme === "dark" ? "#444" : "#ddd"}`,
+                        backgroundColor: theme === "dark" ? "#2a2a2a" : "#fff",
+                        width: "2rem",
+                        height: "2rem",
+                        borderRadius: "3rem",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      {isGeolocating === "start" ? (
+                        <LoaderCircle />
+                      ) : (
+                        <LocateIcon />
+                      )}
+                    </button>
+                  )}
                 </div>
               </>
             }
@@ -619,7 +777,12 @@ export default function SidePanel({
                   Point d'arrivée
                 </label>
                 <div
-                  style={{ display: "flex", gap: "8px", marginBottom: "10px" }}
+                  style={{
+                    display: "flex",
+                    gap: "8px",
+                    marginBottom: "10px",
+                    alignItems: "center",
+                  }}
                 >
                   <div
                     style={{
@@ -675,12 +838,67 @@ export default function SidePanel({
                         ...inputStyle,
                         marginBottom: 0,
                         paddingLeft: "42px",
+                        paddingRight: endPoint?.is_saved ? 0 : "42px",
                         width: "100%",
                         cursor: readOnly ? "not-allowed" : "text",
                         opacity: readOnly ? 0.6 : 1,
                       }}
                     />
+                    {endPoint && !endPoint.is_saved && !readOnly && (
+                      <button
+                        disabled={addressesLoading}
+                        onClick={() => {
+                          saveAddress({
+                            lat: `${endPoint.lat}`,
+                            lng: `${endPoint.lon}`,
+                            created_at: new Date().toISOString(),
+                            name: endPoint.name || endPoint.display_name,
+                            address_text:
+                              endPoint.address_text || endPoint.display_name,
+                          });
+                        }}
+                        style={{
+                          position: "absolute",
+                          right: "10px",
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "50%",
+                          color: "white",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                          zIndex: 1,
+                        }}
+                      >
+                        <Save />
+                      </button>
+                    )}
                   </div>
+                  {/* Bouton Me localiser */}
+                  {!readOnly && searchType && (
+                    <button
+                      onClick={() => handleGeolocation("end")}
+                      disabled={isGeolocating !== null}
+                      style={{
+                        border: `1px solid ${theme === "dark" ? "#444" : "#ddd"}`,
+                        backgroundColor: theme === "dark" ? "#2a2a2a" : "#fff",
+                        width: "2rem",
+                        height: "2rem",
+                        borderRadius: "3rem",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      {isGeolocating === "end" ? (
+                        <LoaderCircle />
+                      ) : (
+                        <LocateIcon />
+                      )}
+                    </button>
+                  )}
                 </div>
               </>
             }
@@ -691,19 +909,6 @@ export default function SidePanel({
         {searchType && (
           <div style={{ marginBottom: "20px" }}>
             {/* Bouton retour */}
-
-            {/* Bouton Me localiser */}
-            <button
-              onClick={() =>
-                handleGeolocation(searchType === "start" ? "start" : "end")
-              }
-              disabled={isGeolocating}
-              style={{
-                ...inputStyle,
-              }}
-            >
-              {isGeolocating ? "Géolocalisation..." : "Me localiser"}
-            </button>
 
             {isSearching && (
               <p
@@ -764,6 +969,71 @@ export default function SidePanel({
                 Aucun résultat trouvé
               </p>
             )}
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}
+            >
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  color: theme === "dark" ? "#fff" : "#333",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
+              >
+                Adreses enregistrées
+              </label>
+              {preferedAddreses.map((addr: Address) => {
+                return (
+                  <button
+                    style={{
+                      borderRadius: "5px",
+                      padding: ".5rem 1rem",
+                      backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
+                      color: theme === "dark" ? "#fff" : "#333",
+                      border:
+                        theme === "dark" ? "1px solid rgb(68, 68, 68)" : "#ccc",
+                    }}
+                    key={addr.id}
+                    onClick={() => {
+                      selectLocation({
+                        display_name: addr.name,
+                        lat: +addr.lat,
+                        lon: +addr.lng,
+                        address_text: addr.address_text,
+                        name: addr.name,
+                        is_saved: true,
+                      });
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: "1rem" }}>
+                      <div style={{ minWidth: "1rem" }}>
+                        <LocateIcon />
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "flex-start",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <span>{addr.name}</span>
+                        <small
+                          style={{
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {addr.address_text.slice(0, 30) +
+                            (addr.address_text.length > 30 ? "..." : "")}
+                        </small>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -847,13 +1117,12 @@ export default function SidePanel({
                   padding: "10px",
                   borderRadius: "6px",
                   backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-                  border: `2px solid ${
-                    dragOverIndex === -1 &&
-                    draggedPointType !== null &&
-                    draggedPointType !== "start"
+                  border: `2px solid ${dragOverIndex === -1 &&
+                      draggedPointType !== null &&
+                      draggedPointType !== "start"
                       ? "#f59e0b"
                       : "#10b981"
-                  }`,
+                    }`,
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
@@ -864,8 +1133,8 @@ export default function SidePanel({
                   transition: "transform 0.2s ease, opacity 0.2s ease",
                   boxShadow:
                     dragOverIndex === -1 &&
-                    draggedPointType !== null &&
-                    draggedPointType !== "start"
+                      draggedPointType !== null &&
+                      draggedPointType !== "start"
                       ? "0 0 12px rgba(245, 158, 11, 0.4)"
                       : "none",
                 }}
@@ -996,15 +1265,14 @@ export default function SidePanel({
                       padding: "10px",
                       borderRadius: "6px",
                       backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-                      border: `2px solid ${
-                        dragOverIndex === index &&
-                        draggedWaypointIndex !== null &&
-                        draggedWaypointIndex !== index
+                      border: `2px solid ${dragOverIndex === index &&
+                          draggedWaypointIndex !== null &&
+                          draggedWaypointIndex !== index
                           ? "#f59e0b"
                           : theme === "dark"
                             ? "#f59e0b"
                             : "#f59e0b"
-                      }`,
+                        }`,
                       display: "flex",
                       alignItems: "center",
                       gap: "10px",
@@ -1017,8 +1285,8 @@ export default function SidePanel({
                       transition: "transform 0.2s ease, opacity 0.2s ease",
                       boxShadow:
                         dragOverIndex === index &&
-                        draggedWaypointIndex !== null &&
-                        draggedWaypointIndex !== index
+                          draggedWaypointIndex !== null &&
+                          draggedWaypointIndex !== index
                           ? "0 0 12px rgba(245, 158, 11, 0.4)"
                           : "none",
                     }}
@@ -1162,13 +1430,12 @@ export default function SidePanel({
                   padding: "10px",
                   borderRadius: "6px",
                   backgroundColor: theme === "dark" ? "#2a2a2a" : "#f3f4f6",
-                  border: `2px solid ${
-                    dragOverIndex === waypoints.length &&
-                    draggedPointType !== null &&
-                    draggedPointType !== "end"
+                  border: `2px solid ${dragOverIndex === waypoints.length &&
+                      draggedPointType !== null &&
+                      draggedPointType !== "end"
                       ? "#f59e0b"
                       : "#ef4444"
-                  }`,
+                    }`,
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
@@ -1179,8 +1446,8 @@ export default function SidePanel({
                   transition: "transform 0.2s ease, opacity 0.2s ease",
                   boxShadow:
                     dragOverIndex === waypoints.length &&
-                    draggedPointType !== null &&
-                    draggedPointType !== "end"
+                      draggedPointType !== null &&
+                      draggedPointType !== "end"
                       ? "0 0 12px rgba(245, 158, 11, 0.4)"
                       : "none",
                 }}
