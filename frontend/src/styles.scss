@@ -251,7 +251,12 @@ textarea {
     box-shadow 120ms ease,
     background 160ms ease;
 }
-.theme-toggle.mobile{
+
+.dropdown.left {
+  left: 0 !important;
+}
+
+.theme-toggle.mobile {
   width: 100%;
   flex: 1;
 }
@@ -451,6 +456,7 @@ select::picker(select) {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
+  padding-bottom: 1rem;
   align-items: flex-start;
 }
 .city-header-left {

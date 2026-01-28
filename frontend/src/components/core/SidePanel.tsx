@@ -7,7 +7,7 @@ import { AppLocation } from "./MapView";
 import { ToastContainer, toast } from "react-toastify";
 import { useNavigate } from "react-router";
 
-interface NewLocation {
+export interface NewLocation {
   address_text?: string;
   lat?: string;
   lng?: string;

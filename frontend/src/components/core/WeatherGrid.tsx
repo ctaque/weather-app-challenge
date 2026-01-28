@@ -9,8 +9,13 @@ import WindSpeedChart from "./WindSpeedChart";
 import WindDirectionChart from "./WindDirectionChart";
 import WeatherSummary from "./WeatherSummary";
 import WindHeatmap from "./WindHeatmap";
-import { ThemeContext, LanguageContext, UnitContext } from "../../App";
+import WeatherLocatinDropDown from "../ui/WeatherLocationDropdown";
+import { ThemeContext, LanguageContext, UnitContext, useAuth } from "../../App";
 import Loader from "./Loader";
+import { Bookmark, BookmarkCheck, Save } from "lucide-react";
+import { NewLocation } from "./SidePanel";
+import { AppLocation } from "./MapView";
+import { toast } from "react-toastify";
 
 type Condition = { text: string; emoji?: string; icon?: string };
 
@@ -49,8 +54,7 @@ type ForecastDay = {
   };
   hour: HourEntry[];
 };
-
-type CityForecast = {
+export type CityForecast = {
   location: {
     name: string;
     region?: string;
@@ -180,6 +184,8 @@ async function fetchWeatherApiFromServer(q: string, days = 10, lang = "en") {
     forecastday?: any[];
   } = {};
 
+  console.log(json);
+
   if (json.location) normalized.location = json.location;
   if (json.current) normalized.current = json.current;
   if (json.forecast && Array.isArray(json.forecast.forecastday))
@@ -267,20 +273,11 @@ function makeForecastForCity(
   };
 
   return {
-    location: { name: cityName, region: "", country: "France", lat, lon },
+    location: { name: cityName, region: "", country: "", lat, lon },
     current,
     forecast: { forecastday },
   };
 }
-
-/* ---------- Cities ---------- */
-const CITY_INFO: Array<{ name: string; lat: number; lon: number }> = [
-  { name: "Nantes", lat: 47.218371, lon: -1.553621 },
-  { name: "Mesquer", lat: 47.3333, lon: -2.4167 },
-  { name: "Savenay", lat: 47.3386, lon: -1.7474 },
-  { name: "Ancenis", lat: 47.3658, lon: -1.1616 },
-  { name: "Rennes", lat: 48.1173, lon: -1.6778 },
-];
 
 function PinIcon({ className }: { className?: string }) {
   return (
@@ -352,16 +349,24 @@ function LoaderIcon() {
   );
 }
 
+export type CityInfo = {
+  lat: string;
+  lng: string;
+  name: string;
+};
+
 /* ---------- Main component ---------- */
 export default function WeatherGrid() {
   const { lang, t } = useContext(LanguageContext);
   const locale = lang === "fr" ? frLocale : enLocale;
-
+  const [CITY_INFO, setCityInfo] = useState<CityInfo[]>([]);
   // initial synthetic data
   const initial = useMemo(
     () =>
-      CITY_INFO.map((c, idx) => makeForecastForCity(idx, c.name, c.lat, c.lon)),
-    [],
+      CITY_INFO.map((c, idx) =>
+        makeForecastForCity(idx, c.name, +c.lat, +c.lng),
+      ),
+    [CITY_INFO],
   );
   const [dataList, setDataList] = useState<CityForecast[]>(initial);
   const [selectedCityIndex, setSelectedCityIndex] = useState<number>(0);
@@ -379,8 +384,34 @@ export default function WeatherGrid() {
     goToDayPlus2: () => void;
   }>(null);
 
+  const fetchLocations = () => {
+    fetch(`/api/prefered_addresses`, {
+      credentials: "include",
+    })
+      .then((resp: Response) => {
+        return resp.json();
+      })
+      .then((value) => {
+        setCityInfo(value);
+      });
+  };
+
+  useEffect(() => {
+    fetchLocations();
+  }, []);
+
+  // Update dataList when CITY_INFO changes
+  useEffect(() => {
+    setDataList(initial);
+  }, [initial]);
+
   // When selected city changes, fetch weather from /api/weather?q=lat,lon&days=10 and merge
   useEffect(() => {
+    // Don't fetch if CITY_INFO is empty or index is invalid
+    if (CITY_INFO.length === 0 || selectedCityIndex >= CITY_INFO.length) {
+      return;
+    }
+
     let canceled = false;
 
     async function fetchAndMergeForCity(idx: number) {
@@ -388,7 +419,11 @@ export default function WeatherGrid() {
       setLoadingCityIndex(idx);
       try {
         const city = CITY_INFO[idx];
-        const q = `${city.lat},${city.lon}`;
+        if (!city) {
+          setLoadingCityIndex(null);
+          return;
+        }
+        const q = `${city.lat},${city.lng}`;
         const days = 10;
 
         const normalized = await fetchWeatherApiFromServer(q, days, lang);
@@ -608,7 +643,7 @@ export default function WeatherGrid() {
     return () => {
       canceled = true;
     };
-  }, [selectedCityIndex, setDataList, lang]);
+  }, [selectedCityIndex, lang, CITY_INFO]);
 
   function onKeySelect(e: React.KeyboardEvent, idx: number) {
     if (e.key === "Enter" || e.key === " ") {
@@ -856,6 +891,19 @@ export default function WeatherGrid() {
     currentData?.location?.lon,
   ]);
 
+  // Show loader if waiting for city data
+  if (CITY_INFO.length === 0 && !customCityData) {
+    return (
+      <section style={{ paddingBottom: "1rem" }}>
+        <div
+          style={{ display: "flex", justifyContent: "center", padding: "2rem" }}
+        >
+          <Loader />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section style={{ paddingBottom: "1rem" }}>
       {/* Wind Heatmap for selected city */}
@@ -881,43 +929,53 @@ export default function WeatherGrid() {
               flexWrap: "wrap",
             }}
           >
-            {dataList.map((d, idx) => (
-              <button
-                key={d.location.name}
-                role="tab"
-                aria-selected={idx === selectedCityIndex}
-                tabIndex={0}
-                className={`location-button ${idx === selectedCityIndex && !customCityData ? "active" : ""}`}
-                onClick={() => {
-                  setSelectedCityIndex(idx);
-                  setCustomCityData(null); // Reset custom city when clicking predefined city
-                }}
-                onKeyDown={(e) => onKeySelect(e, idx)}
-                title={`${t.showForecast} ${d.location.name}`}
-              >
-                <span className="loc-name">{d.location.name}</span>
-                <span className="loc-country muted small">
-                  {d.location.country}
-                </span>
-              </button>
-            ))}
-            {loadingCityIndex !== null && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "0.25rem",
-                }}
-                aria-live="polite"
-                aria-label={t.loadingInProgress}
-              >
-                <Loader />
-              </div>
-            )}
+            {dataList.map((d, idx) => {
+              return idx < 3 ? (
+                <button
+                  key={d.location.name}
+                  role="tab"
+                  aria-selected={idx === selectedCityIndex}
+                  tabIndex={0}
+                  className={`location-button ${idx === selectedCityIndex && !customCityData ? "active" : ""}`}
+                  onClick={() => {
+                    setSelectedCityIndex(idx);
+                    setCustomCityData(null); // Reset custom city when clicking predefined city
+                  }}
+                  onKeyDown={(e) => onKeySelect(e, idx)}
+                  title={`${t.showForecast} ${d.location.name}`}
+                >
+                  <span className="loc-name">{d.location.name}</span>
+                  <span className="loc-country muted small">
+                    {d.location.country}
+                  </span>
+                </button>
+              ) : (
+                <></>
+              );
+            })}
           </div>
         )}
 
+        {dataList.length > 3 && (
+          <WeatherLocatinDropDown
+            cities={dataList}
+            setLocation={setSelectedCityIndex}
+          />
+        )}
+        {loadingCityIndex !== null && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0.25rem",
+            }}
+            aria-live="polite"
+            aria-label={t.loadingInProgress}
+          >
+            <Loader width={35} />
+          </div>
+        )}
         {/* Search form */}
         <form
           onSubmit={handleSearch}
@@ -1024,11 +1082,15 @@ export default function WeatherGrid() {
       </div>
 
       <div>
-        <CityCard
-          ref={cityCardRef}
-          data={customCityData || dataList[selectedCityIndex]}
-          locale={locale}
-        />
+        {currentData && (
+          <CityCard
+            ref={cityCardRef}
+            data={currentData}
+            locale={locale}
+            fetchLocation={fetchLocations}
+            isFromSearch={customCityData !== null}
+          />
+        )}
         {error && (
           <div className="error" role="alert" style={{ marginTop: 8 }}>
             {error}
@@ -1047,9 +1109,19 @@ export default function WeatherGrid() {
 
 /* ---------- City card (display logic) ---------- */
 const CityCard = React.forwardRef<
-  { goToNow: () => void; goToDayPlus1: () => void; goToDayPlus2: () => void },
-  { data: CityForecast; locale: typeof frLocale | typeof enLocale }
->(({ data, locale }, ref) => {
+  {
+    goToNow: () => void;
+    goToDayPlus1: () => void;
+    goToDayPlus2: () => void;
+    fetchLocation: () => void;
+  },
+  {
+    data: CityForecast;
+    locale: typeof frLocale | typeof enLocale;
+    isFromSearch?: boolean;
+    fetchLocation: () => void;
+  }
+>(({ data, locale, isFromSearch = false, fetchLocation }, ref) => {
   const theme = useContext(ThemeContext);
   const { t } = useContext(LanguageContext);
   const { units } = useContext(UnitContext);
@@ -1061,7 +1133,7 @@ const CityCard = React.forwardRef<
   );
   const [isSticky, setIsSticky] = useState<boolean>(false);
   const [forecastHeight, setForecastHeight] = useState<number>(0);
-  const forecastDays = data.forecast.forecastday;
+  const forecastDays = (data?.forecast || {}).forecastday;
   const selectedDay = forecastDays[selectedDayIndex];
   const hourListRef = useRef<HTMLDivElement>(null);
   const stickyObserverRef = useRef<HTMLDivElement>(null);
@@ -1113,6 +1185,7 @@ const CityCard = React.forwardRef<
   }, []);
 
   React.useImperativeHandle(ref, () => ({
+    fetchLocation: () => { },
     goToNow: () => {
       // Select today (index 0)
       setSelectedDayIndex(0);
@@ -1173,6 +1246,8 @@ const CityCard = React.forwardRef<
     undefined;
   const currentIconUrl = resolveIconUrl(possibleCurrentIcon);
 
+  const [me] = useAuth();
+
   return (
     <article className="multi-item-vertical">
       <header className="city-header">
@@ -1181,11 +1256,7 @@ const CityCard = React.forwardRef<
             <span className="pin-wrap">
               <PinIcon />
             </span>
-            <span>
-              {data.location.name}
-              {data.location.region ? `, ${data.location.region}` : ""} —{" "}
-              {data.location.country}
-            </span>
+            <span>{data.location.name}</span>
           </h3>
           <div className="muted">
             {t.currentSituation}: {data.current.condition_text}
@@ -1217,6 +1288,57 @@ const CityCard = React.forwardRef<
             </div>
           </div>
         </div>
+        {isFromSearch && me && (
+          <button
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+              cursor: "pointer",
+              margin: ".70rem",
+            }}
+            onClick={() => {
+              const body: NewLocation = {
+                created_at: new Date().toISOString(),
+                name: data.location.name,
+                address_text: `(${data.location.lat}, ${data.location.lon})`,
+                lat: `${data.location.lat}`,
+                lng: `${data.location.lon}`,
+              };
+              fetch("/api/prefered_addresses", {
+                method: "POST",
+                body: JSON.stringify(body),
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              })
+                .then((data: Response) => {
+                  return data.json();
+                })
+                .then(() => {
+                  fetchLocation();
+                  toast("Adresse Enregistrée !");
+                });
+            }}
+          >
+            <span
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                borderRadius: "1rem",
+              }}
+            >
+              {isFromSearch ? (
+                <BookmarkCheck style={{ fontSize: "1.6rem" }} />
+              ) : (
+                <Bookmark style={{ fontSize: "1.6em" }} />
+              )}
+            </span>
+            <span style={{ textAlign: "center" }}>Favoris</span>
+          </button>
+        )}
       </header>
       <h4 style={{ marginTop: "0.75rem", marginBottom: "0.5rem" }}>
         {t.tenDays}
@@ -1271,6 +1393,11 @@ const CityCard = React.forwardRef<
 
                 {dayIconUrl ? (
                   <img
+                    style={{
+                      textAlign: "center",
+                      display: "block",
+                      margin: "0 auto",
+                    }}
                     src={dayIconUrl}
                     alt={day.day.condition.text}
                     width={48}
@@ -1357,6 +1484,7 @@ const CityCard = React.forwardRef<
                   </div>
                   {iconUrl ? (
                     <img
+                      style={{ textAlign: "center" }}
                       src={iconUrl}
                       alt={h.condition.text}
                       width={40}

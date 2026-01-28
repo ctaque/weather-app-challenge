@@ -16,7 +16,6 @@ use crate::utils::config::Config;
 pub async fn run(pool: PgPool, app_env: Env) -> std::io::Result<()> {
     let env_clone = app_env.clone();
     let is_prod = app_env.is_prod;
-    println!("{}", is_prod);
     // Initialize tracing
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -62,8 +61,8 @@ pub async fn run(pool: PgPool, app_env: Env) -> std::io::Result<()> {
     } else {
         // In development, allow more requests
         GovernorConfigBuilder::default()
-            .per_second(3600)
-            .burst_size(100)
+            .per_second(36000)
+            .burst_size(1000)
             .finish()
             .unwrap()
     };
