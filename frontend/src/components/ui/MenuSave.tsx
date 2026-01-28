@@ -123,7 +123,11 @@ export default function ExportMenu({
             </span>
             <span className="theme-label">Annuler l'édition</span>
           </button>
-        ) : (
+        ) : location.pathname.match(
+          new RegExp(
+            /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gm,
+          ),
+        ) ? (
           <button
             onClick={() => {
               setOpen(false);
@@ -138,6 +142,8 @@ export default function ExportMenu({
             </span>
             <span className="theme-label">Modifier le parcours</span>
           </button>
+        ) : (
+          <></>
         )}
         {location.pathname.match(
           new RegExp(
