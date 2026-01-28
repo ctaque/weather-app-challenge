@@ -179,8 +179,10 @@ function AppHeader({
   return (
     <header className="app-header">
       <h1 style={{ gap: "1rem", display: "flex", alignItems: "center" }}>
-        <SunIcon className="app-title-icon" />
-        PlanMyTrip !
+        <span style={{ display: "flex", alignItems: "center" }}>
+          <SunIcon className="app-title-icon" />
+          PlanMyTrip !
+        </span>
         <Link
           target="_blank"
           to="https://ko-fi.com/tackz"
@@ -189,6 +191,7 @@ function AppHeader({
             alignItems: "center",
             gap: ".5rem",
             width: "fit-content",
+            padding: 0,
           }}
         >
           <HeartIcon style={{ color: "#e91e63", fontSize: "1.5rem" }} />
@@ -208,6 +211,10 @@ function AppHeader({
             <button
               onClick={() => openMobileMenuSider(!mobileMenuIsOpen)}
               className="theme-toggle"
+              style={{
+                position: "absolute",
+                right: ".5rem",
+              }}
             >
               <span className="theme-icon" aria-hidden>
                 {mobileMenuIsOpen ? <X /> : <MenuIcon />}
