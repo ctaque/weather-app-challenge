@@ -1,0 +1,74 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO prefered_addresses (\n            address_text,\n            lat,\n            lng,\n            user_id,\n            name,\n            created_at,\n            updated_at\n    ) values (\n            $1,\n            $2,\n            $3,\n            $4,\n            $5,\n            CURRENT_TIMESTAMP,\n            CURRENT_TIMESTAMP\n        ) returning *;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "address_text",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "lat",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "lng",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "user_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "deleted_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Varchar",
+        "Varchar",
+        "Int8",
+        "Varchar"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "df469a08aff6579665e0f5dbf4891ba383c1e6b26e34010951e39a3a75d1f167"
+}
