@@ -2,7 +2,15 @@ import React, { useContext, useState, useEffect } from "react";
 import { ThemeContext } from "../../App";
 import RouteSegmentsGraph from "./RouteSegmentsGraph";
 import { TransportModeDropdown } from "../ui/TransportModeDropdown";
-import { Edit, Edit2, LoaderCircle, LocateIcon, Save, X } from "lucide-react";
+import {
+  BookmarkCheck,
+  Edit,
+  Edit2,
+  LoaderCircle,
+  LocateIcon,
+  Save,
+  X,
+} from "lucide-react";
 import { AppLocation } from "./MapView";
 import { ToastContainer, toast } from "react-toastify";
 import { useNavigate } from "react-router";
@@ -1061,7 +1069,7 @@ export default function SidePanel({
                   >
                     <div style={{ display: "flex", gap: "1rem" }}>
                       <div style={{ minWidth: "1rem" }}>
-                        <LocateIcon />
+                        <BookmarkCheck />
                       </div>
                       <div
                         style={{

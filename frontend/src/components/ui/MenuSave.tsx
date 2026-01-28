@@ -88,22 +88,31 @@ export default function ExportMenu({
         className={`dropdown ${open ? "open" : ""}`}
         style={{ zIndex: 50, width: "13rem" }}
       >
-        {!loading && me && !readOnly && (
-          <button
-            onClick={() => {
-              setOpen(false);
-              saveEdits();
-            }}
-            style={{ ...innerButtonStyle, padding: ".75rem" }}
-            title="Save edits"
-            aria-label="Save edits"
-          >
-            <span className="theme-icon" aria-hidden>
-              <Save />
-            </span>
-            <span className="theme-label">Sauvegarder</span>
-          </button>
-        )}
+        {!loading &&
+          me &&
+          !readOnly &&
+          (location.pathname.match(
+            new RegExp(
+              /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/edit/gm,
+            ),
+          ) || location.pathname === "/plan" ? (
+            <button
+              onClick={() => {
+                setOpen(false);
+                saveEdits();
+              }}
+              style={{ ...innerButtonStyle, padding: ".75rem" }}
+              title="Save edits"
+              aria-label="Save edits"
+            >
+              <span className="theme-icon" aria-hidden>
+                <Save />
+              </span>
+              <span className="theme-label">Sauvegarder</span>
+            </button>
+          ) : (
+            <></>
+          ))}
         {location.pathname.match(
           new RegExp(
             /\/plan\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/edit/gm,
