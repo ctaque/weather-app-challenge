@@ -2,9 +2,10 @@ import React, { useContext, useState, useEffect } from "react";
 import { ThemeContext } from "../../App";
 import RouteSegmentsGraph from "./RouteSegmentsGraph";
 import { TransportModeDropdown } from "../ui/TransportModeDropdown";
-import { LoaderCircle, LocateIcon, Save } from "lucide-react";
+import { Edit, Edit2, LoaderCircle, LocateIcon, Save } from "lucide-react";
 import { AppLocation } from "./MapView";
 import { ToastContainer, toast } from "react-toastify";
+import { useNavigate } from "react-router";
 
 interface NewLocation {
   address_text?: string;
@@ -116,6 +117,8 @@ export default function SidePanel({
   const [isGeolocating, setIsGeolocating] = useState<"start" | "end" | null>(
     null,
   );
+
+  const navigate = useNavigate();
 
   const handleGeolocation = async (type: "start" | "end") => {
     setIsGeolocating(type);
@@ -698,6 +701,30 @@ export default function SidePanel({
                         opacity: readOnly ? 0.6 : 1,
                       }}
                     />
+                    {readOnly && (
+                      <button
+                        style={{
+                          cursor: "pointer",
+                          position: "absolute",
+                          right: "10px",
+                          width: "20px",
+                          height: "20px",
+                          borderRadius: "50%",
+                          color: "white",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                          zIndex: 1,
+                        }}
+                        onClick={() => {
+                          navigate(location.pathname + "/edit");
+                        }}
+                      >
+                        <Edit2 style={{ fontSize: "1em" }} />
+                      </button>
+                    )}
                     {startPoint && !startPoint.is_saved && !readOnly && (
                       <button
                         disabled={addressesLoading}
@@ -844,6 +871,30 @@ export default function SidePanel({
                         opacity: readOnly ? 0.6 : 1,
                       }}
                     />
+                    {readOnly && (
+                      <button
+                        style={{
+                          cursor: "pointer",
+                          position: "absolute",
+                          right: "10px",
+                          width: "20px",
+                          height: "20px",
+                          borderRadius: "50%",
+                          color: "white",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                          zIndex: 1,
+                        }}
+                        onClick={() => {
+                          navigate(location.pathname + "/edit");
+                        }}
+                      >
+                        <Edit2 style={{ fontSize: "1em" }} />
+                      </button>
+                    )}
                     {endPoint && !endPoint.is_saved && !readOnly && (
                       <button
                         disabled={addressesLoading}
@@ -858,6 +909,7 @@ export default function SidePanel({
                           });
                         }}
                         style={{
+                          cursor: "pointer",
                           position: "absolute",
                           right: "10px",
                           width: "24px",
